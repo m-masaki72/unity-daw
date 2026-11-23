@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 56d3fd45931c6254fb64076fc9f406b4
+ScriptedImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 2
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+  script: {fileID: 11500000, guid: 99f6000196c6f8b41ab72c0c9c5bf17f, type: 3}
+  mode: 0
+  rowsPerBeat: 4
+  rowsPerPattern: 64
+  speed: 6
+  includeDrums: 1
+  velocityToVolume: 1
+  transpose: 0
