@@ -6,6 +6,7 @@
   - パターンごとのコード進行（`Pattern.chords`、音名・ローマ数字・分数コード）から和音・ベース・ドラムを生成
   - 曲から学習するマルコフモデルによるメロディの続きの提案と「別案」
 - Runtime に `Scale` / `Chord` / `ChordProgression` / `Accompaniment` / `MelodyModel`（UnityEngine 非依存）
+- MIDI 読み込みの堅牢化：分解能 0・不正なヘッダ長を拒否、途中で切れたデータはトラックの終わりとして扱う、極端に長い時刻は上限（`SmfReader.MaxTick` / `MidiToSong.MaxImportRows`）で打ち切り
 
 ## [0.3.0] - 2026-11-24
 - ミキサー（下ゾーン、F3）：チャンネルごとの音量・パン・ミュート / ソロとマスター音量を曲に保存。再生・書き出しに反映し Undo 可能。ゲーム側の `ChipEngine.Mute` / `Solo` は従来どおり上書きとして有効
