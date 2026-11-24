@@ -11,7 +11,8 @@ namespace UniDAW.Editor
         readonly VisualElement[] fills;
         readonly float[] shown;
 
-        public LevelMeter(int channels)
+        /// <param name="fillClass">塗りの色クラス。null ならチャンネル番号の色（c0〜c3）。</param>
+        public LevelMeter(int channels, string fillClass = null)
         {
             AddToClassList("cd-meter");
             fills = new VisualElement[channels];
@@ -22,7 +23,7 @@ namespace UniDAW.Editor
                 track.AddToClassList("cd-meter-track");
                 var fill = new VisualElement();
                 fill.AddToClassList("cd-meter-fill");
-                fill.AddToClassList("c" + c);
+                fill.AddToClassList(fillClass ?? "c" + c);
                 track.Add(fill);
                 Add(track);
                 fills[c] = fill;

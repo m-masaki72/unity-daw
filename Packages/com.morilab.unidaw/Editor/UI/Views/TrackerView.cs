@@ -49,8 +49,8 @@ namespace UniDAW.Editor
                 var name = new Label(Song.ChannelNames[c]);
                 name.AddToClassList("cd-chname");
                 box.Add(name);
-                mute[c] = new Button(() => ctx.Transport.ToggleMute(ch)) { text = "M" };
-                solo[c] = new Button(() => ctx.Transport.ToggleSolo(ch)) { text = "S" };
+                mute[c] = new Button(() => ctx.Mixer.ToggleMute(ch)) { text = "M" };
+                solo[c] = new Button(() => ctx.Mixer.ToggleSolo(ch)) { text = "S" };
                 mute[c].AddToClassList("cd-ms");
                 solo[c].AddToClassList("cd-ms");
                 box.Add(mute[c]);
@@ -137,8 +137,8 @@ namespace UniDAW.Editor
             }
             for (int c = 0; c < Song.ChannelCount; c++)
             {
-                mute[c].EnableInClassList("on", ctx.Transport.IsMuted(c));
-                solo[c].EnableInClassList("on", ctx.Transport.IsSoloed(c));
+                mute[c].EnableInClassList("on", ctx.Mixer.IsMuted(c));
+                solo[c].EnableInClassList("on", ctx.Mixer.IsSoloed(c));
             }
             // 行要素は使い回すので、前回のハイライトを外してから再設定する
             if (lastPlayRow >= 0 && lastPlayRow < rows.Count) rows[lastPlayRow].root.RemoveFromClassList("playing");

@@ -52,8 +52,8 @@ namespace UniDAW.Editor
                 var name = new Label(Song.ChannelNames[c]);
                 name.AddToClassList("cd-chname");
                 head.Add(name);
-                ui.mute = new Button(() => ctx.Transport.ToggleMute(ch)) { text = "M" };
-                ui.solo = new Button(() => ctx.Transport.ToggleSolo(ch)) { text = "S" };
+                ui.mute = new Button(() => ctx.Mixer.ToggleMute(ch)) { text = "M" };
+                ui.solo = new Button(() => ctx.Mixer.ToggleSolo(ch)) { text = "S" };
                 ui.mute.AddToClassList("cd-ms");
                 ui.solo.AddToClassList("cd-ms");
                 head.Add(ui.mute);
@@ -121,8 +121,8 @@ namespace UniDAW.Editor
                 EnsureSteps(c, p.length);
                 int tl = p.TrackLength(c);
                 ui.len.SetValueWithoutNotify(p.tracks[c].length);
-                ui.mute.EnableInClassList("on", ctx.Transport.IsMuted(c));
-                ui.solo.EnableInClassList("on", ctx.Transport.IsSoloed(c));
+                ui.mute.EnableInClassList("on", ctx.Mixer.IsMuted(c));
+                ui.solo.EnableInClassList("on", ctx.Mixer.IsSoloed(c));
                 var inst = song != null ? song.GetInstrument(ctx.Session.ChannelInstrument(c)) : null;
                 ui.info.text = (tl < p.length ? $"poly {tl}/{p.length}  " : "") + (inst != null ? $"Inst {ctx.Session.ChannelInstrument(c):X2} {inst.name}" : "");
                 for (int i = 0; i < p.length; i++)

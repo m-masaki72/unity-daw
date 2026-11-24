@@ -77,6 +77,9 @@ namespace UniDAW
         }
     }
 
+    /// <summary>楽器のマクロの種類（int としてシリアライズされるので値は固定）。</summary>
+    public enum MacroKind { Volume = 0, Arpeggio = 1, Pitch = 2, Duty = 3 }
+
     [Serializable]
     public class Instrument
     {
@@ -87,20 +90,71 @@ namespace UniDAW
         public Sequence arpeggio = new Sequence();
         /// <summary>0..3（ノイズは bit0 でショートモード）</summary>
         public Sequence duty = new Sequence();
+        /// <summary>音程の微調整（1/16 半音、tick ごとに積み上がる相対値。FamiTracker の Pitch マクロ相当）。</summary>
+        public Sequence pitch = new Sequence();
 
         public Instrument() { }
 
-        public Instrument(string name, string vol, string arp = "", string duty = "")
+        public Instrument(string name, string vol, string arp = "", string duty = "", string pitch = "")
         {
             this.name = name;
             volume = Sequence.Parse(vol);
             arpeggio = Sequence.Parse(arp);
             this.duty = Sequence.Parse(duty);
+            this.pitch = Sequence.Parse(pitch);
         }
 
         public Instrument Clone() => new Instrument
         {
-            name = name, volume = volume.Clone(), arpeggio = arpeggio.Clone(), duty = duty.Clone(),
+            name = name, volume = volume.Clone(), arpeggio = arpeggio.Clone(), duty = duty.Clone(), pitch = pitch.Clone(),
         };
+
+        public Sequence GetMacro(MacroKind kind)
+        {
+            switch (kind)
+            {
+                case MacroKind.Volume: return volume;
+                case MacroKind.Arpeggio: return arpeggio;
+                case MacroKind.Pitch: return pitch;
+                default: return duty;
+            }
+        }
+
+        public void SetMacro(MacroKind kind, Sequence seq)
+        {
+            seq = seq ?? new Sequence();
+            switch (kind)
+            {
+                case MacroKind.Volume: volume = seq; break;
+                case MacroKind.Arpeggio: arpeggio = seq; break;
+                case MacroKind.Pitch: pitch = seq; break;
+                default: duty = seq; break;
+            }
+        }
+
+        /// <summary>マクロの値の範囲（編集 UI 用。アルペジオは半音、ピッチは 1/16 半音/tick）。</summary>
+        public static void MacroRange(MacroKind kind, out int min, out int max)
+        {
+            switch (kind)
+            {
+                case MacroKind.Volume: min = 0; max = 15; break;
+                case MacroKind.Arpeggio: min = -24; max = 24; break;
+                case MacroKind.Pitch: min = -32; max = 32; break;
+                default: min = 0; max = 3; break;
+            }
+        }
+
+        /// <summary>古いデータ（列の追加前に保存されたもの）の欠けを埋める。</summary>
+        public void EnsureShape()
+        {
+            if (volume == null) volume = new Sequence();
+            if (arpeggio == null) arpeggio = new Sequence();
+            if (duty == null) duty = new Sequence();
+            if (pitch == null) pitch = new Sequence();
+            if (volume.values == null) volume.values = Array.Empty<int>();
+            if (arpeggio.values == null) arpeggio.values = Array.Empty<int>();
+            if (duty.values == null) duty.values = Array.Empty<int>();
+            if (pitch.values == null) pitch.values = Array.Empty<int>();
+        }
     }
 }

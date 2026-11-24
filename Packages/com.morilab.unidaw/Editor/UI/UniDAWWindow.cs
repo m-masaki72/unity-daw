@@ -29,6 +29,7 @@ namespace UniDAW.Editor
         ComposerKeymap keymap;
         MidiRecorder recorder;
         SongFileCommands files;
+        MixerCommands mixer;
         ComposerContext ctx;
 
         // ---- UI
@@ -38,6 +39,12 @@ namespace UniDAW.Editor
         PatternBar patternBar;
         CellInspector inspector;
         InstrumentPanel instrumentPanel;
+        TwoPaneSplitView split;
+        VisualElement lowerZone;
+        SegmentedControl lowerSeg;
+        MixerView mixerView;
+        InstrumentEditor instrumentEditor;
+        bool lowerCollapsed;
         StatusBar statusBar;
         Label help;
         IPatternView[] views;
@@ -57,6 +64,8 @@ namespace UniDAW.Editor
         public void StepClick(int ch, int row, bool toggle) => cells.StepClick(ch, row, toggle);
         public RollEditor Roll => roll;
         public Transport Transport => transport;
+        public MixerCommands Mixer => mixer;
+        public ComposerSession Session => session;
         public ComposerState State => state;
         public string FxHelpAtCursor() => session.FxHelpAtCursor();
 
@@ -94,7 +103,6 @@ namespace UniDAW.Editor
         void OnEnable()
         {
             state ??= new ComposerState();
-            state.EnsureArrays();
             transport = new Transport(state);
             session = new ComposerSession(state, transport);
             cells = new CellCommands(session);
@@ -102,7 +110,8 @@ namespace UniDAW.Editor
             keymap = new ComposerKeymap(session, cells, roll);
             recorder = new MidiRecorder(session);
             files = new SongFileCommands(session);
-            ctx = new ComposerContext(session, cells, roll, files, FocusMain);
+            mixer = new MixerCommands(session);
+            ctx = new ComposerContext(session, cells, roll, files, mixer, FocusMain);
 
             session.Changed += RefreshAll;
             session.Notified += Notify;
@@ -190,8 +199,54 @@ namespace UniDAW.Editor
             // PatternViewKind の値の順に並べる
             views = new IPatternView[] { new TrackerView(ctx), new StepView(ctx), new PianoRollView(ctx) };
             foreach (var v in views) mainArea.Add((VisualElement)v);
-            center.Add(mainArea);
+
+            // Cubase の Lower Zone：上 = パターン編集、下 = ミキサー / 楽器エディタ（境界はドラッグで調整）
+            split = new TwoPaneSplitView(1, 230, TwoPaneSplitViewOrientation.Vertical);
+            split.AddToClassList("cd-split");
+            split.Add(mainArea);
+            split.Add(BuildLowerZone());
+            center.Add(split);
             return center;
+        }
+
+        VisualElement BuildLowerZone()
+        {
+            lowerZone = new VisualElement();
+            lowerZone.AddToClassList("cd-lower");
+            var bar = new VisualElement();
+            bar.AddToClassList("cd-lower-bar");
+            lowerSeg = new SegmentedControl(new[] { "Mixer (F3)", "Instrument" }, i => session.ShowLowerTab((LowerTab)i));
+            bar.Add(lowerSeg);
+            var spacer = new VisualElement();
+            spacer.style.flexGrow = 1;
+            bar.Add(spacer);
+            var close = new Button(session.ToggleLowerZone) { text = "×", tooltip = "下ゾーンを閉じる（Ctrl+Alt+E）" };
+            close.AddToClassList("cd-lower-close");
+            bar.Add(close);
+            lowerZone.Add(bar);
+            mixerView = new MixerView(ctx);
+            lowerZone.Add(mixerView);
+            instrumentEditor = new InstrumentEditor(ctx);
+            lowerZone.Add(instrumentEditor);
+            return lowerZone;
+        }
+
+        void RefreshLowerZone()
+        {
+            bool open = state.lowerOpen;
+            if (open == lowerCollapsed)
+            {
+                lowerCollapsed = !open;
+                if (open) split.UnCollapse();
+                else split.CollapseChild(1);
+            }
+            if (!open) return;
+            lowerSeg.SetIndex((int)state.lowerTab);
+            bool mix = state.lowerTab == LowerTab.Mixer;
+            mixerView.style.display = mix ? DisplayStyle.Flex : DisplayStyle.None;
+            instrumentEditor.style.display = mix ? DisplayStyle.None : DisplayStyle.Flex;
+            if (mix) mixerView.Refresh();
+            else instrumentEditor.Refresh();
         }
 
         VisualElement BuildRightPanel()
@@ -225,7 +280,7 @@ namespace UniDAW.Editor
             patternBar.Refresh();
             statusBar.Refresh();
             if (!has) return;
-            transport.ApplyMuteSolo();
+            RefreshLowerZone();
             orderPanel.Refresh();
             cur.Refresh();
             inspector.Refresh();
@@ -239,6 +294,7 @@ namespace UniDAW.Editor
             if (e == null) return;
             recorder.Drain(e);
             toolbar?.UpdatePlayhead();
+            if (state.lowerOpen && state.lowerTab == LowerTab.Mixer) mixerView?.UpdateMeters();
             if (!moved || toolbar == null || state.song == null) return;
 
             int pp = e.IsPlaying ? e.PlayingPattern : -1;

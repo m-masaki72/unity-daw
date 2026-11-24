@@ -77,8 +77,7 @@ namespace UniDAW.Editor
 
         public static void ExportWav(Song song, string path, int sampleRate = 48000)
         {
-            var mono = ChipEngine.RenderSong(song, sampleRate);
-            WavWriter.WriteStereo16(path, mono, sampleRate);
+            WavWriter.Write16(path, ChipEngine.RenderSongStereo(song, sampleRate), 2, sampleRate);
         }
 
         public static void ExportMidi(Song song, string path)

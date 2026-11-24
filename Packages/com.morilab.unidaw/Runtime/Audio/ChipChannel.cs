@@ -16,7 +16,8 @@ namespace UniDAW
         int baseNote;
         float pitch;
         float volume;
-        int volPos, arpPos, dutyPos;
+        int volPos, arpPos, dutyPos, pitchPos;
+        float pitchMacro;
         int arpX, arpY, arpStep;
         int slide;
         int portaSpeed;
@@ -61,7 +62,8 @@ namespace UniDAW
             baseNote = note;
             pitch = note;
             volume = Math.Max(0, Math.Min(15, vol));
-            volPos = arpPos = dutyPos = 0;
+            volPos = arpPos = dutyPos = pitchPos = 0;
+            pitchMacro = 0;
             arpX = arpY = arpStep = 0;
             slide = 0;
             portaSpeed = 0;
@@ -91,6 +93,7 @@ namespace UniDAW
                 volPos = inst.volume.release;
                 if (inst.arpeggio.release >= 0) arpPos = inst.arpeggio.release;
                 if (inst.duty.release >= 0) dutyPos = inst.duty.release;
+                if (inst.pitch != null && inst.pitch.release >= 0) pitchPos = inst.pitch.release;
             }
             else Cut();
         }
@@ -162,6 +165,7 @@ namespace UniDAW
                 if (!inst.volume.IsEmpty) seqVol = inst.volume.Step(ref volPos, released);
                 if (!inst.arpeggio.IsEmpty) seqArp = inst.arpeggio.Step(ref arpPos, released);
                 if (!inst.duty.IsEmpty) seqDuty = inst.duty.Step(ref dutyPos, released);
+                if (inst.pitch != null && !inst.pitch.IsEmpty) pitchMacro += inst.pitch.Step(ref pitchPos, released) / 16f;
             }
 
             if (volSlide != 0)
@@ -191,7 +195,7 @@ namespace UniDAW
                 if (vibPhase >= 1f) vibPhase -= 1f;
             }
 
-            float p = pitch + arpOff + seqArp + vib;
+            float p = pitch + arpOff + seqArp + vib + pitchMacro;
             OutPitch = p;
 
             int duty = dutyOverride >= 0 ? dutyOverride : (seqDuty >= 0 ? seqDuty : (voice.kind == ChannelKind.Noise ? 0 : 2));

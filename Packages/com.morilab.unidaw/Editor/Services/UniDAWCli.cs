@@ -57,9 +57,9 @@ namespace UniDAW.Editor
                 if (mode != null) opt.mode = (VoiceAssignMode)Enum.Parse(typeof(VoiceAssignMode), mode, true);
                 var song = UniDAWAssets.ImportMidiFile(midi, opt, out var report);
                 Debug.Log($"[UniDAW CLI] Import: {report}");
-                var mono = ChipEngine.RenderSong(song, 48000);
-                WavWriter.WriteStereo16(Path.GetFullPath(wav), mono, 48000);
-                Debug.Log($"[UniDAW CLI] Rendered {wav}: {Stats(mono, 48000)}");
+                var stereo = ChipEngine.RenderSongStereo(song, 48000);
+                WavWriter.Write16(Path.GetFullPath(wav), stereo, 2, 48000);
+                Debug.Log($"[UniDAW CLI] Rendered {wav}: {Stats(stereo, 48000 * 2)}");
                 var asset = Arg("-unidawAsset");
                 if (asset != null) UniDAWAssets.SaveSong(song, asset);
                 else UnityEngine.Object.DestroyImmediate(song);

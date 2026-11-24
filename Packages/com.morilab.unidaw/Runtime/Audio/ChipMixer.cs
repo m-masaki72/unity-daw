@@ -1,7 +1,11 @@
+using System;
+
 namespace UniDAW
 {
     /// <summary>
-    /// 4 チャンネルのミックス：ミュート/ソロ、チャンネルゲイン、DC ブロッカー、マスター音量、クリップ、レベル計測。
+    /// 4 チャンネルのステレオミックス：曲のミキサー設定（音量・パン・ミュート・ソロ）と
+    /// エンジン側の上書き（ゲームからのミュート/ソロ）、DC ブロッカー、マスター音量、クリップ、レベル計測。
+    /// パンは中央で左右とも 1 倍（バランス型）なので、モノラルに畳むと従来と同じ音量になる。
     /// </summary>
     internal sealed class ChipMixer
     {
@@ -9,50 +13,74 @@ namespace UniDAW
         const float Headroom = 0.25f;
         const float DcPole = 0.995f;
 
+        readonly float[] gainL = new float[ChipEngine.Channels];
+        readonly float[] gainR = new float[ChipEngine.Channels];
         readonly float[] peak = new float[ChipEngine.Channels];
-        float dcIn, dcOut;
-        bool anySolo;
+        float peakL, peakR;
+        float dcInL, dcOutL, dcInR, dcOutR;
+        float master;
 
-        /// <summary>ブロックの始めに呼ぶ（ソロ状態の確定とピークのリセット）。</summary>
-        public void BeginBlock(bool[] solo)
+        /// <summary>ブロックの始めに呼ぶ：ミキサー設定を確定し、ピークをリセットする。</summary>
+        public void BeginBlock(Song song, bool[] mute, bool[] solo, float masterVolume)
         {
-            anySolo = false;
-            for (int c = 0; c < peak.Length; c++)
+            bool anySolo = false;
+            for (int c = 0; c < gainL.Length; c++)
+                anySolo |= solo[c] || (song?.Mix(c)?.solo ?? false);
+
+            for (int c = 0; c < gainL.Length; c++)
             {
-                anySolo |= solo[c];
+                var m = song?.Mix(c);
+                bool soloed = solo[c] || (m?.solo ?? false);
+                bool silent = mute[c] || (m?.mute ?? false) || (anySolo && !soloed);
+                float g = silent ? 0f : (m?.Gain ?? 1f);
+                if (c == 3) g *= NoiseGain;
+                float pan = m != null ? ChannelMix.ClampPan(m.pan) : 0f;
+                gainL[c] = g * Math.Min(1f, 1f - pan);
+                gainR[c] = g * Math.Min(1f, 1f + pan);
                 peak[c] = 0f;
             }
+            peakL = peakR = 0f;
+            master = masterVolume * (song != null ? ChannelMix.DbToGain(song.masterDb) : 1f);
         }
 
         /// <summary>全チャンネルを 1 サンプル進めてミックスする。</summary>
-        public float Mix(ChipChannel[] channels, double sampleRate, bool[] mute, bool[] solo, float master)
+        public void Mix(ChipChannel[] channels, double sampleRate, out float left, out float right)
         {
-            float mix = 0f;
+            float l = 0f, r = 0f;
             for (int c = 0; c < channels.Length; c++)
             {
-                // ミュート中もボイスは進める（位相を保つ）
+                // 無音のチャンネルもボイスは進める（位相を保つ）
                 float v = channels[c].NextSample(sampleRate);
-                if (mute[c] || (anySolo && !solo[c])) continue;
-                if (c == 3) v *= NoiseGain;
-                mix += v;
-                float a = v < 0 ? -v : v;
+                float gl = gainL[c], gr = gainR[c];
+                if (gl == 0f && gr == 0f) continue;
+                l += v * gl;
+                r += v * gr;
+                float a = Math.Abs(v) * Math.Max(gl, gr);
                 if (a > peak[c]) peak[c] = a;
             }
 
             // DC ブロッカー（パルスのデューティによる直流分を除去）
-            float y = mix - dcIn + DcPole * dcOut;
-            dcIn = mix;
-            dcOut = y;
-            y *= Headroom * master;
-            if (y > 1f) y = 1f;
-            else if (y < -1f) y = -1f;
-            return y;
+            float yl = l - dcInL + DcPole * dcOutL;
+            dcInL = l;
+            dcOutL = yl;
+            float yr = r - dcInR + DcPole * dcOutR;
+            dcInR = r;
+            dcOutR = yr;
+            left = Clip(yl * Headroom * master);
+            right = Clip(yr * Headroom * master);
+            float al = Math.Abs(left), ar = Math.Abs(right);
+            if (al > peakL) peakL = al;
+            if (ar > peakR) peakR = ar;
         }
 
-        /// <summary>ブロックの終わりにチャンネル毎のピークを書き出す。</summary>
-        public void EndBlock(float[] levels)
+        static float Clip(float y) => y > 1f ? 1f : (y < -1f ? -1f : y);
+
+        /// <summary>ブロックの終わりにチャンネル毎（フェーダー後）と出力 L/R のピークを書き出す。</summary>
+        public void EndBlock(float[] levels, float[] output)
         {
             for (int c = 0; c < peak.Length; c++) levels[c] = peak[c];
+            output[0] = peakL;
+            output[1] = peakR;
         }
     }
 }

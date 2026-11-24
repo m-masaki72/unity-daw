@@ -29,6 +29,10 @@ namespace UniDAW
         public List<int> order = new List<int>();
         /// <summary>順序表の各エントリのトランスポーズ（半音、order と同じ長さ。ノイズには効かない）。LSDj のチェイン移調に相当。</summary>
         public List<int> orderTranspose = new List<int>();
+        /// <summary>チャンネルごとのミキサー設定（ChannelCount 個）。</summary>
+        public List<ChannelMix> mixer = new List<ChannelMix>();
+        /// <summary>マスター音量（dB）。</summary>
+        public float masterDb;
 
         public static Song CreateDefault(int patternLength = 16)
         {
@@ -43,6 +47,22 @@ namespace UniDAW
             patterns = new List<Pattern> { new Pattern(patternLength, "A") };
             order = new List<int> { 0 };
             orderTranspose = new List<int> { 0 };
+            mixer = DefaultMixer();
+            masterDb = 0f;
+        }
+
+        public static List<ChannelMix> DefaultMixer()
+        {
+            var list = new List<ChannelMix>();
+            for (int c = 0; c < ChannelCount; c++) list.Add(new ChannelMix());
+            return list;
+        }
+
+        /// <summary>チャンネルのミキサー設定（範囲外・未初期化なら null。オーディオスレッドからも読む）。</summary>
+        public ChannelMix Mix(int ch)
+        {
+            var m = mixer;
+            return m != null && ch >= 0 && ch < m.Count ? m[ch] : null;
         }
 
         public static List<Instrument> DefaultInstruments() => new List<Instrument>
@@ -118,6 +138,17 @@ namespace UniDAW
         public void Validate()
         {
             if (instruments == null) instruments = new List<Instrument>();
+            foreach (var inst in instruments) inst?.EnsureShape();
+            if (mixer == null) mixer = new List<ChannelMix>();
+            while (mixer.Count < ChannelCount) mixer.Add(new ChannelMix());
+            if (mixer.Count > ChannelCount) mixer.RemoveRange(ChannelCount, mixer.Count - ChannelCount);
+            for (int c = 0; c < ChannelCount; c++)
+            {
+                if (mixer[c] == null) mixer[c] = new ChannelMix();
+                mixer[c].volumeDb = ChannelMix.ClampDb(mixer[c].volumeDb);
+                mixer[c].pan = ChannelMix.ClampPan(mixer[c].pan);
+            }
+            masterDb = ChannelMix.ClampDb(masterDb);
             if (patterns == null) patterns = new List<Pattern>();
             if (order == null) order = new List<int>();
             if (patterns.Count == 0) patterns.Add(new Pattern(16, "A"));

@@ -1,0 +1,168 @@
+using UnityEngine;
+using UnityEngine.UIElements;
+
+namespace UniDAW.Editor
+{
+    /// <summary>
+    /// ミキサー（Cubase の MixConsole 風）：チャンネル毎のパン・ミュート/ソロ・フェーダー・メーターとマスター。
+    /// 値は曲に保存され、操作は <see cref="MixerCommands"/> に任せる。
+    /// </summary>
+    public sealed class MixerView : VisualElement
+    {
+        sealed class Strip
+        {
+            public VisualElement root;
+            public Fader volume, pan;
+            public Label db, panLabel;
+            public Button mute, solo;
+            public LevelMeter meter;
+        }
+
+        readonly ComposerContext ctx;
+        readonly Strip[] strips = new Strip[Song.ChannelCount];
+        readonly Fader master;
+        readonly Label masterDb;
+        readonly LevelMeter masterMeter;
+        readonly float[] one = new float[1];
+
+        public MixerView(ComposerContext ctx)
+        {
+            this.ctx = ctx;
+            AddToClassList("cd-mixer");
+            var m = ctx.Mixer;
+
+            for (int c = 0; c < Song.ChannelCount; c++)
+            {
+                int ch = c;
+                var s = strips[c] = new Strip { root = new VisualElement() };
+                s.root.AddToClassList("cd-strip");
+                s.root.AddToClassList("ch" + c);
+
+                var name = new Label(Song.ChannelNames[c]);
+                name.AddToClassList("cd-chname");
+                name.AddToClassList("cd-strip-name");
+                s.root.Add(name);
+
+                s.pan = new Fader(false, -1f, 1f, 0f, 1f / 16f, bipolar: true);
+                s.pan.Dragged += v => m.PreviewPan(ch, v);
+                s.pan.Committed += (a, b) => m.CommitPan(ch, a, b);
+                s.root.Add(s.pan);
+                s.panLabel = SmallLabel(s.root, "cd-strip-pan");
+
+                var ms = new VisualElement();
+                ms.AddToClassList("cd-btnrow");
+                s.mute = MsButton("M", "ミュート", () => m.ToggleMute(ch), null);
+                s.solo = MsButton("S", "ソロ（Ctrl+クリックで単独ソロ）", () => m.ToggleSolo(ch), () => m.ExclusiveSolo(ch));
+                ms.Add(s.mute);
+                ms.Add(s.solo);
+                s.root.Add(ms);
+
+                var faderRow = new VisualElement();
+                faderRow.AddToClassList("cd-strip-faderrow");
+                s.volume = new Fader(true, ChannelMix.MinDb, ChannelMix.MaxDb, 0f, 1f);
+                s.volume.Dragged += v => m.PreviewVolume(ch, v);
+                s.volume.Committed += (a, b) => m.CommitVolume(ch, a, b);
+                faderRow.Add(s.volume);
+                s.meter = new LevelMeter(1, "c" + c);
+                s.meter.AddToClassList("cd-strip-meter");
+                faderRow.Add(s.meter);
+                s.root.Add(faderRow);
+                s.db = SmallLabel(s.root, "cd-strip-db");
+                Add(s.root);
+            }
+
+            var mr = new VisualElement();
+            mr.AddToClassList("cd-strip");
+            mr.AddToClassList("master");
+            var title = new Label("Master");
+            title.AddToClassList("cd-strip-name");
+            mr.Add(title);
+            var clear = new Button(m.ClearMuteSolo) { text = "M/S 解除", tooltip = "すべてのミュートとソロを解除" };
+            clear.AddToClassList("cd-strip-clear");
+            mr.Add(clear);
+            var reset = new Button(m.ResetMixer) { text = "Reset", tooltip = "ミキサーを初期値（0 dB・センター）に戻す" };
+            reset.AddToClassList("cd-strip-clear");
+            mr.Add(reset);
+            var row = new VisualElement();
+            row.AddToClassList("cd-strip-faderrow");
+            master = new Fader(true, ChannelMix.MinDb, ChannelMix.MaxDb, 0f, 1f);
+            master.Dragged += m.PreviewMaster;
+            master.Committed += m.CommitMaster;
+            row.Add(master);
+            masterMeter = new LevelMeter(2, "cm");
+            masterMeter.AddToClassList("cd-strip-meter");
+            row.Add(masterMeter);
+            mr.Add(row);
+            masterDb = SmallLabel(mr, "cd-strip-db");
+            Add(mr);
+        }
+
+        static Label SmallLabel(VisualElement parent, string cls)
+        {
+            var l = new Label();
+            l.AddToClassList(cls);
+            parent.Add(l);
+            return l;
+        }
+
+        static Button MsButton(string text, string tip, System.Action click, System.Action ctrlClick)
+        {
+            var b = new Button { text = text, tooltip = tip };
+            b.AddToClassList("cd-ms");
+            b.clickable = null;
+            b.RegisterCallback<PointerDownEvent>(e =>
+            {
+                if (e.button != 0) return;
+                if (e.actionKey && ctrlClick != null) ctrlClick();
+                else click();
+                e.StopPropagation();
+            });
+            return b;
+        }
+
+        public void Refresh()
+        {
+            var m = ctx.Mixer;
+            for (int c = 0; c < strips.Length; c++)
+            {
+                var s = strips[c];
+                if (!s.volume.IsDragging) s.volume.SetValueWithoutNotify(m.VolumeDb(c));
+                if (!s.pan.IsDragging) s.pan.SetValueWithoutNotify(m.Pan(c));
+                s.mute.EnableInClassList("on", m.IsMuted(c));
+                s.solo.EnableInClassList("on", m.IsSoloed(c));
+                s.root.EnableInClassList("silenced", m.IsSilenced(c));
+            }
+            master.SetValueWithoutNotify(m.MasterDb);
+            UpdateLabels();
+        }
+
+        /// <summary>毎フレーム：メーターと数値表示（ドラッグ中の値も追う）。</summary>
+        public void UpdateMeters()
+        {
+            var e = ctx.Transport.Engine;
+            for (int c = 0; c < strips.Length; c++)
+            {
+                one[0] = e != null ? e.Levels[c] : 0f;
+                strips[c].meter.Push(one);
+            }
+            masterMeter.Push(e?.OutputLevels);
+            UpdateLabels();
+        }
+
+        void UpdateLabels()
+        {
+            for (int c = 0; c < strips.Length; c++)
+            {
+                var s = strips[c];
+                SetText(s.db, ChannelMix.FormatDb(s.volume.Value));
+                SetText(s.panLabel, ChannelMix.FormatPan(s.pan.Value));
+            }
+            SetText(masterDb, ChannelMix.FormatDb(master.Value));
+        }
+
+        static void SetText(Label l, string t)
+        {
+            if (l.text != t) l.text = t;
+        }
+    }
+}

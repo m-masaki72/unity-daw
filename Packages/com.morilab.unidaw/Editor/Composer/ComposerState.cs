@@ -9,6 +9,9 @@ namespace UniDAW.Editor
     /// <summary>ピアノロールのツール（int としてシリアライズされるので値は固定）。</summary>
     public enum RollTool { Select = 0, Draw = 1, Erase = 2 }
 
+    /// <summary>下ゾーン（Cubase の Lower Zone）のタブ（int としてシリアライズされるので値は固定）。</summary>
+    public enum LowerTab { Mixer = 0, Instrument = 1 }
+
     /// <summary>
     /// コンポーザーの編集状態（ウィンドウにシリアライズされ、ドメインリロードを越えて残る）。
     /// 純粋なデータで、変更は <see cref="ComposerSession"/> 経由で行う。
@@ -34,8 +37,11 @@ namespace UniDAW.Editor
         public bool loop = true;
         public RollTool rollTool;
         public bool recording;
-        public bool[] muted = new bool[Song.ChannelCount];
-        public bool[] soloed = new bool[Song.ChannelCount];
+        /// <summary>下ゾーン（ミキサー / 楽器エディタ）を開いているか。</summary>
+        public bool lowerOpen = true;
+        public LowerTab lowerTab;
+        /// <summary>楽器エディタで編集中のマクロ。</summary>
+        public MacroKind macro;
 
         public Pattern CurrentPattern => song != null ? song.GetPattern(patternIndex) : null;
 
@@ -50,13 +56,6 @@ namespace UniDAW.Editor
                 var p = CurrentPattern;
                 return p != null ? p.tracks[cursorCh].cells[p.CellIndex(cursorCh, cursorRow)] : Cell.Blank;
             }
-        }
-
-        /// <summary>デシリアライズ後の配列長の補正。</summary>
-        public void EnsureArrays()
-        {
-            if (muted == null || muted.Length != Song.ChannelCount) muted = new bool[Song.ChannelCount];
-            if (soloed == null || soloed.Length != Song.ChannelCount) soloed = new bool[Song.ChannelCount];
         }
 
         /// <summary>インデックス・カーソルを曲の範囲内に収める。</summary>

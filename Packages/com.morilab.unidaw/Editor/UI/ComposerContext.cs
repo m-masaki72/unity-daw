@@ -13,17 +13,19 @@ namespace UniDAW.Editor
         public CellCommands Cells { get; }
         public RollEditor Roll { get; }
         public SongFileCommands Files { get; }
+        public MixerCommands Mixer { get; }
         public Transport Transport => Session.Transport;
         public ComposerState State => Session.State;
 
         readonly Action focusMain;
 
-        public ComposerContext(ComposerSession session, CellCommands cells, RollEditor roll, SongFileCommands files, Action focusMain)
+        public ComposerContext(ComposerSession session, CellCommands cells, RollEditor roll, SongFileCommands files, MixerCommands mixer, Action focusMain)
         {
             Session = session;
             Cells = cells;
             Roll = roll;
             Files = files;
+            Mixer = mixer;
             this.focusMain = focusMain;
         }
 

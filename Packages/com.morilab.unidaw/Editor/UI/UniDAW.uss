@@ -413,3 +413,50 @@
     border-color: rgb(150, 190, 255);
     background-color: rgba(120, 160, 255, 0.15);
 }
+
+/* =====================================================================
+   下ゾーン（ミキサー / 楽器エディタ）
+   ===================================================================== */
+.cd-split { flex-grow: 1; min-height: 0; }
+.cd-split > .unity-two-pane-split-view__dragline-anchor { background-color: rgb(44, 44, 56); }
+.cd-lower { flex-grow: 1; min-height: 0; background-color: rgb(26, 26, 33); border-top-width: 1px; border-color: rgb(50, 50, 62); }
+.cd-lower-bar { flex-direction: row; align-items: center; padding: 2px 4px; flex-shrink: 0; background-color: rgb(32, 32, 40); }
+.cd-lower-close { width: 22px; height: 18px; padding: 0; margin: 0; }
+
+.cd-mixer { flex-direction: row; flex-grow: 1; min-height: 0; padding: 4px; }
+.cd-strip {
+    width: 78px;
+    margin-right: 4px;
+    padding: 3px;
+    align-items: stretch;
+    border-radius: 4px;
+    background-color: rgb(34, 34, 43);
+}
+.cd-strip.master { width: 96px; margin-left: 8px; background-color: rgb(38, 36, 30); }
+.cd-strip.silenced { opacity: 0.55; }
+.cd-strip-name { flex-grow: 0; -unity-text-align: middle-center; -unity-font-style: bold; font-size: 11px; margin-bottom: 2px; }
+.cd-strip .cd-btnrow { justify-content: center; flex-wrap: nowrap; }
+.cd-strip .cd-ms { flex-grow: 1; height: 18px; }
+.cd-strip-pan, .cd-strip-db { -unity-text-align: middle-center; font-size: 10px; color: rgb(170, 170, 186); }
+.cd-strip-faderrow { flex-direction: row; flex-grow: 1; min-height: 40px; justify-content: center; margin-top: 2px; }
+.cd-strip-meter { height: auto; flex-grow: 0; margin: 4px 2px; }
+.cd-strip-clear { height: 18px; margin: 1px 0; padding: 0; font-size: 10px; }
+.cd-meter-fill.cm { background-color: rgb(120, 230, 140); }
+
+.cd-fader.vertical { width: 22px; flex-grow: 0; flex-shrink: 0; margin: 4px 2px; }
+.cd-fader.horizontal { height: 14px; flex-shrink: 0; margin: 2px 0; }
+
+.cd-insted { flex-direction: row; flex-grow: 1; min-height: 0; padding: 4px; }
+.cd-insted-left { width: 150px; flex-shrink: 0; margin-right: 6px; }
+.cd-insted-list { flex-grow: 1; background-color: rgb(18, 18, 24); border-radius: 3px; }
+.cd-insted-item { padding: 1px 6px; font-size: 11px; }
+.cd-insted-item:hover { background-color: rgb(40, 40, 52); }
+.cd-insted-item.on { background-color: rgb(50, 70, 110); color: rgb(255, 255, 255); }
+.cd-insted-right { flex-grow: 1; min-width: 0; }
+.cd-insted-head { flex-direction: row; align-items: center; flex-shrink: 0; }
+.cd-insted-name { width: 140px; margin-right: 6px; }
+.cd-macro-graph { flex-grow: 1; min-height: 60px; margin: 4px 0; border-radius: 3px; overflow: hidden; }
+.cd-macro-hover { position: absolute; left: 4px; top: 2px; font-size: 10px; color: rgb(200, 200, 215); }
+.cd-insted-foot { flex-direction: row; align-items: flex-start; flex-shrink: 0; }
+.cd-insted-seq { flex-grow: 1; margin: 0 6px 0 0; }
+.cd-insted-info { width: 260px; flex-shrink: 0; white-space: normal; font-size: 10px; color: rgb(150, 150, 165); }

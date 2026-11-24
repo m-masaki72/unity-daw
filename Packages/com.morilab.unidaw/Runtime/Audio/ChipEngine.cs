@@ -56,10 +56,13 @@ namespace UniDAW
         public readonly ConcurrentQueue<NoteEvent> NoteEvents = new ConcurrentQueue<NoteEvent>();
         public bool EmitNoteEvents = true;
 
+        /// <summary>ゲーム側からの一時的なミュート/ソロ（曲のミキサー設定 <see cref="Song.mixer"/> に重ねて効く）。</summary>
         public readonly bool[] Mute = new bool[Channels];
         public readonly bool[] Solo = new bool[Channels];
-        /// <summary>チャンネル毎の出力レベル（0..1、オーディオスレッドが更新）</summary>
+        /// <summary>チャンネル毎の出力レベル（フェーダー後、0..1、オーディオスレッドが更新）</summary>
         public readonly float[] Levels = new float[Channels];
+        /// <summary>マスター出力の L/R ピーク（0..1）。</summary>
+        public readonly float[] OutputLevels = new float[2];
         public float MasterVolume = 0.8f;
 
         volatile Song song;
@@ -133,14 +136,21 @@ namespace UniDAW
         public static float[] RenderSong(Song song, int sampleRate, double maxSeconds = 600) =>
             OfflineRenderer.RenderSong(song, sampleRate, maxSeconds);
 
+        /// <summary>曲を1周オフラインでレンダリング（ステレオ interleaved）。</summary>
+        public static float[] RenderSongStereo(Song song, int sampleRate, double maxSeconds = 600) =>
+            OfflineRenderer.RenderSongStereo(song, sampleRate, maxSeconds);
+
         // ---- オーディオスレッド ----------------------------------------------------
 
-        /// <summary>interleaved バッファに書き込む（加算ではなく上書き）。</summary>
+        /// <summary>
+        /// interleaved バッファに書き込む（加算ではなく上書き）。
+        /// 1ch ならモノラルに畳み、2ch 以上なら先頭 2ch に L/R（残りはモノラル）。
+        /// </summary>
         public void Render(float[] data, int offset, int frames, int outChannels)
         {
             DrainCommands();
             var s = song;
-            mixer.BeginBlock(Solo);
+            mixer.BeginBlock(s, Mute, Solo, MasterVolume);
 
             int idx = offset;
             for (int i = 0; i < frames; i++)
@@ -152,11 +162,18 @@ namespace UniDAW
                     samplesToTick += SamplesPerTick(s);
                 }
 
-                float y = mixer.Mix(channels, sampleRate, Mute, Solo, MasterVolume);
-                for (int ch = 0; ch < outChannels; ch++) data[idx++] = y;
+                mixer.Mix(channels, sampleRate, out float l, out float r);
+                if (outChannels == 1)
+                {
+                    data[idx++] = (l + r) * 0.5f;
+                    continue;
+                }
+                data[idx++] = l;
+                data[idx++] = r;
+                for (int ch = 2; ch < outChannels; ch++) data[idx++] = (l + r) * 0.5f;
             }
 
-            mixer.EndBlock(Levels);
+            mixer.EndBlock(Levels, OutputLevels);
         }
 
         void DrainCommands()

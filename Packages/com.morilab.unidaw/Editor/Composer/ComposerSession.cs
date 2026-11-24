@@ -165,6 +165,35 @@ namespace UniDAW.Editor
             Changed?.Invoke();
         }
 
+        /// <summary>下ゾーンの開閉（Cubase: Ctrl+Alt+E）。</summary>
+        public void ToggleLowerZone()
+        {
+            State.lowerOpen = !State.lowerOpen;
+            Changed?.Invoke();
+        }
+
+        /// <summary>下ゾーンのタブを表示。すでにそのタブが開いていれば閉じる（F3 のミキサー切替と同じ挙動）。</summary>
+        public void ToggleLowerTab(LowerTab tab)
+        {
+            if (State.lowerOpen && State.lowerTab == tab) State.lowerOpen = false;
+            else ShowLowerTab(tab);
+            Changed?.Invoke();
+        }
+
+        public void ShowLowerTab(LowerTab tab)
+        {
+            State.lowerOpen = true;
+            State.lowerTab = tab;
+            Changed?.Invoke();
+        }
+
+        public void SetMacro(MacroKind kind)
+        {
+            if (State.macro == kind) return;
+            State.macro = kind;
+            Changed?.Invoke();
+        }
+
         public void CycleView()
         {
             int n = Enum.GetValues(typeof(PatternViewKind)).Length;
@@ -308,6 +337,10 @@ namespace UniDAW.Editor
             var inst = CursorInstrument;
             if (inst != null) Edit(undoName, () => change(inst));
         }
+
+        /// <summary>編集中の楽器のマクロを丸ごと差し替える（グラフの 1 ストロークで Undo 1 回）。</summary>
+        public void SetMacro(MacroKind kind, Sequence seq) =>
+            ModifyInstrument("Edit " + kind + " Macro", i => i.SetMacro(kind, seq));
 
         public void AddInstrument(bool duplicate)
         {

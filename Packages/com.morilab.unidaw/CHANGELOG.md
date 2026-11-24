@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0] - 2026-11-24
+- ミキサー（下ゾーン、F3）：チャンネルごとの音量・パン・ミュート / ソロとマスター音量を曲に保存。再生・書き出しに反映し Undo 可能。ゲーム側の `ChipEngine.Mute` / `Solo` は従来どおり上書きとして有効
+- ステレオ出力：`ChipEngine.Render` が 2ch 以上で L/R を出力（センターはモノラルと同じ音量）。`ChipEngine.OutputLevels`、`RenderSongStereo`、`WavWriter.Write16` を追加。WAV 書き出しはステレオに
+- 楽器エディタ：楽器一覧とマクロのバーグラフ編集（Volume / Arp / Pitch / Duty、ループ / リリースのレーン）
+- Pitch マクロ（`Instrument.pitch`、1/16 半音単位で積算）
+- 旧データは読み込み時に自動移行（ミキサーは 0 dB・センター）。ミュート / ソロはウィンドウの一時状態から曲の設定へ移動
+
 ## [0.2.0] - 2026-11-24
 - エフェクト `Gxx` ノートディレイ、`Qxy` / `Rxy` ノートスライドを追加
 - 順序表エントリごとのトランスポーズ（`Song.orderTranspose`）。再生・MIDI 書き出しに反映

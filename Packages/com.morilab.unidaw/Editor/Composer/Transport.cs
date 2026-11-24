@@ -4,7 +4,7 @@ using UnityEditor;
 namespace UniDAW.Editor
 {
     /// <summary>
-    /// 再生・停止・試聴・ミュート/ソロ・再生位置の監視。UI には依存しない。
+    /// 再生・停止・試聴・再生位置の監視。UI には依存しない。
     /// エンジンへは <see cref="IAudioHost"/> 越しに触る。
     /// </summary>
     public sealed class Transport
@@ -17,7 +17,7 @@ namespace UniDAW.Editor
         readonly double[] previewOff = new double[Song.ChannelCount];
         int lastPlayRow = -2, lastPlayPattern = -2;
 
-        /// <summary>表示を更新すべき変化（停止・ミュート/ソロ切替など）。</summary>
+        /// <summary>表示を更新すべき変化（停止・サイクル切替など）。</summary>
         public event Action Changed;
 
         public Transport(ComposerState state, IAudioHost host = null)
@@ -136,34 +136,6 @@ namespace UniDAW.Editor
             if (e != null && !e.IsPlaying) previewOff[ch] = EditorApplication.timeSinceStartup + ReleaseDelay;
         }
 
-        public bool IsMuted(int ch) => state.muted[ch];
-        public bool IsSoloed(int ch) => state.soloed[ch];
-
-        public void ToggleMute(int ch)
-        {
-            state.muted[ch] = !state.muted[ch];
-            ApplyMuteSolo();
-            Changed?.Invoke();
-        }
-
-        public void ToggleSolo(int ch)
-        {
-            state.soloed[ch] = !state.soloed[ch];
-            ApplyMuteSolo();
-            Changed?.Invoke();
-        }
-
-        public void ApplyMuteSolo()
-        {
-            var e = Engine;
-            if (e == null) return;
-            for (int c = 0; c < Song.ChannelCount; c++)
-            {
-                e.Mute[c] = state.muted[c];
-                e.Solo[c] = state.soloed[c];
-            }
-        }
-
         /// <summary>
         /// 毎フレームの処理：エンジンとの同期、試聴音の解放、再生位置の変化検出。
         /// 再生位置が変わったら true（<paramref name="patternChanged"/> はパターンまで変わったか）。
@@ -176,7 +148,6 @@ namespace UniDAW.Editor
             UniDAWMidiBridge.TargetChannel = state.cursorCh;
             if (e == null) return false;
             if (state.song != null && e.Song != state.song) e.Song = state.song;
-            ApplyMuteSolo();
             host.DispatchEvents();
 
             double now = EditorApplication.timeSinceStartup;

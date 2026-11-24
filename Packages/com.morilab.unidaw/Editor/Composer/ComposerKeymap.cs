@@ -30,6 +30,7 @@ namespace UniDAW.Editor
                 "Space : 再生/停止   Enter : 再生\n" +
                 "Num0 / Esc : 停止   Num. : 先頭へ\n" +
                 "Num/ : サイクル   Num* : 録音\n" +
+                "F3 : ミキサー   Ctrl+Alt+E : 下ゾーン\n" +
                 "Num- / Num+ : 前/次の順序\n" +
                 "\nトラッカー / ステップ\n" +
                 "Z〜M / Q〜P : ノート入力（2段鍵盤）\n" +
@@ -93,12 +94,28 @@ namespace UniDAW.Editor
         public bool HandleKey(KeyCode k, bool ctrl, bool shift, bool alt = false)
         {
             if (s.Song == null) return false;
-            if (HandleTransport(k) || HandleGlobal(k, shift)) return true;
+            if (HandleZone(k, ctrl, alt) || HandleTransport(k) || HandleGlobal(k, shift)) return true;
             if (s.State.view == PatternViewKind.PianoRoll) return HandleRoll(k, ctrl, shift, alt);
             return ctrl ? HandleCtrl(k, shift) : HandleCursor(k) || HandleEdit(k);
         }
 
         /// <summary>トランスポート。Cubase / Studio One 共通のテンキー配置に合わせる。</summary>
+        bool HandleZone(KeyCode k, bool ctrl, bool alt)
+        {
+            // F3 = ミキサー（Cubase / Studio One 共通）、Ctrl+Alt+E = 下ゾーンの開閉（Cubase）
+            if (k == KeyCode.F3)
+            {
+                s.ToggleLowerTab(LowerTab.Mixer);
+                return true;
+            }
+            if (k == KeyCode.E && ctrl && alt)
+            {
+                s.ToggleLowerZone();
+                return true;
+            }
+            return false;
+        }
+
         bool HandleTransport(KeyCode k)
         {
             var t = s.Transport;
