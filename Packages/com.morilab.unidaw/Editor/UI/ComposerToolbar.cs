@@ -15,7 +15,7 @@ namespace UniDAW.Editor
 
         readonly ComposerContext ctx;
         readonly MenuChip songChip, midiChip;
-        readonly IconButton playPattern, playSong, recButton;
+        readonly IconButton playButton, recButton, loopButton;
         readonly Label lcdState, lcdOrder, lcdPattern, lcdRow;
         readonly VisualElement lcd;
         readonly NumberBox bpmBox, rpbBox, speedBox, octaveBox, stepBox;
@@ -44,18 +44,23 @@ namespace UniDAW.Editor
 
             // ---- 再生操作 ----
             var transport = Group();
-            playPattern = new IconButton(Glyph.Play, "PATTERN", () => { t.PlayPattern(); ctx.FocusMain(); }, "パターンをループ再生 (Space)");
-            playSong = new IconButton(Glyph.PlayFromStart, "SONG", () => { t.PlaySong(); ctx.FocusMain(); }, "順序表の位置から曲を再生 (Enter)");
-            var stop = new IconButton(Glyph.Stop, "STOP", () => { t.Stop(); ctx.FocusMain(); }, "停止 (Esc)");
+            // Cubase / Studio One と同じ並び：先頭へ・停止・再生・録音・サイクル
+            var toStart = new IconButton(Glyph.ToStart, "START", () => { s.GoToStart(); ctx.FocusMain(); }, "先頭へ (Num .)");
+            var stop = new IconButton(Glyph.Stop, "STOP", () => { t.Stop(); ctx.FocusMain(); }, "停止 (Num 0 / Esc)");
+            playButton = new IconButton(Glyph.Play, "PLAY", () => { t.TogglePlay(); ctx.FocusMain(); },
+                "再生／停止 (Space)。サイクルがオンならパターンをループ、オフなら順序表の位置から曲を再生");
             recButton = new IconButton(Glyph.Record, "REC", () => s.SetRecording(!ctx.State.recording),
-                "MIDI 入力を記録（停止中はステップ入力、再生中はリアルタイム録音）");
-            playPattern.AddToClassList("play");
-            playSong.AddToClassList("play");
+                "MIDI 入力を記録 (Num *)。停止中はステップ入力、再生中はリアルタイム録音");
+            loopButton = new IconButton(Glyph.Loop, "CYCLE", () => { t.ToggleLoop(); ctx.FocusMain(); },
+                "サイクル (Num /)。オン＝パターンをループ、オフ＝曲を通して再生");
+            playButton.AddToClassList("play");
             recButton.AddToClassList("rec");
-            transport.Add(playPattern);
-            transport.Add(playSong);
+            loopButton.AddToClassList("loop");
+            transport.Add(toStart);
             transport.Add(stop);
+            transport.Add(playButton);
             transport.Add(recButton);
+            transport.Add(loopButton);
             Add(transport);
 
             // ---- 位置表示（液晶風） ----
@@ -157,6 +162,12 @@ namespace UniDAW.Editor
             m.AddSeparator("");
             Item(m, "Export WAV...", has, f.ExportWav);
             Item(m, "Export MIDI...", has, f.ExportMidi);
+            m.AddSeparator("");
+            foreach (DawKeyPreset p in System.Enum.GetValues(typeof(DawKeyPreset)))
+            {
+                var preset = p;
+                Item(m, "Key Commands/" + DawKeys.DisplayName(preset), true, () => ctx.Session.SetKeyPreset(preset), DawKeys.Preset == preset);
+            }
             m.DropDown(anchor.worldBound);
         }
 
@@ -214,6 +225,7 @@ namespace UniDAW.Editor
             viewSeg.SetIndex((int)st.view);
             followChip.Value = st.follow;
             recButton.Active = st.recording;
+            loopButton.Active = st.loop;
             octaveBox.SetValueWithoutNotify(st.octave);
             stepBox.SetValueWithoutNotify(st.editStep);
             midiChip.Text = MidiInput.IsOpen ? "MIDI  " + MidiInput.OpenDeviceName : "MIDI  —";
@@ -233,8 +245,7 @@ namespace UniDAW.Editor
             var st = ctx.State;
             var e = ctx.Transport.Engine;
             bool playing = e != null && e.IsPlaying;
-            playPattern.Active = playing && e.IsPatternMode;
-            playSong.Active = playing && !e.IsPatternMode;
+            playButton.Active = playing;
             meter.Push(playing ? e.Levels : null);
 
             lcd.EnableInClassList("playing", playing);

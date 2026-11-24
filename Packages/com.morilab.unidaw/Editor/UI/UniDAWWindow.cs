@@ -25,6 +25,7 @@ namespace UniDAW.Editor
         ComposerSession session;
         Transport transport;
         CellCommands cells;
+        RollEditor roll;
         ComposerKeymap keymap;
         MidiRecorder recorder;
         SongFileCommands files;
@@ -38,6 +39,7 @@ namespace UniDAW.Editor
         CellInspector inspector;
         InstrumentPanel instrumentPanel;
         StatusBar statusBar;
+        Label help;
         IPatternView[] views;
         IPatternView CurrentView => views[Mathf.Clamp((int)state.view, 0, views.Length - 1)];
         readonly HashSet<KeyCode> held = new HashSet<KeyCode>();
@@ -53,11 +55,13 @@ namespace UniDAW.Editor
         public void SetCursor(int row, int ch, int col) => session.SetCursor(row, ch, col);
         public void SetTrackLength(int ch, int len) => session.SetTrackLength(ch, len);
         public void StepClick(int ch, int row, bool toggle) => cells.StepClick(ch, row, toggle);
-        public void RollClick(int ch, int row, int pitch, int button) => cells.RollClick(ch, row, pitch, button);
+        public RollEditor Roll => roll;
+        public Transport Transport => transport;
+        public ComposerState State => state;
         public string FxHelpAtCursor() => session.FxHelpAtCursor();
 
         /// <summary>キー処理（テストからも呼べるよう public）。処理したら true。</summary>
-        public bool HandleKey(KeyCode k, bool ctrl, bool shift) => keymap.HandleKey(k, ctrl, shift);
+        public bool HandleKey(KeyCode k, bool ctrl, bool shift, bool alt = false) => keymap.HandleKey(k, ctrl, shift, alt);
 
         [MenuItem("Window/UniDAW/Composer")]
         public static UniDAWWindow Open()
@@ -94,10 +98,11 @@ namespace UniDAW.Editor
             transport = new Transport(state);
             session = new ComposerSession(state, transport);
             cells = new CellCommands(session);
-            keymap = new ComposerKeymap(session, cells);
+            roll = new RollEditor(session);
+            keymap = new ComposerKeymap(session, cells, roll);
             recorder = new MidiRecorder(session);
             files = new SongFileCommands(session);
-            ctx = new ComposerContext(session, cells, files, FocusMain);
+            ctx = new ComposerContext(session, cells, roll, files, FocusMain);
 
             session.Changed += RefreshAll;
             session.Notified += Notify;
@@ -197,7 +202,7 @@ namespace UniDAW.Editor
             panel.Add(inspector);
             instrumentPanel = new InstrumentPanel(ctx);
             panel.Add(instrumentPanel);
-            var help = new Label(ComposerKeymap.Help);
+            help = new Label();
             help.AddToClassList("cd-help");
             panel.Add(help);
             return panel;
@@ -212,6 +217,7 @@ namespace UniDAW.Editor
             if (toolbar == null) return;
             bool has = state.song != null;
             toolbar.Refresh();
+            help.text = ComposerKeymap.Help(DawKeys.Preset);
             mainArea.SetEnabled(has);
             readOnlyBanner.style.display = session.IsReadOnly ? DisplayStyle.Flex : DisplayStyle.None;
             var cur = CurrentView;
@@ -268,7 +274,7 @@ namespace UniDAW.Editor
         void OnKeyDown(KeyDownEvent ev)
         {
             if (ev.keyCode == KeyCode.None || state.song == null || IsTypingInField()) return;
-            if (HandleKey(ev.keyCode, ev.actionKey, ev.shiftKey))
+            if (HandleKey(ev.keyCode, ev.actionKey, ev.shiftKey, ev.altKey))
             {
                 held.Add(ev.keyCode);
                 ev.StopImmediatePropagation();

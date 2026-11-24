@@ -21,29 +21,46 @@ namespace UniDAW.Editor
             KeyCode.I, KeyCode.Alpha9, KeyCode.O, KeyCode.Alpha0, KeyCode.P,
         };
 
-        /// <summary>画面に出すキー操作の説明。</summary>
-        public const string Help =
-            "キー操作\n" +
-            "Z〜M / Q〜P : ノート入力（2段鍵盤）\n" +
-            "1 : ノートオフ   Del : 消去\n" +
-            "0-9 A-F : 数値列（16進）\n" +
-            "Fx列: 0 1 2 3 4 A V F S\n" +
-            "Space : パターン再生/停止\n" +
-            "Enter : 曲再生   Esc : 停止\n" +
-            "[ ] : オクターブ   Tab : 次ch\n" +
-            "Ctrl+↑↓ : 半音移調 (+Shift 1oct)\n" +
-            "Ctrl+C / Ctrl+V : トラックコピー\n" +
-            ".mid をドロップでインポート";
+        /// <summary>画面に出すキー操作の説明（ピアノロールの割り当てはプリセットで変わる）。</summary>
+        public static string Help(DawKeyPreset preset)
+        {
+            bool s1 = preset == DawKeyPreset.StudioOne;
+            return
+                "キー操作（" + DawKeys.DisplayName(preset) + " 準拠）\n" +
+                "Space : 再生/停止   Enter : 再生\n" +
+                "Num0 / Esc : 停止   Num. : 先頭へ\n" +
+                "Num/ : サイクル   Num* : 録音\n" +
+                "Num- / Num+ : 前/次の順序\n" +
+                "\nトラッカー / ステップ\n" +
+                "Z〜M / Q〜P : ノート入力（2段鍵盤）\n" +
+                "1 : ノートオフ   Del : 消去\n" +
+                "0-9 A-F : 数値列（16進）\n" +
+                "Fx列: 0 1 2 3 4 A V F S\n" +
+                "[ ] : オクターブ   Tab : 次ch\n" +
+                "Ctrl+↑↓ : 半音移調 (+Shift 1oct)\n" +
+                "Ctrl+C / Ctrl+V : トラックコピー\n" +
+                "\nピアノロール\n" +
+                "ダブルクリック : 作成 / 削除\n" +
+                "ドラッグ : 移動（Alt で複製）・右端で長さ\n" +
+                "空き地ドラッグ : 範囲選択\n" +
+                (s1 ? "1 矢印 / 4 消しゴム / 5 ペイント\n" : "1 選択 / 5 消しゴム / 8 鉛筆\n") +
+                "↑↓ : 移調 (+Shift 1oct)   ←→ : 前後のノート\n" +
+                (s1 ? "Alt+←→ : ナッジ   D : 複製   Ctrl+D : 選択解除\n" : "Ctrl+←→ : ナッジ   Ctrl+D : 複製\n") +
+                "Ctrl+A / C / X / V   Del : 削除\n" +
+                "\n.mid をドロップでインポート";
+        }
 
         const int PageRows = 16;
 
         readonly ComposerSession s;
         readonly CellCommands cells;
+        readonly RollEditor roll;
 
-        public ComposerKeymap(ComposerSession session, CellCommands cells)
+        public ComposerKeymap(ComposerSession session, CellCommands cells, RollEditor roll)
         {
             s = session;
             this.cells = cells;
+            this.roll = roll;
         }
 
         /// <summary>鍵盤キーなら半音オフセット（0..28）、それ以外は -1。</summary>
@@ -58,7 +75,8 @@ namespace UniDAW.Editor
         static int HexDigit(KeyCode k)
         {
             if (k >= KeyCode.Alpha0 && k <= KeyCode.Alpha9) return k - KeyCode.Alpha0;
-            if (k >= KeyCode.Keypad0 && k <= KeyCode.Keypad9) return k - KeyCode.Keypad0;
+            // テンキー 0 は DAW と同じく「停止」に使うので 1..9 だけ
+            if (k >= KeyCode.Keypad1 && k <= KeyCode.Keypad9) return k - KeyCode.Keypad0;
             if (k >= KeyCode.A && k <= KeyCode.F) return 10 + (k - KeyCode.A);
             return -1;
         }
@@ -72,24 +90,41 @@ namespace UniDAW.Editor
         }
 
         /// <summary>キーを処理したら true。</summary>
-        public bool HandleKey(KeyCode k, bool ctrl, bool shift)
+        public bool HandleKey(KeyCode k, bool ctrl, bool shift, bool alt = false)
         {
             if (s.Song == null) return false;
-            return HandleGlobal(k, shift)
-                || (ctrl ? HandleCtrl(k, shift) : HandleCursor(k) || HandleEdit(k));
+            if (HandleTransport(k) || HandleGlobal(k, shift)) return true;
+            if (s.State.view == PatternViewKind.PianoRoll) return HandleRoll(k, ctrl, shift, alt);
+            return ctrl ? HandleCtrl(k, shift) : HandleCursor(k) || HandleEdit(k);
         }
 
-        /// <summary>再生・オクターブ・チャンネル/ページ移動（どの列でも共通）。</summary>
+        /// <summary>トランスポート。Cubase / Studio One 共通のテンキー配置に合わせる。</summary>
+        bool HandleTransport(KeyCode k)
+        {
+            var t = s.Transport;
+            switch (k)
+            {
+                case KeyCode.Space: t.TogglePlay(); return true;
+                case KeyCode.Return:
+                case KeyCode.KeypadEnter: t.Start(); return true;
+                case KeyCode.Keypad0:
+                case KeyCode.Escape: t.Stop(); return true;
+                case KeyCode.KeypadPeriod: s.GoToStart(); return true;
+                case KeyCode.KeypadDivide: t.ToggleLoop(); return true;
+                case KeyCode.KeypadMultiply: s.SetRecording(!s.State.recording); return true;
+                case KeyCode.KeypadMinus: s.StepOrder(-1); return true;
+                case KeyCode.KeypadPlus: s.StepOrder(1); return true;
+            }
+            return false;
+        }
+
+        /// <summary>オクターブ・チャンネル/ページ移動（どのビューでも共通）。</summary>
         bool HandleGlobal(KeyCode k, bool shift)
         {
             var st = s.State;
             int last = s.CurrentPattern.length - 1;
             switch (k)
             {
-                case KeyCode.Space: s.Transport.TogglePatternPlay(); return true;
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter: s.Transport.PlaySong(); return true;
-                case KeyCode.Escape: s.Transport.Stop(); return true;
                 case KeyCode.LeftBracket: s.SetOctave(st.octave - 1); return true;
                 case KeyCode.RightBracket: s.SetOctave(st.octave + 1); return true;
                 case KeyCode.Tab:
@@ -101,6 +136,51 @@ namespace UniDAW.Editor
                 case KeyCode.End: s.SetCursor(last, st.cursorCh, st.cursorCol); return true;
             }
             return false;
+        }
+
+        /// <summary>ピアノロール：DAW のキーエディタと同じ編集キー。ノート入力の文字キーは使わない。</summary>
+        bool HandleRoll(KeyCode k, bool ctrl, bool shift, bool alt)
+        {
+            var preset = DawKeys.Preset;
+            if (DawKeys.IsDeselect(preset, k, ctrl))
+            {
+                roll.ClearSelection();
+                return true;
+            }
+            if (DawKeys.IsDuplicate(preset, k, ctrl))
+            {
+                roll.Duplicate();
+                return true;
+            }
+            int semis = shift ? 12 : 1;
+            switch (k)
+            {
+                case KeyCode.Delete:
+                case KeyCode.Backspace: roll.DeleteSelected(); return true;
+                case KeyCode.UpArrow: roll.MoveSelected(0, semis, false); return true;
+                case KeyCode.DownArrow: roll.MoveSelected(0, -semis, false); return true;
+                case KeyCode.LeftArrow:
+                case KeyCode.RightArrow:
+                    int dir = k == KeyCode.LeftArrow ? -1 : 1;
+                    if (DawKeys.IsNudgeModifier(preset, ctrl, alt)) roll.MoveSelected(dir, 0, false);
+                    else roll.SelectNeighbor(dir, shift);
+                    return true;
+            }
+            if (ctrl)
+            {
+                switch (k)
+                {
+                    case KeyCode.A: roll.SelectAll(); return true;
+                    case KeyCode.C: roll.Copy(); return true;
+                    case KeyCode.X: roll.Cut(); return true;
+                    case KeyCode.V: roll.Paste(); return true;
+                }
+                return false;
+            }
+            var tool = DawKeys.ToolForKey(preset, k);
+            if (tool == null) return false;
+            s.SetRollTool(tool.Value);
+            return true;
         }
 
         bool HandleCtrl(KeyCode k, bool shift)

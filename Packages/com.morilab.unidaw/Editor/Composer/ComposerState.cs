@@ -6,6 +6,9 @@ namespace UniDAW.Editor
     /// <summary>パターンの見え方（int としてシリアライズされるので値は固定）。</summary>
     public enum PatternViewKind { Tracker = 0, Step = 1, PianoRoll = 2 }
 
+    /// <summary>ピアノロールのツール（int としてシリアライズされるので値は固定）。</summary>
+    public enum RollTool { Select = 0, Draw = 1, Erase = 2 }
+
     /// <summary>
     /// コンポーザーの編集状態（ウィンドウにシリアライズされ、ドメインリロードを越えて残る）。
     /// 純粋なデータで、変更は <see cref="ComposerSession"/> 経由で行う。
@@ -27,6 +30,9 @@ namespace UniDAW.Editor
         public int editStep = 1;
         public PatternViewKind view;
         public bool follow = true;
+        /// <summary>DAW のサイクル（ループ）。オン = パターンをループ再生、オフ = 順序表に沿って曲を再生。</summary>
+        public bool loop = true;
+        public RollTool rollTool;
         public bool recording;
         public bool[] muted = new bool[Song.ChannelCount];
         public bool[] soloed = new bool[Song.ChannelCount];

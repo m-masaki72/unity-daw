@@ -11,16 +11,18 @@ namespace UniDAW.Editor
     {
         public ComposerSession Session { get; }
         public CellCommands Cells { get; }
+        public RollEditor Roll { get; }
         public SongFileCommands Files { get; }
         public Transport Transport => Session.Transport;
         public ComposerState State => Session.State;
 
         readonly Action focusMain;
 
-        public ComposerContext(ComposerSession session, CellCommands cells, SongFileCommands files, Action focusMain)
+        public ComposerContext(ComposerSession session, CellCommands cells, RollEditor roll, SongFileCommands files, Action focusMain)
         {
             Session = session;
             Cells = cells;
+            Roll = roll;
             Files = files;
             this.focusMain = focusMain;
         }

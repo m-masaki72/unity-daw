@@ -4,7 +4,7 @@ using UnityEngine;
 namespace UniDAW.Editor
 {
     /// <summary>
-    /// セル単位の編集操作（ノート入力・ステップ切替・ピアノロール・削除・数値入力・移調・トラックコピー）。
+    /// セル単位の編集操作（ノート入力・ステップ切替・削除・数値入力・移調・トラックコピー）。
     /// キー・マウス・MIDI など入力手段に依存しない「何をするか」だけを持つ。
     /// </summary>
     public sealed class CellCommands
@@ -62,23 +62,6 @@ namespace UniDAW.Editor
             var cell = p.tracks[ch].cells[row];
             if (cell.HasNote || cell.IsOff) s.ModifyCell("Toggle Step", (ref Cell c) => c = Cell.Blank);
             else PlaceNote("Toggle Step", ch, LastNoteInTrack(p, ch, row), 0.15);
-        }
-
-        /// <summary>ピアノロールのクリック。左：置く（同じノートなら消す）、右：ノートオフ（既にオフなら消す）。</summary>
-        public void RollClick(int ch, int row, int pitch, int button)
-        {
-            if (s.Song == null) return;
-            s.SetCursor(row, ch, 0);
-            var p = s.CurrentPattern;
-            if (p == null || !s.CanEdit()) return;
-            var cell = p.tracks[ch].cells[p.CellIndex(ch, row)];
-            if (button == 1)
-            {
-                bool off = cell.IsOff;
-                s.ModifyCell("Roll Note Off", (ref Cell c) => c.note = off ? Cell.Empty : Cell.Off);
-            }
-            else if (cell.HasNote && cell.note == pitch) s.ModifyCell("Roll Erase", (ref Cell c) => c.note = Cell.Empty);
-            else PlaceNote("Roll Note", ch, pitch, 0.15);
         }
 
         static int LastNoteInTrack(Pattern p, int ch, int row)

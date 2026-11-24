@@ -93,6 +93,26 @@ namespace UniDAW.Editor
             Changed?.Invoke();
         }
 
+        /// <summary>頭出し（順序表の先頭・行 0）。再生中なら先頭から鳴らし直す。</summary>
+        public void GoToStart()
+        {
+            if (Song == null) return;
+            State.orderIndex = 0;
+            State.patternIndex = Song.order[0];
+            State.cursorRow = 0;
+            State.Clamp();
+            if (Transport.IsPlaying) Transport.Start();
+            Changed?.Invoke();
+        }
+
+        /// <summary>順序表の前後へ移動（テンキー − / ＋）。再生中ならそこから鳴らし直す。</summary>
+        public void StepOrder(int delta)
+        {
+            if (Song == null) return;
+            SelectOrder(State.orderIndex + delta);
+            if (Transport.IsPlaying) Transport.Start();
+        }
+
         /// <summary>再生追従：再生中の位置へ表示を移す。</summary>
         public void FollowPlayback(int pattern, int order)
         {
@@ -129,6 +149,19 @@ namespace UniDAW.Editor
         {
             if (State.view == kind) return;
             State.view = kind;
+            Changed?.Invoke();
+        }
+
+        public void SetRollTool(RollTool tool)
+        {
+            if (State.rollTool == tool) return;
+            State.rollTool = tool;
+            Changed?.Invoke();
+        }
+
+        public void SetKeyPreset(DawKeyPreset preset)
+        {
+            DawKeys.Preset = preset;
             Changed?.Invoke();
         }
 

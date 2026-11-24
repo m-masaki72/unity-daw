@@ -190,32 +190,5 @@ namespace UniDAW.Tests
                 Object.DestroyImmediate(song);
             }
         }
-
-        [Test]
-        public void Window_PianoRollClick_EditsSameData()
-        {
-            var song = Song.CreateDefault(16);
-            var w = ScriptableObject.CreateInstance<UniDAWWindow>();
-            try
-            {
-                w.SetSong(song);
-                var cells = song.patterns[0].tracks[1].cells;
-                w.RollClick(1, 2, 64, 0);
-                Assert.AreEqual(64, cells[2].note, "左クリックで置く");
-                Assert.AreEqual(1, w.CursorChannel);
-                Assert.AreEqual(2, w.CursorRow);
-                w.RollClick(1, 2, 67, 0);
-                Assert.AreEqual(67, cells[2].note, "別の高さなら置き換え");
-                w.RollClick(1, 2, 67, 0);
-                Assert.IsFalse(cells[2].HasNote, "同じノートなら消す");
-                w.RollClick(1, 5, 0, 1);
-                Assert.IsTrue(cells[5].IsOff, "右クリックでノートオフ");
-            }
-            finally
-            {
-                Object.DestroyImmediate(w);
-                Object.DestroyImmediate(song);
-            }
-        }
     }
 }

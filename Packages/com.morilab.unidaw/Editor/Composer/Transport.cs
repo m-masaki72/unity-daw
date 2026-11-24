@@ -90,6 +90,36 @@ namespace UniDAW.Editor
             else PlayPattern();
         }
 
+        // ---- DAW 流のトランスポート（Cubase / Studio One のテンキー操作に合わせる） ----
+
+        /// <summary>再生開始：サイクルがオンならパターンをループ、オフなら順序表に沿って曲を再生。</summary>
+        public void Start()
+        {
+            if (state.loop) PlayPattern();
+            else PlaySong();
+        }
+
+        /// <summary>Space：再生／停止の切り替え。</summary>
+        public void TogglePlay()
+        {
+            if (IsPlaying) Stop();
+            else Start();
+        }
+
+        /// <summary>サイクルの切り替え。再生中なら今の位置から新しいモードで続ける。</summary>
+        public void ToggleLoop()
+        {
+            state.loop = !state.loop;
+            var e = Engine;
+            if (e != null && e.IsPlaying && state.song != null)
+            {
+                int pat = e.PlayingPattern, order = e.PlayingOrder, row = e.PlayingRow;
+                if (state.loop) Prepare().PlayPattern(pat, row);
+                else Prepare().Play(order, row);
+            }
+            Changed?.Invoke();
+        }
+
         /// <summary>ノートを一定時間だけ鳴らす（再生中はシーケンスを邪魔しないので鳴らさない）。</summary>
         public void PreviewNote(int ch, int note, int inst, double seconds)
         {

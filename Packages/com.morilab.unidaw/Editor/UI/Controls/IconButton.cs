@@ -4,7 +4,7 @@ using UnityEngine.UIElements;
 
 namespace UniDAW.Editor
 {
-    public enum Glyph { Play, PlayFromStart, Stop, Record, Menu }
+    public enum Glyph { Play, PlayFromStart, Stop, Record, Menu, ToStart, Loop }
 
     /// <summary>ベクター描画のアイコン＋小さな見出しのボタン。フォーカスを奪わない。</summary>
     public sealed class IconButton : VisualElement
@@ -66,6 +66,27 @@ namespace UniDAW.Editor
                 case Glyph.Record:
                     p.BeginPath();
                     p.Arc(new Vector2(w / 2, h / 2), Mathf.Min(w, h) / 2 - 0.5f, Angle.Degrees(0), Angle.Degrees(360));
+                    p.Fill();
+                    break;
+                case Glyph.ToStart:
+                    Box(p, 0, 0, 2.5f, h);
+                    Tri(p, w, 0, 3, h);
+                    break;
+                case Glyph.Loop:
+                    // 円弧＋矢じり（サイクル）
+                    var c = new Vector2(w / 2, h / 2);
+                    float rad = Mathf.Min(w, h) / 2 - 1.5f;
+                    p.strokeColor = p.fillColor;
+                    p.lineWidth = 2f;
+                    p.BeginPath();
+                    p.Arc(c, rad, Angle.Degrees(-60), Angle.Degrees(210));
+                    p.Stroke();
+                    var tip = c + new Vector2(Mathf.Cos(-60 * Mathf.Deg2Rad), Mathf.Sin(-60 * Mathf.Deg2Rad)) * rad;
+                    p.BeginPath();
+                    p.MoveTo(tip + new Vector2(-4.5f, -1f));
+                    p.LineTo(tip + new Vector2(1.5f, -3.5f));
+                    p.LineTo(tip + new Vector2(1f, 3f));
+                    p.ClosePath();
                     p.Fill();
                     break;
                 case Glyph.Menu:
