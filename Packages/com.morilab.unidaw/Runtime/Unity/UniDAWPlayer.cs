@@ -79,9 +79,25 @@ namespace UniDAW
 
         void OnAudioConfigChanged(bool deviceWasChanged)
         {
-            var oldSong = Engine?.Song;
+            // デバイス変更でサンプルレートが変わりうるのでエンジンを作り直し、再生状態・ミュート等を引き継ぐ
+            var old = Engine;
             CreateEngine();
-            Engine.Song = oldSong;
+            if (old == null) return;
+            var e = Engine;
+            e.Song = old.Song;
+            e.RandomSeed = old.RandomSeed;
+            for (int c = 0; c < ChipEngine.Channels; c++)
+            {
+                e.Mute[c] = old.Mute[c];
+                e.Solo[c] = old.Solo[c];
+            }
+            if (old.IsPlaying)
+            {
+                if (old.IsPatternMode) e.PlayPattern(old.PlayingPattern, old.PlayingRow);
+                else e.Play(old.PlayingOrder, old.PlayingRow);
+            }
+            old.Stop();
+            EnsureSourceRunning();
         }
 
         public void Play()

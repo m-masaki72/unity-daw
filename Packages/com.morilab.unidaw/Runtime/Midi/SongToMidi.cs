@@ -23,7 +23,9 @@ namespace UniDAW.Midi
             if (song == null) throw new ArgumentNullException(nameof(song));
             song.Validate();
             int rpb = Math.Max(1, song.rowsPerBeat);
-            int ticksPerRow = Math.Max(1, division / rpb);
+            // 1 行の tick が整数になるよう division を rpb の倍数に切り上げる（端数切り捨てによるテンポずれ防止）
+            if (division % rpb != 0) division = (division / rpb + 1) * rpb;
+            int ticksPerRow = division / rpb;
 
             var tracks = new List<SmfWriter.TrackData>();
             var open = new MidiNote?[Song.ChannelCount];

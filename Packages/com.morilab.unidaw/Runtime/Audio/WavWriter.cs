@@ -35,8 +35,7 @@ namespace UniDAW
                     w.Write(s);
                 }
             }
-            if (File.Exists(path)) File.Delete(path);
-            File.Move(tmp, path);
+            AtomicFile.Commit(tmp, path);
         }
     }
 }

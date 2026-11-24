@@ -77,8 +77,7 @@ namespace UniDAW.Editor
             var bytes = SongToMidi.Export(song);
             var tmp = path + ".tmp";
             File.WriteAllBytes(tmp, bytes);
-            if (File.Exists(path)) File.Delete(path);
-            File.Move(tmp, path);
+            AtomicFile.Commit(tmp, path);
         }
 
         /// <summary>デモ曲・デモ MIDI・MIDI 変換結果・デモシーンを生成。</summary>
@@ -89,9 +88,7 @@ namespace UniDAW.Editor
 
             var midiBytes = DemoSongs.BuildDemoMidi();
             var full = Path.GetFullPath(DemoMidiPath);
-            File.WriteAllBytes(full + ".tmp", midiBytes);
-            if (File.Exists(full)) File.Delete(full);
-            File.Move(full + ".tmp", full);
+            AtomicFile.WriteAllBytes(full, midiBytes);
             AssetDatabase.ImportAsset(DemoMidiPath);
 
             var fromMidi = MidiToSong.Import(midiBytes, new MidiImportOptions(), "Demo (from MIDI)", out var report);
@@ -99,7 +96,8 @@ namespace UniDAW.Editor
             SaveSong(fromMidi, DemoFromMidiPath);
             Debug.Log("[UniDAW] Demo MIDI import: " + report);
 
-            if (createScene) CreateDemoScene(demo);
+            // 開いているシーンの未保存変更を確認してから差し替える（キャンセルならシーン作成はしない）
+            if (createScene && EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) CreateDemoScene(demo);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             // シーン切替でメモリ上の参照が差し替わることがあるので読み直して返す

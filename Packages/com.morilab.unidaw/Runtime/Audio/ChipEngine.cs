@@ -87,6 +87,10 @@ namespace UniDAW
         public volatile int PlayingOrder;
         public volatile int PlayingRow;
         public volatile int PlayingPattern = -1;
+        /// <summary>ポリメーターのセル位置計算用ループ回数（パターンループ再生時のみ非 0）。</summary>
+        public volatile int PlayingLoop;
+        /// <summary>パターンループ再生中か（false なら曲再生）。</summary>
+        public bool IsPatternMode => loopPattern;
         public volatile int PatternLoopCount;
         public volatile int SongLoopCount;
         public volatile bool IsPlaying;
@@ -326,7 +330,8 @@ namespace UniDAW
                 PlayingRow = row;
                 PlayingOrder = orderPos;
                 PlayingPattern = pi;
-                int cycle = loopPattern ? patternLoop : songLoops;
+                int cycle = loopPattern ? patternLoop : SongCycle(s, pi);
+                PlayingLoop = loopPattern ? patternLoop : 0;
                 for (int c = 0; c < Channels && c < p.tracks.Length; c++)
                 {
                     var t = p.tracks[c];
@@ -363,6 +368,19 @@ namespace UniDAW
                     SongLoopCount = songLoops;
                 }
             }
+        }
+
+        /// <summary>曲モードでのパターン出現回数（何周目・順序表で何度目の出現か）。確率・条件トリガーの周回数に使う。</summary>
+        int SongCycle(Song s, int pi)
+        {
+            int total = 0, before = 0;
+            for (int i = 0; i < s.order.Count; i++)
+            {
+                if (s.PatternAtOrder(i) != pi) continue;
+                if (i < orderPos) before++;
+                total++;
+            }
+            return songLoops * Math.Max(1, total) + before;
         }
 
         bool PassesConditions(in Cell cell, int c, int cycle, int idx, int pi)
@@ -404,7 +422,8 @@ namespace UniDAW
             }
             else if (cell.HasNote)
             {
-                if (cell.HasFx(FxType.Portamento) && ch.active)
+                // リリース中の音へのポルタメントは新規発音として扱う（減衰したまま無音にならないように）
+                if (cell.HasFx(FxType.Portamento) && ch.active && !ch.released)
                 {
                     ch.portaTarget = cell.note;
                     ch.baseNote = cell.note;

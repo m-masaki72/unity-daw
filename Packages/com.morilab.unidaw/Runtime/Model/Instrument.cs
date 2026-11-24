@@ -69,7 +69,8 @@ namespace UniDAW
             }
             else if (next >= len)
             {
-                next = len - 1;
+                // リリース後：ループ点がリリース部にある（またはリリース指定なし）ならループ、それ以外は最後の値で保持
+                next = loop >= 0 && loop < len && (release <= 0 || loop >= release) ? loop : len - 1;
             }
             pos = next;
             return v;

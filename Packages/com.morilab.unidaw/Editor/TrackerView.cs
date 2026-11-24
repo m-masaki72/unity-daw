@@ -140,6 +140,8 @@ namespace UniDAW.Editor
                 mute[c].EnableInClassList("on", w.IsMuted(c));
                 solo[c].EnableInClassList("on", w.IsSoloed(c));
             }
+            // 行要素は使い回すので、前回のハイライトを外してから再設定する
+            if (lastPlayRow >= 0 && lastPlayRow < rows.Count) rows[lastPlayRow].root.RemoveFromClassList("playing");
             lastPlayRow = -1;
             UpdatePlayhead(w.PlayheadRow);
             if (lastCursorRow != w.CursorRow)

@@ -150,6 +150,7 @@ namespace UniDAW.Editor
                                      (cell.probability < 100 ? $"  {cell.probability}%" : "") +
                                      (cell.HasCondition ? $"  {cell.condA}:{cell.condB}" : "");
                 }
+                if (ui.playing >= 0 && ui.playing < ui.steps.Count) ui.steps[ui.playing].root.RemoveFromClassList("playing");
                 ui.playing = -1;
             }
             UpdatePlayhead();

@@ -543,7 +543,7 @@ namespace UniDAW.Editor
         {
             if (song == null || cellTitle == null) return;
             var p = CurrentPattern;
-            var c = p.tracks[cursorCh].cells[cursorRow];
+            var c = p.tracks[cursorCh].cells[p.CellIndex(cursorCh, cursorRow)];
             cellTitle.text = $"Cell  {Song.ChannelNames[cursorCh]}  Row {cursorRow:X2}";
             noteField.SetValueWithoutNotify(NoteText.Format(c.note, Song.Kinds[cursorCh]));
             instField.SetValueWithoutNotify(c.instrument);
@@ -618,13 +618,14 @@ namespace UniDAW.Editor
 
         void ModifyCell(string name, CellEdit a) => ModifyCellAt(patternIndex, cursorCh, cursorRow, name, a);
 
-        void ModifyCellAt(int pat, int ch, int row, string name, CellEdit a)
+        void ModifyCellAt(int pat, int ch, int row, string name, CellEdit a, int loop = 0)
         {
             if (!CanEdit()) return;
             var p = song.GetPattern(pat);
             if (p == null || row < 0 || row >= p.length) return;
             Undo.RecordObject(song, name);
-            a(ref p.tracks[ch].cells[row]);
+            // ポリメーター：表示・再生と同じセル（トラック長で折り返した位置）へ書く
+            a(ref p.tracks[ch].cells[p.CellIndex(ch, row, loop)]);
             EditorUtility.SetDirty(song);
             RefreshAll();
         }
@@ -933,6 +934,7 @@ namespace UniDAW.Editor
             bool live = e.IsPlaying && e.PlayingPattern >= 0;
             int pat = live ? e.PlayingPattern : patternIndex;
             int row = live ? e.PlayingRow : cursorRow;
+            int loop = live ? e.PlayingLoop : 0;
             foreach (var kv in latest)
             {
                 var n = kv.Value;
@@ -942,7 +944,7 @@ namespace UniDAW.Editor
                     c.note = n.note;
                     c.instrument = n.instrument;
                     c.volume = vol;
-                });
+                }, loop);
             }
             if (!live) Advance();
         }
@@ -1215,7 +1217,7 @@ namespace UniDAW.Editor
                 if (Song.Kinds[cursorCh] == ChannelKind.Noise) c.note = Mathf.Clamp(c.note + Math.Sign(semis), 0, 15);
                 else c.note = Mathf.Clamp(c.note + semis, NoteText.MinNote, NoteText.MaxNote);
             });
-            var cell = CurrentPattern.tracks[cursorCh].cells[cursorRow];
+            var cell = CurrentPattern.tracks[cursorCh].cells[CurrentPattern.CellIndex(cursorCh, cursorRow)];
             if (cell.HasNote) PreviewNote(cursorCh, cell.note, UniDAWMidiBridge.ChannelInstrument[cursorCh], 0.2);
         }
 
