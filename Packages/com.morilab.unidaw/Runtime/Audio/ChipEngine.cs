@@ -43,8 +43,15 @@ namespace UniDAW
             public float outPitch;
             // Gxx ノートディレイ待ちのセル
             public bool delayPending;
-            public Cell delayCell;
-            public int delayTick, delayCycle, delayIdx, delayPi, delayTranspose;
+            public int delayTick;
+            public RowCell delayed;
+        }
+
+        /// <summary>行の 1 セルと、その適用に要る文脈（周回数・セル位置・移調）。Gxx ではそのまま保留する。</summary>
+        struct RowCell
+        {
+            public Cell cell;
+            public int cycle, idx, pi, transpose;
         }
 
         enum CmdType { Play, PlayPattern, Stop, NoteOn, NoteOff, AllNotesOff }
@@ -349,23 +356,17 @@ namespace UniDAW
                     var t = p.tracks[c];
                     int idx = p.CellIndex(c, row, loopPattern ? patternLoop : 0);
                     if (t.cells == null || idx >= t.cells.Length) continue;
-                    var cell = t.cells[idx];
-                    int delay = cell.FxParam(FxType.NoteDelay);
+                    var rc = new RowCell { cell = t.cells[idx], cycle = cycle, idx = idx, pi = pi, transpose = transpose };
+                    int delay = rc.cell.DelayTicks(speed);
+                    if (delay < 0) continue; // 行の長さ以上のディレイはその行では鳴らない（FamiTracker 互換）
                     if (delay > 0)
                     {
-                        // 行の長さ以上のディレイはその行では鳴らない（FamiTracker 互換）
-                        if (delay >= speed) continue;
-                        ref var ch = ref st[c];
-                        ch.delayPending = true;
-                        ch.delayCell = cell;
-                        ch.delayTick = delay;
-                        ch.delayCycle = cycle;
-                        ch.delayIdx = idx;
-                        ch.delayPi = pi;
-                        ch.delayTranspose = transpose;
+                        st[c].delayPending = true;
+                        st[c].delayTick = delay;
+                        st[c].delayed = rc;
                         continue;
                     }
-                    ApplyCell(c, cell, s, cycle, idx, pi, transpose);
+                    ApplyCell(c, rc, s);
                 }
             }
             catch (Exception)
@@ -381,7 +382,7 @@ namespace UniDAW
                 ref var ch = ref st[c];
                 if (!ch.delayPending || tickInRow < ch.delayTick) continue;
                 ch.delayPending = false;
-                ApplyCell(c, ch.delayCell, s, ch.delayCycle, ch.delayIdx, ch.delayPi, ch.delayTranspose);
+                ApplyCell(c, ch.delayed, s);
             }
         }
 
@@ -447,10 +448,11 @@ namespace UniDAW
             return h ^ (h >> 16);
         }
 
-        void ApplyCell(int c, in Cell cell, Song s, int cycle, int idx, int pi, int transpose)
+        void ApplyCell(int c, in RowCell rc, Song s)
         {
+            ref readonly var cell = ref rc.cell;
             if (cell.IsBlank) return;
-            if ((cell.HasNote || cell.IsOff) && !PassesConditions(cell, c, cycle, idx, pi)) return;
+            if ((cell.HasNote || cell.IsOff) && !PassesConditions(cell, c, rc.cycle, rc.idx, rc.pi)) return;
 
             ref var ch = ref st[c];
             if (cell.instrument >= 0) ch.instrument = cell.instrument;
@@ -461,8 +463,7 @@ namespace UniDAW
             }
             else if (cell.HasNote)
             {
-                int note = cell.note;
-                if (transpose != 0 && Song.Kinds[c] != ChannelKind.Noise) note = Math.Max(0, Math.Min(127, note + transpose));
+                int note = Song.TransposeNote(c, cell.note, rc.transpose);
                 // リリース中の音へのポルタメントは新規発音として扱う（減衰したまま無音にならないように）
                 if (cell.HasFx(FxType.Portamento) && ch.active && !ch.released)
                 {

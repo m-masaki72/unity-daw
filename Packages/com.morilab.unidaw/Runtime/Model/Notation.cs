@@ -10,6 +10,9 @@ namespace UniDAW
         public const int MinNote = 12;   // C-0
         public const int MaxNote = 119;  // B-8
 
+        /// <summary>黒鍵か（ピアノロールの段の色分け用）。</summary>
+        public static bool IsBlackKey(int note) => Names[((note % 12) + 12) % 12][1] == '#';
+
         public static string Format(int note, ChannelKind kind)
         {
             if (note == Cell.Empty) return "---";
@@ -58,88 +61,66 @@ namespace UniDAW
         public static double MidiToHz(double note) => 440.0 * Math.Pow(2.0, (note - 69.0) / 12.0);
     }
 
-    /// <summary>エフェクトの表示・解析（例: "037", "V02", "A04"）。</summary>
+    /// <summary>エフェクトの表示・解析（例: "037", "V02", "A04"）。種類ごとの情報は <see cref="Table"/> の 1 か所で定義する。</summary>
     public static class FxText
     {
+        struct Info
+        {
+            public FxType type;
+            public char ch;
+            public string name, help;
+            public Info(FxType type, char ch, string name, string help) { this.type = type; this.ch = ch; this.name = name; this.help = help; }
+        }
+
+        static readonly Info[] Table =
+        {
+            new Info(FxType.Arpeggio, '0', "Arpeggio", "0xy アルペジオ: 0 / +x / +y 半音を tick 毎に巡回（例 037 = マイナー）"),
+            new Info(FxType.SlideUp, '1', "Slide Up", "1xx スライドアップ: tick 毎に xx/16 半音上昇"),
+            new Info(FxType.SlideDown, '2', "Slide Down", "2xx スライドダウン: tick 毎に xx/16 半音下降"),
+            new Info(FxType.Portamento, '3', "Portamento", "3xx ポルタメント: 次ノートへ xx/16 半音/tick で滑る（再発音しない）"),
+            new Info(FxType.Vibrato, '4', "Vibrato", "4xy ビブラート: 速度 x, 深さ y"),
+            new Info(FxType.VolumeSlide, 'A', "Volume Slide", "Axy ボリュームスライド: x 上昇 / y 下降（1/8 段/tick）"),
+            new Info(FxType.Duty, 'V', "Duty / Noise Mode", "Vxx デューティ: 0=12.5% 1=25% 2=50% 3=75%（ノイズは 1 でショートモード）"),
+            new Info(FxType.Speed, 'F', "Speed / Tempo", "Fxx スピード/テンポ: 00-1F は tick/行, 20 以上は BPM"),
+            new Info(FxType.NoteCut, 'S', "Note Cut", "Sxx ノートカット: 行の xx tick 目で音を止める"),
+            new Info(FxType.NoteDelay, 'G', "Note Delay", "Gxx ノートディレイ: 行の xx tick 目まで発音を遅らせる（スウィング・フラム）"),
+            new Info(FxType.NoteSlideUp, 'Q', "Note Slide Up", "Qxy ノートスライドアップ: 速度 x で y 半音上へ滑る"),
+            new Info(FxType.NoteSlideDown, 'R', "Note Slide Down", "Rxy ノートスライドダウン: 速度 x で y 半音下へ滑る"),
+        };
+
+        /// <summary>入力できるエフェクト文字の一覧（例 "0 1 2 3 4 A V F S G Q R"）。</summary>
+        public static readonly string AllChars = string.Join(" ", Array.ConvertAll(Table, i => i.ch.ToString()));
+
+        static int IndexOf(FxType t)
+        {
+            for (int i = 0; i < Table.Length; i++) if (Table[i].type == t) return i;
+            return -1;
+        }
+
         public static char TypeChar(FxType t)
         {
-            switch (t)
-            {
-                case FxType.Arpeggio: return '0';
-                case FxType.SlideUp: return '1';
-                case FxType.SlideDown: return '2';
-                case FxType.Portamento: return '3';
-                case FxType.Vibrato: return '4';
-                case FxType.VolumeSlide: return 'A';
-                case FxType.Duty: return 'V';
-                case FxType.Speed: return 'F';
-                case FxType.NoteCut: return 'S';
-                case FxType.NoteDelay: return 'G';
-                case FxType.NoteSlideUp: return 'Q';
-                case FxType.NoteSlideDown: return 'R';
-                default: return '.';
-            }
+            int i = IndexOf(t);
+            return i >= 0 ? Table[i].ch : '.';
         }
 
         public static FxType TypeFromChar(char c)
         {
-            switch (char.ToUpperInvariant(c))
-            {
-                case '0': return FxType.Arpeggio;
-                case '1': return FxType.SlideUp;
-                case '2': return FxType.SlideDown;
-                case '3': return FxType.Portamento;
-                case '4': return FxType.Vibrato;
-                case 'A': return FxType.VolumeSlide;
-                case 'V': return FxType.Duty;
-                case 'F': return FxType.Speed;
-                case 'S': return FxType.NoteCut;
-                case 'G': return FxType.NoteDelay;
-                case 'Q': return FxType.NoteSlideUp;
-                case 'R': return FxType.NoteSlideDown;
-                default: return FxType.None;
-            }
+            c = char.ToUpperInvariant(c);
+            foreach (var i in Table) if (i.ch == c) return i.type;
+            return FxType.None;
         }
 
         public static string Describe(FxType t)
         {
-            switch (t)
-            {
-                case FxType.Arpeggio: return "Arpeggio";
-                case FxType.SlideUp: return "Slide Up";
-                case FxType.SlideDown: return "Slide Down";
-                case FxType.Portamento: return "Portamento";
-                case FxType.Vibrato: return "Vibrato";
-                case FxType.VolumeSlide: return "Volume Slide";
-                case FxType.Duty: return "Duty / Noise Mode";
-                case FxType.Speed: return "Speed / Tempo";
-                case FxType.NoteCut: return "Note Cut";
-                case FxType.NoteDelay: return "Note Delay";
-                case FxType.NoteSlideUp: return "Note Slide Up";
-                case FxType.NoteSlideDown: return "Note Slide Down";
-                default: return "None";
-            }
+            int i = IndexOf(t);
+            return i >= 0 ? Table[i].name : "None";
         }
 
         /// <summary>エフェクトの使い方（ステータスバーのヘルプ用）。</summary>
         public static string Help(FxType t)
         {
-            switch (t)
-            {
-                case FxType.Arpeggio: return "0xy アルペジオ: 0 / +x / +y 半音を tick 毎に巡回（例 037 = マイナー）";
-                case FxType.SlideUp: return "1xx スライドアップ: tick 毎に xx/16 半音上昇";
-                case FxType.SlideDown: return "2xx スライドダウン: tick 毎に xx/16 半音下降";
-                case FxType.Portamento: return "3xx ポルタメント: 次ノートへ xx/16 半音/tick で滑る（再発音しない）";
-                case FxType.Vibrato: return "4xy ビブラート: 速度 x, 深さ y";
-                case FxType.VolumeSlide: return "Axy ボリュームスライド: x 上昇 / y 下降（1/8 段/tick）";
-                case FxType.Duty: return "Vxx デューティ: 0=12.5% 1=25% 2=50% 3=75%（ノイズは 1 でショートモード）";
-                case FxType.Speed: return "Fxx スピード/テンポ: 00-1F は tick/行, 20 以上は BPM";
-                case FxType.NoteCut: return "Sxx ノートカット: 行の xx tick 目で音を止める";
-                case FxType.NoteDelay: return "Gxx ノートディレイ: 行の xx tick 目まで発音を遅らせる（スウィング・フラム）";
-                case FxType.NoteSlideUp: return "Qxy ノートスライドアップ: 速度 x で y 半音上へ滑る";
-                case FxType.NoteSlideDown: return "Rxy ノートスライドダウン: 速度 x で y 半音下へ滑る";
-                default: return "エフェクト: 0 1 2 3 4 A V F S G Q R + 2 桁 16 進";
-            }
+            int i = IndexOf(t);
+            return i >= 0 ? Table[i].help : "エフェクト: " + AllChars + " + 2 桁 16 進";
         }
 
         public static string Format(Fx fx) =>

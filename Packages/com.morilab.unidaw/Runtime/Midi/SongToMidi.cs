@@ -50,18 +50,17 @@ namespace UniDAW.Midi
                         var cell = p.tracks[c].cells[p.CellIndex(c, row)];
                         if (cell.instrument >= 0) lastInst[c] = cell.instrument;
                         if (!cell.HasNote && !cell.IsOff) continue;
-                        int delay = Math.Max(0, cell.FxParam(FxType.NoteDelay));
-                        if (delay >= speed) continue;
+                        int delay = cell.DelayTicks(speed);
+                        if (delay < 0) continue;
                         long at = tick + (long)ticksPerRow * delay / speed;
                         Close(tracks[c], ref open[c], at);
                         if (cell.IsOff) continue;
                         bool noise = Song.Kinds[c] == ChannelKind.Noise;
-                        int note = noise ? cell.note : Math.Max(0, Math.Min(127, cell.note + transpose));
                         int vol = cell.volume >= 0 ? cell.volume : 15;
                         open[c] = new MidiNote
                         {
                             channel = noise ? 9 : c,
-                            note = noise ? NoiseToGm(cell.note, lastInst[c]) : note,
+                            note = noise ? NoiseToGm(cell.note, lastInst[c]) : Song.TransposeNote(c, cell.note, transpose),
                             velocity = Math.Max(1, Math.Min(127, (int)Math.Round(vol / 15.0 * 127))),
                             startTick = at,
                         };

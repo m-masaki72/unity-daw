@@ -21,10 +21,11 @@ namespace UniDAW.Editor
         [SerializeField] int cursorCol;
         [SerializeField] int octave = 4;
         [SerializeField] int editStep = 1;
-        /// <summary>0 = トラッカー, 1 = ステップ, 2 = ピアノロール（同じデータの3つの見え方）</summary>
-        [SerializeField] int viewMode;
+        /// <summary>同じデータの3つの見え方（int としてシリアライズされるので値は固定）</summary>
+        enum ViewMode { Tracker = 0, Step = 1, PianoRoll = 2 }
+        [SerializeField] ViewMode viewMode;
         /// <summary>セル単位（列なし）で編集するビューか</summary>
-        bool stepMode => viewMode != 0;
+        bool stepMode => viewMode != ViewMode.Tracker;
         static readonly string[] ViewNames = { "Tracker", "Step", "Piano Roll" };
         [SerializeField] bool follow = true;
         [SerializeField] bool recording;
@@ -44,6 +45,8 @@ namespace UniDAW.Editor
         TrackerView tracker;
         StepView steps;
         PianoRollView roll;
+        IPatternView[] views;
+        IPatternView CurrentView => views[Mathf.Clamp((int)viewMode, 0, views.Length - 1)];
 
         // インスペクタ
         TextField noteField, fx1Field, fx2Field;
@@ -184,6 +187,7 @@ namespace UniDAW.Editor
             mainArea.Add(tracker);
             mainArea.Add(steps);
             mainArea.Add(roll);
+            views = new IPatternView[] { tracker, steps, roll };
             center.Add(mainArea);
             body.Add(center);
 
@@ -304,10 +308,18 @@ namespace UniDAW.Editor
             panel.Add(row2);
             var row3 = new VisualElement();
             row3.AddToClassList("cd-btnrow");
-            row3.Add(new Button(() => OrderEdit("Order Transpose", () => AddOrderTranspose(-1))) { text = "Tr −", tooltip = "このエントリだけ半音下げて再生（パターンは共有のまま。ノイズは対象外）" });
-            row3.Add(new Button(() => OrderEdit("Order Transpose", () => AddOrderTranspose(1))) { text = "Tr +", tooltip = "このエントリだけ半音上げて再生" });
-            row3.Add(new Button(() => OrderEdit("Order Transpose", () => AddOrderTranspose(12))) { text = "+12", tooltip = "1 オクターブ上げ" });
-            row3.Add(new Button(() => OrderEdit("Order Transpose", () => AddOrderTranspose(-song.TransposeAtOrder(orderIndex)))) { text = "Tr 0" });
+            foreach (var (label, delta, tip) in new (string, int?, string)[]
+            {
+                ("Tr −", -1, "このエントリだけ半音下げて再生（パターンは共有のまま。ノイズは対象外）"),
+                ("Tr +", 1, "このエントリだけ半音上げて再生"),
+                ("+12", 12, "1 オクターブ上げ"),
+                ("Tr 0", null, "移調なしに戻す"),
+            })
+            {
+                row3.Add(new Button(() => OrderEdit("Order Transpose", () =>
+                    song.SetOrderTranspose(orderIndex, delta.HasValue ? song.TransposeAtOrder(orderIndex) + delta.Value : 0)))
+                { text = label, tooltip = tip });
+            }
             panel.Add(row3);
             return panel;
         }
@@ -317,13 +329,6 @@ namespace UniDAW.Editor
             if (a < 0 || b < 0 || a >= song.order.Count || b >= song.order.Count) return;
             song.SwapOrder(a, b);
             orderIndex = b;
-        }
-
-        void AddOrderTranspose(int semis)
-        {
-            song.SyncOrderTranspose();
-            int t = Mathf.Clamp(song.orderTranspose[orderIndex] + semis, -48, 48);
-            song.orderTranspose[orderIndex] = t;
         }
 
         void OrderEdit(string name, Action a)
@@ -508,10 +513,9 @@ namespace UniDAW.Editor
             bool has = song != null;
             mainArea.SetEnabled(has);
             readOnlyBanner.style.display = UniDAWAssets.IsReadOnly(song) ? DisplayStyle.Flex : DisplayStyle.None;
-            viewButton.text = "View: " + ViewNames[Mathf.Clamp(viewMode, 0, 2)];
-            tracker.style.display = viewMode == 0 ? DisplayStyle.Flex : DisplayStyle.None;
-            steps.style.display = viewMode == 1 ? DisplayStyle.Flex : DisplayStyle.None;
-            roll.style.display = viewMode == 2 ? DisplayStyle.Flex : DisplayStyle.None;
+            var cur = CurrentView;
+            viewButton.text = "View: " + ViewNames[Array.IndexOf(views, cur)];
+            foreach (var v in views) ((VisualElement)v).style.display = v == cur ? DisplayStyle.Flex : DisplayStyle.None;
             octaveField.SetValueWithoutNotify(octave);
             stepField.SetValueWithoutNotify(editStep);
             recToggle.SetValueWithoutNotify(recording);
@@ -533,9 +537,7 @@ namespace UniDAW.Editor
             patNameField.SetValueWithoutNotify(p.name);
             lenField.SetValueWithoutNotify(p.length);
             RefreshOrder();
-            if (viewMode == 1) steps.Refresh();
-            else if (viewMode == 2) roll.Refresh();
-            else tracker.Refresh();
+            CurrentView.Refresh();
             RefreshInspector();
             RefreshStatus();
         }
@@ -571,7 +573,6 @@ namespace UniDAW.Editor
             var p = CurrentPattern;
             if (p == null || !CanEdit()) return;
             var cell = p.tracks[ch].cells[p.CellIndex(ch, row)];
-            int inst = UniDAWMidiBridge.ChannelInstrument[ch];
             if (button == 1)
             {
                 // 右クリック: ノートオフ（既にオフなら消す）
@@ -584,12 +585,7 @@ namespace UniDAW.Editor
                 ModifyCell("Roll Erase", (ref Cell c) => c.note = Cell.Empty);
                 return;
             }
-            ModifyCell("Roll Note", (ref Cell c) =>
-            {
-                c.note = pitch;
-                if (c.instrument < 0) c.instrument = inst;
-            });
-            PreviewNote(ch, pitch, inst, 0.15);
+            PlaceNote("Roll Note", ch, pitch, 0.15);
         }
 
         void RefreshInspector()
@@ -628,9 +624,8 @@ namespace UniDAW.Editor
             var dev = MidiInput.IsOpen ? MidiInput.OpenDeviceName : "なし";
             var e = Engine;
             string play = e != null && e.IsPlaying ? $"▶ Order {e.PlayingOrder:X2} Pat {e.PlayingPattern:X2} Row {e.PlayingRow:X2}" : "■ Stop";
-            statusLabel.text = $"{play}   |   Cursor {Song.ChannelNames[cursorCh]} Row {cursorRow:X2}   Oct {octave}  Step {editStep}   |   MIDI: {dev}{(recording ? "  ● REC" : "")}";
             var help = FxHelpAtCursor();
-            if (help != null) statusLabel.text += "   |   " + help;
+            statusLabel.text = $"{play}   |   Cursor {Song.ChannelNames[cursorCh]} Row {cursorRow:X2}   Oct {octave}  Step {editStep}   |   MIDI: {dev}{(recording ? "  ● REC" : "")}{(help != null ? "   |   " + help : "")}";
         }
 
         public void FocusMain() => mainArea?.Focus();
@@ -748,14 +743,7 @@ namespace UniDAW.Editor
             }
             else
             {
-                int note = LastNoteInTrack(p, ch, row);
-                int inst = UniDAWMidiBridge.ChannelInstrument[ch];
-                ModifyCell("Toggle Step", (ref Cell c) =>
-                {
-                    c.note = note;
-                    c.instrument = inst;
-                });
-                PreviewNote(ch, note, inst, 0.15);
+                PlaceNote("Toggle Step", ch, LastNoteInTrack(p, ch, row), 0.15);
             }
         }
 
@@ -774,15 +762,21 @@ namespace UniDAW.Editor
         void EnterNote(int note)
         {
             if (!CanEdit()) return;
-            int ch = cursorCh;
+            if (note >= 0) PlaceNote("Enter Note", cursorCh, note, 0.25);
+            else ModifyCell("Enter Note", (ref Cell c) => c.note = note);
+            Advance();
+        }
+
+        /// <summary>カーソル位置にノートを置き、チャンネルの楽器を設定して試聴する（全ビュー共通）。</summary>
+        void PlaceNote(string undoName, int ch, int note, double seconds)
+        {
             int inst = UniDAWMidiBridge.ChannelInstrument[ch];
-            ModifyCell("Enter Note", (ref Cell c) =>
+            ModifyCell(undoName, (ref Cell c) =>
             {
                 c.note = note;
-                if (note >= 0) c.instrument = inst;
+                c.instrument = inst;
             });
-            if (note >= 0) PreviewNote(ch, note, inst, 0.25);
-            Advance();
+            PreviewNote(ch, note, inst, seconds);
         }
 
         void Advance()
@@ -871,7 +865,7 @@ namespace UniDAW.Editor
 
         void ToggleView()
         {
-            viewMode = (Mathf.Clamp(viewMode, 0, 2) + 1) % 3;
+            viewMode = (ViewMode)((Array.IndexOf(views, CurrentView) + 1) % views.Length);
             RefreshAll();
         }
 
@@ -942,9 +936,7 @@ namespace UniDAW.Editor
             }
             else if (patternChanged) RefreshAll();
 
-            if (viewMode == 1) steps.UpdatePlayhead();
-            else if (viewMode == 2) roll.UpdatePlayhead();
-            else tracker.UpdatePlayhead(PlayheadRow);
+            CurrentView.UpdatePlayhead();
             RefreshStatus();
             if (patternChanged) RefreshOrder();
         }
@@ -1046,20 +1038,12 @@ namespace UniDAW.Editor
             return -1;
         }
 
-        static char FxChar(KeyCode k)
+        /// <summary>キー → エフェクト種別（文字の対応は FxText の表に従う）。</summary>
+        static FxType FxFromKey(KeyCode k)
         {
-            if (k >= KeyCode.Alpha0 && k <= KeyCode.Alpha4) return (char)('0' + (k - KeyCode.Alpha0));
-            switch (k)
-            {
-                case KeyCode.A: return 'A';
-                case KeyCode.V: return 'V';
-                case KeyCode.F: return 'F';
-                case KeyCode.S: return 'S';
-                case KeyCode.G: return 'G';
-                case KeyCode.Q: return 'Q';
-                case KeyCode.R: return 'R';
-                default: return '\0';
-            }
+            if (k >= KeyCode.Alpha0 && k <= KeyCode.Alpha9) return FxText.TypeFromChar((char)('0' + (k - KeyCode.Alpha0)));
+            if (k >= KeyCode.A && k <= KeyCode.Z) return FxText.TypeFromChar((char)('A' + (k - KeyCode.A)));
+            return FxType.None;
         }
 
         bool IsTypingInField()
@@ -1235,9 +1219,8 @@ namespace UniDAW.Editor
 
             if (column == 3 || column == 5)
             {
-                char ch = FxChar(k);
-                if (ch == '\0') return false;
-                var t = FxText.TypeFromChar(ch);
+                var t = FxFromKey(k);
+                if (t == FxType.None) return false;
                 bool first = column == 3;
                 ModifyCell("Edit Fx", (ref Cell c) =>
                 {

@@ -66,6 +66,12 @@ namespace UniDAW
         public int PatternAtOrder(int orderIndex) =>
             orderIndex >= 0 && orderIndex < order.Count ? order[orderIndex] : -1;
 
+        public const int MaxTranspose = 48;
+
+        /// <summary>チャンネル ch のノートを移調（ノイズはピッチ番号なので移調しない）。再生と MIDI 書き出しで共用。</summary>
+        public static int TransposeNote(int ch, int note, int transpose) =>
+            transpose == 0 || Kinds[ch] == ChannelKind.Noise ? note : Math.Max(0, Math.Min(127, note + transpose));
+
         public int TransposeAtOrder(int orderIndex) =>
             orderTranspose != null && orderIndex >= 0 && orderIndex < orderTranspose.Count ? orderTranspose[orderIndex] : 0;
 
@@ -86,6 +92,13 @@ namespace UniDAW
             orderTranspose.RemoveAt(index);
         }
 
+        public void SetOrderTranspose(int index, int transpose)
+        {
+            SyncOrderTranspose();
+            if (index < 0 || index >= order.Count) return;
+            orderTranspose[index] = Math.Max(-MaxTranspose, Math.Min(MaxTranspose, transpose));
+        }
+
         public void SwapOrder(int a, int b)
         {
             SyncOrderTranspose();
@@ -93,13 +106,12 @@ namespace UniDAW
             (orderTranspose[a], orderTranspose[b]) = (orderTranspose[b], orderTranspose[a]);
         }
 
-        /// <summary>トランスポーズ表を順序表と同じ長さに揃える。</summary>
-        public void SyncOrderTranspose()
+        /// <summary>トランスポーズ表を順序表と同じ長さに揃える（order を直接編集するインポート等に備える）。</summary>
+        void SyncOrderTranspose()
         {
             if (orderTranspose == null) orderTranspose = new List<int>();
             while (orderTranspose.Count < order.Count) orderTranspose.Add(0);
             if (orderTranspose.Count > order.Count) orderTranspose.RemoveRange(order.Count, orderTranspose.Count - order.Count);
-            for (int i = 0; i < orderTranspose.Count; i++) orderTranspose[i] = Math.Max(-48, Math.Min(48, orderTranspose[i]));
         }
 
         /// <summary>シリアライズ後やインポート後に形を整える。</summary>
@@ -114,6 +126,8 @@ namespace UniDAW
                 order[i] = Math.Max(0, Math.Min(patterns.Count - 1, order[i]));
             if (order.Count == 0) order.Add(0);
             SyncOrderTranspose();
+            for (int i = 0; i < orderTranspose.Count; i++)
+                orderTranspose[i] = Math.Max(-MaxTranspose, Math.Min(MaxTranspose, orderTranspose[i]));
         }
 
         void OnValidate() => Validate();

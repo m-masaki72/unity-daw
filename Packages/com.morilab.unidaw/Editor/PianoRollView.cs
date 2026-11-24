@@ -9,16 +9,20 @@ namespace UniDAW.Editor
     /// カーソルのあるチャンネルを 1 本ずつ表示する。
     /// 左クリック：その高さにノートを置く（同じノートなら消す）、右クリック：ノートオフ。
     /// </summary>
-    public class PianoRollView : VisualElement
+    public class PianoRollView : VisualElement, IPatternView
     {
         public const float CellW = 18f, RowH = 12f;
+        const int DefaultLo = 36, DefaultHi = 84, NoiseHi = 15;
 
         readonly UniDAWWindow w;
         readonly Button[] chButtons = new Button[Song.ChannelCount];
         readonly Label info;
         readonly VisualElement keys;
         readonly VisualElement canvas;
-        int lo = 36, hi = 84, lastPlayRow = -2;
+        // 再生位置・カーソル列は重ね置きの要素にして、移動のたびにキャンバス全体を描き直さない
+        readonly VisualElement playhead, cursorCol;
+        int lo = DefaultLo, hi = DefaultHi;
+        (int lo, int hi, bool noise) keysBuilt = (-1, -1, false);
 
         static readonly Color[] ChColors =
         {
@@ -29,7 +33,6 @@ namespace UniDAW.Editor
         public PianoRollView(UniDAWWindow window)
         {
             w = window;
-            AddToClassList("cd-rollview");
             style.flexGrow = 1;
 
             var head = new VisualElement();
@@ -38,7 +41,7 @@ namespace UniDAW.Editor
             {
                 int ch = c;
                 var b = new Button(() => { w.SetCursor(w.CursorRow, ch, 0); w.FocusMain(); }) { text = Song.ChannelNames[c] };
-                b.AddToClassList("cd-roll-ch");
+                b.AddToClassList("cd-ms");
                 chButtons[c] = b;
                 head.Add(b);
             }
@@ -57,9 +60,23 @@ namespace UniDAW.Editor
             canvas = new VisualElement();
             canvas.generateVisualContent += Draw;
             canvas.RegisterCallback<PointerDownEvent>(OnPointerDown);
+            cursorCol = Overlay(CellW, new Color(1f, 1f, 1f, 0.07f));
+            playhead = Overlay(2, new Color(1f, 0.85f, 0.2f, 0.9f));
             content.Add(canvas);
             scroll.Add(content);
             Add(scroll);
+        }
+
+        VisualElement Overlay(float width, Color color)
+        {
+            var e = new VisualElement { pickingMode = PickingMode.Ignore };
+            e.style.position = Position.Absolute;
+            e.style.top = 0;
+            e.style.bottom = 0;
+            e.style.width = width;
+            e.style.backgroundColor = color;
+            canvas.Add(e);
+            return e;
         }
 
         bool IsNoise => Song.Kinds[w.CursorChannel] == ChannelKind.Noise;
@@ -89,21 +106,21 @@ namespace UniDAW.Editor
             for (int c = 0; c < Song.ChannelCount; c++) chButtons[c].EnableInClassList("on", c == ch);
 
             // 表示する音域：ノイズは 0..15、それ以外は C2..C6 を基本に中身が収まるよう広げる
-            if (IsNoise)
+            bool noise = IsNoise;
+            if (noise)
             {
                 lo = 0;
-                hi = 15;
+                hi = NoiseHi;
             }
             else
             {
-                lo = 36;
-                hi = 84;
-                var cells = p.tracks[ch].cells;
-                for (int i = 0; i < cells.Length; i++)
+                lo = DefaultLo;
+                hi = DefaultHi;
+                foreach (var c in p.tracks[ch].cells)
                 {
-                    if (!cells[i].HasNote) continue;
-                    lo = Math.Min(lo, cells[i].note - 2);
-                    hi = Math.Max(hi, cells[i].note + 2);
+                    if (!c.HasNote) continue;
+                    lo = Math.Min(lo, c.note - 2);
+                    hi = Math.Max(hi, c.note + 2);
                 }
                 lo = Math.Max(NoteText.MinNote, lo);
                 hi = Math.Min(NoteText.MaxNote, hi);
@@ -112,35 +129,37 @@ namespace UniDAW.Editor
             int tl = p.TrackLength(ch);
             info.text = (tl < p.length ? $"poly {tl}/{p.length}  " : "") + "左クリック: 置く／消す   右クリック: ノートオフ";
 
+            if (keysBuilt != (lo, hi, noise)) RebuildKeys(noise);
+            canvas.style.width = p.length * CellW;
+            canvas.style.height = (hi - lo + 1) * RowH;
+            PlaceOverlay(cursorCol, w.CursorRow, p.length);
+            UpdatePlayhead();
+            canvas.MarkDirtyRepaint();
+        }
+
+        void RebuildKeys(bool noise)
+        {
+            keysBuilt = (lo, hi, noise);
             keys.Clear();
             for (int n = hi; n >= lo; n--)
             {
-                var l = new Label(IsNoise ? n.ToString("X") : NoteText.Format(n, ChannelKind.Pulse));
+                var l = new Label(noise ? n.ToString("X") : NoteText.Format(n, ChannelKind.Pulse));
                 l.style.height = RowH;
                 l.style.fontSize = 9;
                 l.style.paddingTop = l.style.paddingBottom = 0;
                 l.style.unityTextAlign = TextAnchor.MiddleRight;
-                l.style.color = !IsNoise && IsBlack(n) ? new Color(0.55f, 0.55f, 0.55f) : new Color(0.85f, 0.85f, 0.85f);
+                l.style.color = !noise && NoteText.IsBlackKey(n) ? new Color(0.55f, 0.55f, 0.55f) : new Color(0.85f, 0.85f, 0.85f);
                 keys.Add(l);
             }
-            canvas.style.width = p.length * CellW;
-            canvas.style.height = (hi - lo + 1) * RowH;
-            lastPlayRow = -2;
-            canvas.MarkDirtyRepaint();
         }
 
-        public void UpdatePlayhead()
-        {
-            int r = w.PlayheadRow;
-            if (r == lastPlayRow) return;
-            lastPlayRow = r;
-            canvas.MarkDirtyRepaint();
-        }
+        public void UpdatePlayhead() => PlaceOverlay(playhead, w.PlayheadRow, w.CurrentPattern?.length ?? 0);
 
-        static bool IsBlack(int n)
+        static void PlaceOverlay(VisualElement e, int row, int len)
         {
-            int k = ((n % 12) + 12) % 12;
-            return k == 1 || k == 3 || k == 6 || k == 8 || k == 10;
+            bool show = row >= 0 && row < len;
+            e.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
+            if (show) e.style.left = row * CellW;
         }
 
         static void Rect(Painter2D p, float x, float y, float wd, float ht, Color c)
@@ -164,6 +183,7 @@ namespace UniDAW.Editor
             if (song == null || pat == null) return;
             var p = mgc.painter2D;
             int ch = w.CursorChannel;
+            bool noise = IsNoise;
             int len = pat.length, tl = pat.TrackLength(ch);
             int rpb = Math.Max(1, song.rowsPerBeat);
             float width = len * CellW, height = (hi - lo + 1) * RowH;
@@ -171,17 +191,14 @@ namespace UniDAW.Editor
             // 背景（黒鍵の段を暗く、C の段に線）
             for (int n = lo; n <= hi; n++)
             {
-                var bg = !IsNoise && IsBlack(n) ? new Color(0.13f, 0.13f, 0.15f) : new Color(0.18f, 0.18f, 0.2f);
-                Rect(p, 0, YOf(n), width, RowH, bg);
-                if (!IsNoise && n % 12 == 0) Rect(p, 0, YOf(n) + RowH - 1, width, 1, new Color(0.3f, 0.3f, 0.34f));
+                bool black = !noise && NoteText.IsBlackKey(n);
+                Rect(p, 0, YOf(n), width, RowH, black ? new Color(0.13f, 0.13f, 0.15f) : new Color(0.18f, 0.18f, 0.2f));
+                if (!noise && n % 12 == 0) Rect(p, 0, YOf(n) + RowH - 1, width, 1, new Color(0.3f, 0.3f, 0.34f));
             }
             // 縦線（拍は濃く）とポリメーターの折り返し部分
             for (int r = 0; r <= len; r++)
                 Rect(p, r * CellW, 0, 1, height, r % rpb == 0 ? new Color(0.38f, 0.38f, 0.42f) : new Color(0.24f, 0.24f, 0.27f));
             if (tl < len) Rect(p, tl * CellW, 0, (len - tl) * CellW, height, new Color(0f, 0f, 0f, 0.3f));
-            // カーソル列
-            int cr = w.CursorRow;
-            if (cr >= 0 && cr < len) Rect(p, cr * CellW, 0, CellW, height, new Color(1f, 1f, 1f, 0.07f));
 
             // ノート：次のノート／オフ／パターン終端まで伸ばす
             var col = ChColors[ch % ChColors.Length];
@@ -211,10 +228,6 @@ namespace UniDAW.Editor
                     Rect(p, r * CellW + CellW * 0.5f - 1, 0, 2, height, new Color(1f, 0.35f, 0.35f, 0.5f));
                 }
             }
-
-            // 再生位置
-            int pr = w.PlayheadRow;
-            if (pr >= 0 && pr < len) Rect(p, pr * CellW, 0, 2, height, new Color(1f, 0.85f, 0.2f, 0.9f));
         }
 
         void DrawNote(Painter2D p, int from, int to, int note, float vol, bool fx, Color col, bool ghost)

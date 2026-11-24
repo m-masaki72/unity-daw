@@ -7,7 +7,7 @@ namespace UniDAW.Editor
     /// トラッカー表示。行 × (Note Ins Vol FxT FxP FxT FxP Flag)。
     /// ポリメーターでトラック長を超えた行はループ内容を薄く表示（ゴースト）。
     /// </summary>
-    public class TrackerView : VisualElement
+    public class TrackerView : VisualElement, IPatternView
     {
         public const int Cols = 7; // カーソルが乗る列数
         static readonly string[] ColClass = { "cd-note", "cd-inst", "cd-vol", "cd-fxt", "cd-fxp", "cd-fxt", "cd-fxp" };
@@ -164,6 +164,8 @@ namespace UniDAW.Editor
             Set(t, e ? "." : FxText.TypeChar(fx.type).ToString(), e, ghost);
             Set(p, e ? ".." : fx.param.ToString("X2"), e, ghost);
         }
+
+        public void UpdatePlayhead() => UpdatePlayhead(w.PlayheadRow);
 
         public void UpdatePlayhead(int playRow)
         {

@@ -7,7 +7,7 @@ namespace UniDAW.Editor
     /// ステップシーケンサー表示。チャンネル毎に 16 ステップ/行で並べる。
     /// 左クリック：トグル＋選択、右クリック：選択のみ（右パネルでパラメータロック編集）。
     /// </summary>
-    public class StepView : VisualElement
+    public class StepView : VisualElement, IPatternView
     {
         class StepUI
         {

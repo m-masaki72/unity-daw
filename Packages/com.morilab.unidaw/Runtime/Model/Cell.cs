@@ -94,6 +94,13 @@ namespace UniDAW
         /// <summary>エフェクト t のパラメータ（fx1 優先）。無ければ -1。</summary>
         public int FxParam(FxType t) => fx1.type == t ? fx1.param : fx2.type == t ? fx2.param : -1;
 
+        /// <summary>Gxx の遅れ tick 数（無ければ 0）。行の長さ speed 以上ならその行では鳴らないので -1。</summary>
+        public int DelayTicks(int speed)
+        {
+            int d = Math.Max(0, FxParam(FxType.NoteDelay));
+            return d >= speed ? -1 : d;
+        }
+
         public bool ContentEquals(in Cell o) =>
             note == o.note && instrument == o.instrument && volume == o.volume &&
             fx1.type == o.fx1.type && fx1.param == o.fx1.param &&
