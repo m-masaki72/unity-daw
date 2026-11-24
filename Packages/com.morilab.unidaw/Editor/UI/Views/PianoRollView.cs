@@ -14,7 +14,7 @@ namespace UniDAW.Editor
         public const float CellW = 18f, RowH = 12f;
         const int DefaultLo = 36, DefaultHi = 84, NoiseHi = 15;
 
-        readonly UniDAWWindow w;
+        readonly ComposerContext ctx;
         readonly Button[] chButtons = new Button[Song.ChannelCount];
         readonly Label info;
         readonly VisualElement keys;
@@ -30,9 +30,9 @@ namespace UniDAW.Editor
             new Color(1f, 0.7f, 0.3f), new Color(0.9f, 0.5f, 0.9f),
         };
 
-        public PianoRollView(UniDAWWindow window)
+        public PianoRollView(ComposerContext context)
         {
-            w = window;
+            ctx = context;
             style.flexGrow = 1;
 
             var head = new VisualElement();
@@ -40,7 +40,7 @@ namespace UniDAW.Editor
             for (int c = 0; c < Song.ChannelCount; c++)
             {
                 int ch = c;
-                var b = new Button(() => { w.SetCursor(w.CursorRow, ch, 0); w.FocusMain(); }) { text = Song.ChannelNames[c] };
+                var b = new Button(() => { ctx.Session.SetCursor(ctx.State.cursorRow, ch, 0); ctx.FocusMain(); }) { text = Song.ChannelNames[c] };
                 b.AddToClassList("cd-ms");
                 chButtons[c] = b;
                 head.Add(b);
@@ -79,30 +79,30 @@ namespace UniDAW.Editor
             return e;
         }
 
-        bool IsNoise => Song.Kinds[w.CursorChannel] == ChannelKind.Noise;
+        bool IsNoise => Song.Kinds[ctx.State.cursorCh] == ChannelKind.Noise;
 
         /// <summary>座標 → (行, ピッチ)。テスト・クリック共用。</summary>
         public bool HitTest(Vector2 local, out int row, out int pitch)
         {
             row = Mathf.FloorToInt(local.x / CellW);
             pitch = hi - Mathf.FloorToInt(local.y / RowH);
-            var p = w.CurrentPattern;
+            var p = ctx.State.CurrentPattern;
             return p != null && row >= 0 && row < p.length && pitch >= lo && pitch <= hi;
         }
 
         void OnPointerDown(PointerDownEvent e)
         {
             if (HitTest(e.localPosition, out int row, out int pitch))
-                w.RollClick(w.CursorChannel, row, pitch, e.button);
-            w.FocusMain();
+                ctx.Cells.RollClick(ctx.State.cursorCh, row, pitch, e.button);
+            ctx.FocusMain();
             e.StopPropagation();
         }
 
         public void Refresh()
         {
-            var p = w.CurrentPattern;
+            var p = ctx.State.CurrentPattern;
             if (p == null) return;
-            int ch = w.CursorChannel;
+            int ch = ctx.State.cursorCh;
             for (int c = 0; c < Song.ChannelCount; c++) chButtons[c].EnableInClassList("on", c == ch);
 
             // 表示する音域：ノイズは 0..15、それ以外は C2..C6 を基本に中身が収まるよう広げる
@@ -132,7 +132,7 @@ namespace UniDAW.Editor
             if (keysBuilt != (lo, hi, noise)) RebuildKeys(noise);
             canvas.style.width = p.length * CellW;
             canvas.style.height = (hi - lo + 1) * RowH;
-            PlaceOverlay(cursorCol, w.CursorRow, p.length);
+            PlaceOverlay(cursorCol, ctx.State.cursorRow, p.length);
             UpdatePlayhead();
             canvas.MarkDirtyRepaint();
         }
@@ -153,7 +153,7 @@ namespace UniDAW.Editor
             }
         }
 
-        public void UpdatePlayhead() => PlaceOverlay(playhead, w.PlayheadRow, w.CurrentPattern?.length ?? 0);
+        public void UpdatePlayhead() => PlaceOverlay(playhead, ctx.Transport.PlayheadRow, ctx.State.CurrentPattern?.length ?? 0);
 
         static void PlaceOverlay(VisualElement e, int row, int len)
         {
@@ -178,11 +178,11 @@ namespace UniDAW.Editor
 
         void Draw(MeshGenerationContext mgc)
         {
-            var song = w.Song;
-            var pat = w.CurrentPattern;
+            var song = ctx.State.song;
+            var pat = ctx.State.CurrentPattern;
             if (song == null || pat == null) return;
             var p = mgc.painter2D;
-            int ch = w.CursorChannel;
+            int ch = ctx.State.cursorCh;
             bool noise = IsNoise;
             int len = pat.length, tl = pat.TrackLength(ch);
             int rpb = Math.Max(1, song.rowsPerBeat);

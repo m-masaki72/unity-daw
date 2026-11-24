@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 
 namespace UniDAW
 {
@@ -17,41 +16,27 @@ namespace UniDAW
     /// シーケンサー＋4ch チップ音源。UnityEngine API に依存しないので
     /// オーディオスレッド・オフラインレンダリング・テストのどこからでも使える。
     /// メインスレッドからの操作はコマンドキュー経由（スレッドセーフ）。
+    /// このクラスは行・tick の進行（シーケンサー）を受け持ち、発音は <see cref="ChipChannel"/>、
+    /// ミックスは <see cref="ChipMixer"/>、トリガー条件は <see cref="TriggerConditions"/> に任せる。
     /// </summary>
     public sealed class ChipEngine
     {
         public const int Channels = Song.ChannelCount;
-
-        struct ChannelState
-        {
-            public bool active;
-            public bool released;
-            public int instrument;
-            public int baseNote;
-            public float pitch;
-            public float volume;
-            public int volPos, arpPos, dutyPos;
-            public int arpX, arpY, arpStep;
-            public int slide;
-            public int portaSpeed;
-            public float portaTarget;
-            public int vibSpeed, vibDepth;
-            public float vibPhase;
-            public int volSlide;
-            public int dutyOverride;
-            public int cutTick;
-            public float outPitch;
-            // Gxx ノートディレイ待ちのセル
-            public bool delayPending;
-            public int delayTick;
-            public RowCell delayed;
-        }
+        const int MaxQueuedNoteEvents = 512;
 
         /// <summary>行の 1 セルと、その適用に要る文脈（周回数・セル位置・移調）。Gxx ではそのまま保留する。</summary>
         struct RowCell
         {
             public Cell cell;
             public int cycle, idx, pi, transpose;
+        }
+
+        /// <summary>Gxx ノートディレイ待ちのセル。</summary>
+        struct DelayedCell
+        {
+            public bool pending;
+            public int tick;
+            public RowCell cell;
         }
 
         enum CmdType { Play, PlayPattern, Stop, NoteOn, NoteOff, AllNotesOff }
@@ -62,8 +47,9 @@ namespace UniDAW
             public int a, b, c, d;
         }
 
-        readonly ChipVoice[] voices = new ChipVoice[Channels];
-        readonly ChannelState[] st = new ChannelState[Channels];
+        readonly ChipChannel[] channels = new ChipChannel[Channels];
+        readonly DelayedCell[] delayed = new DelayedCell[Channels];
+        readonly ChipMixer mixer = new ChipMixer();
         readonly ConcurrentQueue<Command> commands = new ConcurrentQueue<Command>();
 
         /// <summary>ノート発音イベント（映像連携用）。メインスレッドで取り出す。</summary>
@@ -80,6 +66,7 @@ namespace UniDAW
         readonly double sampleRate;
         double samplesToTick;
 
+        // ---- シーケンサーの位置
         bool playing;
         bool loopPattern;
         int loopPatternIndex;
@@ -91,9 +78,6 @@ namespace UniDAW
         int speedOverride = -1;
         float bpmOverride = -1;
         uint rngSeed = 0x9E3779B9u;
-
-        float dcIn, dcOut;
-        readonly float[] levelAcc = new float[Channels];
 
         public volatile int PlayingOrder;
         public volatile int PlayingRow;
@@ -109,14 +93,7 @@ namespace UniDAW
         public ChipEngine(double sampleRate)
         {
             this.sampleRate = sampleRate > 0 ? sampleRate : 48000;
-            for (int c = 0; c < Channels; c++)
-            {
-                voices[c] = ChipVoice.Create(Song.Kinds[c]);
-                st[c].instrument = -1;
-                st[c].dutyOverride = -1;
-                st[c].cutTick = -1;
-                st[c].portaTarget = -1;
-            }
+            for (int c = 0; c < Channels; c++) channels[c] = new ChipChannel(Song.Kinds[c]);
         }
 
         public double SampleRate => sampleRate;
@@ -148,9 +125,13 @@ namespace UniDAW
         public void AllNotesOff() => commands.Enqueue(new Command { type = CmdType.AllNotesOff });
 
         /// <summary>デバッグ・テスト用：チャンネルの最終ピッチ（半音、小数あり）。</summary>
-        public float GetChannelPitch(int ch) => st[ch].outPitch;
-        public bool IsChannelActive(int ch) => st[ch].active;
-        public float GetChannelVolume(int ch) => voices[ch].gate ? voices[ch].volume : 0f;
+        public float GetChannelPitch(int ch) => channels[ch].OutPitch;
+        public bool IsChannelActive(int ch) => channels[ch].Active;
+        public float GetChannelVolume(int ch) => channels[ch].OutputVolume;
+
+        /// <summary>曲を1周オフラインでレンダリング（モノラル）。<see cref="OfflineRenderer"/> への転送。</summary>
+        public static float[] RenderSong(Song song, int sampleRate, double maxSeconds = 600) =>
+            OfflineRenderer.RenderSong(song, sampleRate, maxSeconds);
 
         // ---- オーディオスレッド ----------------------------------------------------
 
@@ -159,9 +140,7 @@ namespace UniDAW
         {
             DrainCommands();
             var s = song;
-            bool anySolo = false;
-            for (int c = 0; c < Channels; c++) anySolo |= Solo[c];
-            for (int c = 0; c < Channels; c++) levelAcc[c] = 0f;
+            mixer.BeginBlock(Solo);
 
             int idx = offset;
             for (int i = 0; i < frames; i++)
@@ -173,57 +152,11 @@ namespace UniDAW
                     samplesToTick += SamplesPerTick(s);
                 }
 
-                float mix = 0f;
-                for (int c = 0; c < Channels; c++)
-                {
-                    float v = voices[c].Next(sampleRate);
-                    if (Mute[c] || (anySolo && !Solo[c])) continue;
-                    float g = c == 3 ? 0.8f : 1f;
-                    v *= g;
-                    mix += v;
-                    float a = v < 0 ? -v : v;
-                    if (a > levelAcc[c]) levelAcc[c] = a;
-                }
-
-                // DC ブロッカー（パルスのデューティによる直流分を除去）
-                float y = mix - dcIn + 0.995f * dcOut;
-                dcIn = mix;
-                dcOut = y;
-                y *= 0.25f * MasterVolume;
-                if (y > 1f) y = 1f;
-                else if (y < -1f) y = -1f;
-
+                float y = mixer.Mix(channels, sampleRate, Mute, Solo, MasterVolume);
                 for (int ch = 0; ch < outChannels; ch++) data[idx++] = y;
             }
 
-            for (int c = 0; c < Channels; c++) Levels[c] = levelAcc[c];
-        }
-
-        /// <summary>曲を1周オフラインでレンダリング（モノラル）。</summary>
-        public static float[] RenderSong(Song song, int sampleRate, double maxSeconds = 600)
-        {
-            var e = new ChipEngine(sampleRate) { Song = song, EmitNoteEvents = false };
-            e.Play();
-            const int block = 512;
-            var buf = new float[block];
-            var outList = new List<float>(sampleRate * 10);
-            long maxFrames = (long)(maxSeconds * sampleRate);
-            while (outList.Count < maxFrames)
-            {
-                e.Render(buf, 0, block, 1);
-                if (e.SongLoopCount >= 1)
-                {
-                    // 最後の行が終わったところで止める（ブロック単位なので軽く余韻が乗る）
-                    outList.AddRange(buf);
-                    break;
-                }
-                outList.AddRange(buf);
-            }
-            // 短いフェードアウト
-            int fade = Math.Min(outList.Count, sampleRate / 50);
-            for (int i = 0; i < fade; i++)
-                outList[outList.Count - 1 - i] *= i / (float)fade;
-            return outList.ToArray();
+            mixer.EndBlock(Levels);
         }
 
         void DrainCommands()
@@ -247,7 +180,7 @@ namespace UniDAW
                     case CmdType.NoteOn:
                         if (cmd.a >= 0 && cmd.a < Channels)
                         {
-                            if (cmd.d >= 0) st[cmd.a].instrument = cmd.d;
+                            if (cmd.d >= 0) channels[cmd.a].Instrument = cmd.d;
                             Trigger(cmd.a, cmd.b, cmd.c, true, -1);
                             UpdateChannel(cmd.a, song); // 即時に発音させてレイテンシを減らす
                         }
@@ -285,9 +218,8 @@ namespace UniDAW
         {
             for (int c = 0; c < Channels; c++)
             {
-                st[c].active = false;
-                st[c].delayPending = false;
-                voices[c].gate = false;
+                channels[c].Cut();
+                delayed[c].pending = false;
             }
         }
 
@@ -352,7 +284,7 @@ namespace UniDAW
                 int speed = CurrentSpeed(s);
                 for (int c = 0; c < Channels && c < p.tracks.Length; c++)
                 {
-                    st[c].delayPending = false;
+                    delayed[c].pending = false;
                     var t = p.tracks[c];
                     int idx = p.CellIndex(c, row, loopPattern ? patternLoop : 0);
                     if (t.cells == null || idx >= t.cells.Length) continue;
@@ -361,9 +293,7 @@ namespace UniDAW
                     if (delay < 0) continue; // 行の長さ以上のディレイはその行では鳴らない（FamiTracker 互換）
                     if (delay > 0)
                     {
-                        st[c].delayPending = true;
-                        st[c].delayTick = delay;
-                        st[c].delayed = rc;
+                        delayed[c] = new DelayedCell { pending = true, tick = delay, cell = rc };
                         continue;
                     }
                     ApplyCell(c, rc, s);
@@ -379,10 +309,10 @@ namespace UniDAW
         {
             for (int c = 0; c < Channels; c++)
             {
-                ref var ch = ref st[c];
-                if (!ch.delayPending || tickInRow < ch.delayTick) continue;
-                ch.delayPending = false;
-                ApplyCell(c, ch.delayed, s);
+                ref var d = ref delayed[c];
+                if (!d.pending || tickInRow < d.tick) continue;
+                d.pending = false;
+                ApplyCell(c, d.cell, s);
             }
         }
 
@@ -423,39 +353,14 @@ namespace UniDAW
             return songLoops * Math.Max(1, total) + before;
         }
 
-        bool PassesConditions(in Cell cell, int c, int cycle, int idx, int pi)
-        {
-            if (cell.condB > 1)
-            {
-                int a = Math.Max(1, Math.Min(cell.condB, cell.condA));
-                if (cycle % cell.condB != a - 1) return false;
-            }
-            if (cell.probability < 100)
-            {
-                if (cell.probability <= 0) return false;
-                uint h = Hash(rngSeed, (uint)cycle, (uint)idx, (uint)(c * 1024 + pi));
-                if (h % 100u >= (uint)cell.probability) return false;
-            }
-            return true;
-        }
-
-        static uint Hash(uint a, uint b, uint c, uint d)
-        {
-            uint h = a ^ 0x85EBCA6Bu;
-            h = (h ^ b) * 0x9E3779B1u;
-            h = (h ^ (h >> 15) ^ c) * 0x85EBCA77u;
-            h = (h ^ (h >> 13) ^ d) * 0xC2B2AE3Du;
-            return h ^ (h >> 16);
-        }
-
         void ApplyCell(int c, in RowCell rc, Song s)
         {
             ref readonly var cell = ref rc.cell;
             if (cell.IsBlank) return;
-            if ((cell.HasNote || cell.IsOff) && !PassesConditions(cell, c, rc.cycle, rc.idx, rc.pi)) return;
+            if ((cell.HasNote || cell.IsOff) && !TriggerConditions.Passes(cell, rngSeed, c, rc.cycle, rc.idx, rc.pi)) return;
 
-            ref var ch = ref st[c];
-            if (cell.instrument >= 0) ch.instrument = cell.instrument;
+            var ch = channels[c];
+            if (cell.instrument >= 0) ch.Instrument = cell.instrument;
 
             if (cell.IsOff)
             {
@@ -465,11 +370,10 @@ namespace UniDAW
             {
                 int note = Song.TransposeNote(c, cell.note, rc.transpose);
                 // リリース中の音へのポルタメントは新規発音として扱う（減衰したまま無音にならないように）
-                if (cell.HasFx(FxType.Portamento) && ch.active && !ch.released)
+                if (cell.HasFx(FxType.Portamento) && ch.Sustaining)
                 {
-                    ch.portaTarget = note;
-                    ch.baseNote = note;
-                    if (cell.volume >= 0) ch.volume = cell.volume;
+                    ch.GlideTo(note);
+                    if (cell.volume >= 0) ch.SetVolume(cell.volume);
                 }
                 else
                 {
@@ -478,7 +382,7 @@ namespace UniDAW
             }
             else if (cell.volume >= 0)
             {
-                ch.volume = cell.volume;
+                ch.SetVolume(cell.volume);
             }
 
             ApplyFx(c, cell.fx1);
@@ -488,166 +392,35 @@ namespace UniDAW
         void ApplyFx(int c, Fx fx)
         {
             if (fx.IsEmpty) return;
-            ref var ch = ref st[c];
-            switch (fx.type)
+            if (fx.type == FxType.Speed)
             {
-                case FxType.Arpeggio:
-                    ch.arpX = fx.X;
-                    ch.arpY = fx.Y;
-                    ch.arpStep = 0;
-                    break;
-                case FxType.SlideUp:
-                    ch.slide = fx.param;
-                    break;
-                case FxType.SlideDown:
-                    ch.slide = -fx.param;
-                    break;
-                case FxType.Portamento:
-                    ch.portaSpeed = fx.param;
-                    break;
-                case FxType.Vibrato:
-                    ch.vibSpeed = fx.X;
-                    ch.vibDepth = fx.Y;
-                    break;
-                case FxType.VolumeSlide:
-                    ch.volSlide = fx.X - fx.Y;
-                    break;
-                case FxType.Duty:
-                    ch.dutyOverride = fx.param & 3;
-                    break;
-                case FxType.Speed:
-                    if (fx.param == 0) break;
-                    if (fx.param < 0x20) speedOverride = fx.param;
-                    else bpmOverride = fx.param;
-                    break;
-                case FxType.NoteCut:
-                    ch.cutTick = fx.param;
-                    break;
-                case FxType.NoteSlideUp:
-                case FxType.NoteSlideDown:
-                    if (!ch.active || fx.Y == 0) break;
-                    int target = ch.baseNote + (fx.type == FxType.NoteSlideUp ? fx.Y : -fx.Y);
-                    ch.portaTarget = Math.Max(0, Math.Min(127, target));
-                    ch.baseNote = (int)ch.portaTarget;
-                    ch.portaSpeed = fx.X * 2 + 1;
-                    break;
+                // テンポはシーケンサー全体の状態
+                if (fx.param == 0) return;
+                if (fx.param < 0x20) speedOverride = fx.param;
+                else bpmOverride = fx.param;
+                return;
             }
+            channels[c].ApplyFx(fx);
         }
 
         void Trigger(int c, int note, int volume, bool live, int atRow)
         {
-            ref var ch = ref st[c];
-            ch.active = true;
-            ch.released = false;
-            ch.baseNote = note;
-            ch.pitch = note;
-            ch.volume = Math.Max(0, Math.Min(15, volume));
-            ch.volPos = ch.arpPos = ch.dutyPos = 0;
-            ch.arpX = ch.arpY = ch.arpStep = 0;
-            ch.slide = 0;
-            ch.portaSpeed = 0;
-            ch.portaTarget = -1;
-            ch.vibSpeed = ch.vibDepth = 0;
-            ch.vibPhase = 0;
-            ch.volSlide = 0;
-            ch.dutyOverride = -1;
-            ch.cutTick = -1;
-            voices[c].gate = true;
-
-            if (EmitNoteEvents && NoteEvents.Count < 512)
-                NoteEvents.Enqueue(new NoteEvent { channel = c, note = note, volume = ch.volume / 15f, live = live, row = atRow });
+            var ch = channels[c];
+            ch.Trigger(note, volume);
+            if (EmitNoteEvents && NoteEvents.Count < MaxQueuedNoteEvents)
+                NoteEvents.Enqueue(new NoteEvent { channel = c, note = note, volume = ch.Volume / 15f, live = live, row = atRow });
         }
 
         void Release(int c, Song s)
         {
-            ref var ch = ref st[c];
-            if (!ch.active) return;
-            var inst = s?.GetInstrument(ch.instrument);
-            if (inst != null && !inst.volume.IsEmpty && inst.volume.release >= 0)
-            {
-                ch.released = true;
-                ch.volPos = inst.volume.release;
-                if (inst.arpeggio.release >= 0) ch.arpPos = inst.arpeggio.release;
-                if (inst.duty.release >= 0) ch.dutyPos = inst.duty.release;
-            }
-            else
-            {
-                ch.active = false;
-                voices[c].gate = false;
-            }
+            var ch = channels[c];
+            ch.Release(s?.GetInstrument(ch.Instrument));
         }
 
         void UpdateChannel(int c, Song s)
         {
-            ref var ch = ref st[c];
-            ref var v = ref voices[c];
-            if (!ch.active)
-            {
-                v.gate = false;
-                return;
-            }
-
-            if (ch.cutTick >= 0 && playing && tickInRow >= ch.cutTick)
-            {
-                ch.active = false;
-                v.gate = false;
-                return;
-            }
-
-            int seqVol = 15, seqArp = 0, seqDuty = -1;
-            var inst = s?.GetInstrument(ch.instrument);
-            if (inst != null)
-            {
-                if (!inst.volume.IsEmpty) seqVol = inst.volume.Step(ref ch.volPos, ch.released);
-                if (!inst.arpeggio.IsEmpty) seqArp = inst.arpeggio.Step(ref ch.arpPos, ch.released);
-                if (!inst.duty.IsEmpty) seqDuty = inst.duty.Step(ref ch.dutyPos, ch.released);
-            }
-
-            if (ch.volSlide != 0)
-                ch.volume = Math.Max(0f, Math.Min(15f, ch.volume + ch.volSlide / 8f));
-
-            if (ch.portaTarget >= 0 && ch.portaSpeed > 0)
-            {
-                float step = ch.portaSpeed / 16f;
-                if (ch.pitch < ch.portaTarget) ch.pitch = Math.Min(ch.pitch + step, ch.portaTarget);
-                else if (ch.pitch > ch.portaTarget) ch.pitch = Math.Max(ch.pitch - step, ch.portaTarget);
-            }
-            if (ch.slide != 0) ch.pitch += ch.slide / 16f;
-
-            float arpOff = 0f;
-            if (ch.arpX != 0 || ch.arpY != 0)
-            {
-                int k = ch.arpStep % 3;
-                arpOff = k == 0 ? 0 : (k == 1 ? ch.arpX : ch.arpY);
-                ch.arpStep++;
-            }
-
-            float vib = 0f;
-            if (ch.vibDepth > 0)
-            {
-                vib = (float)Math.Sin(ch.vibPhase * Math.PI * 2.0) * ch.vibDepth / 8f;
-                ch.vibPhase += ch.vibSpeed / 64f;
-                if (ch.vibPhase >= 1f) ch.vibPhase -= 1f;
-            }
-
-            float p = ch.pitch + arpOff + seqArp + vib;
-            ch.outPitch = p;
-
-            int duty = ch.dutyOverride >= 0 ? ch.dutyOverride : (seqDuty >= 0 ? seqDuty : (v.kind == ChannelKind.Noise ? 0 : 2));
-            v.volume = ch.volume / 15f * (Math.Max(0, Math.Min(15, seqVol)) / 15f);
-            v.gate = true;
-
-            if (v.kind == ChannelKind.Noise)
-            {
-                int pitch = (int)Math.Round(p);
-                v.noiseRate = ChipVoice.NoiseRateForPitch(pitch);
-                v.shortMode = (duty & 1) == 1;
-            }
-            else
-            {
-                v.freq = NoteText.MidiToHz(p);
-                v.duty = duty & 3;
-            }
+            var ch = channels[c];
+            ch.Update(s?.GetInstrument(ch.Instrument), playing ? tickInRow : -1);
         }
     }
 }

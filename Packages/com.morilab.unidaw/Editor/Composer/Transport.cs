@@ -1,0 +1,171 @@
+using System;
+using UnityEditor;
+
+namespace UniDAW.Editor
+{
+    /// <summary>
+    /// 再生・停止・試聴・ミュート/ソロ・再生位置の監視。UI には依存しない。
+    /// エンジンへは <see cref="IAudioHost"/> 越しに触る。
+    /// </summary>
+    public sealed class Transport
+    {
+        /// <summary>キーを離してから試聴音を止めるまでの猶予（秒）。</summary>
+        const double ReleaseDelay = 0.02;
+
+        readonly ComposerState state;
+        readonly IAudioHost host;
+        readonly double[] previewOff = new double[Song.ChannelCount];
+        int lastPlayRow = -2, lastPlayPattern = -2;
+
+        /// <summary>表示を更新すべき変化（停止・ミュート/ソロ切替など）。</summary>
+        public event Action Changed;
+
+        public Transport(ComposerState state, IAudioHost host = null)
+        {
+            this.state = state;
+            this.host = host ?? UniDAWPreview.AudioHost;
+            for (int c = 0; c < previewOff.Length; c++) previewOff[c] = -1;
+        }
+
+        public ChipEngine Engine => host.Engine;
+        public bool IsPlaying => Engine != null && Engine.IsPlaying;
+
+        /// <summary>表示中パターンでの再生行（別パターン再生中・停止中は -1）。</summary>
+        public int PlayheadRow
+        {
+            get
+            {
+                var e = Engine;
+                if (e == null || !e.IsPlaying || e.PlayingPattern != state.patternIndex) return -1;
+                return e.PlayingRow;
+            }
+        }
+
+        public int PlayheadLoop
+        {
+            get
+            {
+                var e = Engine;
+                return e != null && e.IsPlaying ? e.PatternLoopCount : 0;
+            }
+        }
+
+        /// <summary>曲の差し替え：再生を止めてエンジンに新しい曲を渡す。</summary>
+        public void Attach(Song song)
+        {
+            var e = Engine;
+            if (e == null) return;
+            e.Stop();
+            e.Song = song;
+        }
+
+        ChipEngine Prepare()
+        {
+            var e = Engine;
+            host.EnsureRunning();
+            e.Song = state.song;
+            return e;
+        }
+
+        public void PlayPattern()
+        {
+            if (state.song != null) Prepare().PlayPattern(state.patternIndex, 0);
+        }
+
+        public void PlaySong()
+        {
+            if (state.song != null) Prepare().Play(state.orderIndex, 0);
+        }
+
+        public void Stop()
+        {
+            Engine?.Stop();
+            lastPlayRow = -2;
+            Changed?.Invoke();
+        }
+
+        public void TogglePatternPlay()
+        {
+            if (IsPlaying) Stop();
+            else PlayPattern();
+        }
+
+        /// <summary>ノートを一定時間だけ鳴らす（再生中はシーケンスを邪魔しないので鳴らさない）。</summary>
+        public void PreviewNote(int ch, int note, int inst, double seconds)
+        {
+            var e = Engine;
+            if (e == null || e.IsPlaying || state.song == null) return;
+            Prepare().NoteOn(ch, note, 15, inst);
+            previewOff[ch] = EditorApplication.timeSinceStartup + seconds;
+        }
+
+        /// <summary>鍵盤を離したとき：試聴音をすぐ止める。</summary>
+        public void ReleasePreview(int ch)
+        {
+            var e = Engine;
+            if (e != null && !e.IsPlaying) previewOff[ch] = EditorApplication.timeSinceStartup + ReleaseDelay;
+        }
+
+        public bool IsMuted(int ch) => state.muted[ch];
+        public bool IsSoloed(int ch) => state.soloed[ch];
+
+        public void ToggleMute(int ch)
+        {
+            state.muted[ch] = !state.muted[ch];
+            ApplyMuteSolo();
+            Changed?.Invoke();
+        }
+
+        public void ToggleSolo(int ch)
+        {
+            state.soloed[ch] = !state.soloed[ch];
+            ApplyMuteSolo();
+            Changed?.Invoke();
+        }
+
+        public void ApplyMuteSolo()
+        {
+            var e = Engine;
+            if (e == null) return;
+            for (int c = 0; c < Song.ChannelCount; c++)
+            {
+                e.Mute[c] = state.muted[c];
+                e.Solo[c] = state.soloed[c];
+            }
+        }
+
+        /// <summary>
+        /// 毎フレームの処理：エンジンとの同期、試聴音の解放、再生位置の変化検出。
+        /// 再生位置が変わったら true（<paramref name="patternChanged"/> はパターンまで変わったか）。
+        /// </summary>
+        public bool Poll(out bool patternChanged)
+        {
+            patternChanged = false;
+            var e = Engine;
+            UniDAWMidiBridge.Engine = e;
+            UniDAWMidiBridge.TargetChannel = state.cursorCh;
+            if (e == null) return false;
+            if (state.song != null && e.Song != state.song) e.Song = state.song;
+            ApplyMuteSolo();
+            host.DispatchEvents();
+
+            double now = EditorApplication.timeSinceStartup;
+            for (int c = 0; c < Song.ChannelCount; c++)
+            {
+                if (previewOff[c] > 0 && now >= previewOff[c])
+                {
+                    previewOff[c] = -1;
+                    if (!e.IsPlaying) e.NoteOff(c);
+                }
+            }
+
+            int pr = e.IsPlaying ? e.PlayingRow : -1;
+            int pp = e.IsPlaying ? e.PlayingPattern : -1;
+            if (pr == lastPlayRow && pp == lastPlayPattern) return false;
+            patternChanged = pp != lastPlayPattern;
+            lastPlayRow = pr;
+            lastPlayPattern = pp;
+            return true;
+        }
+    }
+}

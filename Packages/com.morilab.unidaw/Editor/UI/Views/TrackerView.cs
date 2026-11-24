@@ -9,7 +9,7 @@ namespace UniDAW.Editor
     /// </summary>
     public class TrackerView : VisualElement, IPatternView
     {
-        public const int Cols = 7; // カーソルが乗る列数
+        public const int Cols = ComposerState.TrackerColumns; // カーソルが乗る列数
         static readonly string[] ColClass = { "cd-note", "cd-inst", "cd-vol", "cd-fxt", "cd-fxp", "cd-fxt", "cd-fxp" };
 
         class RowUI
@@ -19,7 +19,7 @@ namespace UniDAW.Editor
             public readonly Label[,] f = new Label[Song.ChannelCount, Cols + 1];
         }
 
-        readonly UniDAWWindow w;
+        readonly ComposerContext ctx;
         readonly ScrollView scroll;
         readonly List<RowUI> rows = new List<RowUI>();
         readonly Button[] mute = new Button[Song.ChannelCount];
@@ -27,9 +27,9 @@ namespace UniDAW.Editor
         int lastPlayRow = -1;
         int lastCursorRow = -1;
 
-        public TrackerView(UniDAWWindow window)
+        public TrackerView(ComposerContext context)
         {
-            w = window;
+            ctx = context;
             AddToClassList("cd-tracker");
             style.flexGrow = 1;
 
@@ -49,8 +49,8 @@ namespace UniDAW.Editor
                 var name = new Label(Song.ChannelNames[c]);
                 name.AddToClassList("cd-chname");
                 box.Add(name);
-                mute[c] = new Button(() => w.ToggleMute(ch)) { text = "M" };
-                solo[c] = new Button(() => w.ToggleSolo(ch)) { text = "S" };
+                mute[c] = new Button(() => ctx.Transport.ToggleMute(ch)) { text = "M" };
+                solo[c] = new Button(() => ctx.Transport.ToggleSolo(ch)) { text = "S" };
                 mute[c].AddToClassList("cd-ms");
                 solo[c].AddToClassList("cd-ms");
                 box.Add(mute[c]);
@@ -88,8 +88,8 @@ namespace UniDAW.Editor
                         int ch = c, col = k < Cols ? k : 0, row = r;
                         l.RegisterCallback<PointerDownEvent>(e =>
                         {
-                            w.SetCursor(row, ch, col);
-                            w.FocusMain();
+                            ctx.Session.SetCursor(row, ch, col);
+                            ctx.FocusMain();
                             e.StopPropagation();
                         });
                         ui.f[c, k] = l;
@@ -104,8 +104,8 @@ namespace UniDAW.Editor
 
         public void Refresh()
         {
-            var song = w.Song;
-            var p = w.CurrentPattern;
+            var song = ctx.State.song;
+            var p = ctx.State.CurrentPattern;
             int n = p != null ? p.length : 0;
             EnsureRows(n);
             int rpb = song != null ? System.Math.Max(1, song.rowsPerBeat) : 4;
@@ -117,7 +117,7 @@ namespace UniDAW.Editor
                 if (!vis) continue;
                 ui.root.EnableInClassList("beat", r % rpb == 0);
                 ui.root.EnableInClassList("bar", r % (rpb * 4) == 0);
-                ui.root.EnableInClassList("cursor-row", r == w.CursorRow);
+                ui.root.EnableInClassList("cursor-row", r == ctx.State.cursorRow);
                 for (int c = 0; c < Song.ChannelCount; c++)
                 {
                     int tl = p.TrackLength(c);
@@ -132,22 +132,22 @@ namespace UniDAW.Editor
                     string flag = cell.HasCondition ? "?" : (cell.probability < 100 ? "%" : "");
                     Set(ui.f[c, 7], flag, flag.Length == 0, ghost);
                     for (int k = 0; k < Cols; k++)
-                        ui.f[c, k].EnableInClassList("cursor", r == w.CursorRow && c == w.CursorChannel && k == w.CursorCol);
+                        ui.f[c, k].EnableInClassList("cursor", r == ctx.State.cursorRow && c == ctx.State.cursorCh && k == ctx.State.cursorCol);
                 }
             }
             for (int c = 0; c < Song.ChannelCount; c++)
             {
-                mute[c].EnableInClassList("on", w.IsMuted(c));
-                solo[c].EnableInClassList("on", w.IsSoloed(c));
+                mute[c].EnableInClassList("on", ctx.Transport.IsMuted(c));
+                solo[c].EnableInClassList("on", ctx.Transport.IsSoloed(c));
             }
             // 行要素は使い回すので、前回のハイライトを外してから再設定する
             if (lastPlayRow >= 0 && lastPlayRow < rows.Count) rows[lastPlayRow].root.RemoveFromClassList("playing");
             lastPlayRow = -1;
-            UpdatePlayhead(w.PlayheadRow);
-            if (lastCursorRow != w.CursorRow)
+            UpdatePlayhead(ctx.Transport.PlayheadRow);
+            if (lastCursorRow != ctx.State.cursorRow)
             {
-                lastCursorRow = w.CursorRow;
-                ScrollToRow(w.CursorRow);
+                lastCursorRow = ctx.State.cursorRow;
+                ScrollToRow(ctx.State.cursorRow);
             }
         }
 
@@ -165,7 +165,7 @@ namespace UniDAW.Editor
             Set(p, e ? ".." : fx.param.ToString("X2"), e, ghost);
         }
 
-        public void UpdatePlayhead() => UpdatePlayhead(w.PlayheadRow);
+        public void UpdatePlayhead() => UpdatePlayhead(ctx.Transport.PlayheadRow);
 
         public void UpdatePlayhead(int playRow)
         {
@@ -175,7 +175,7 @@ namespace UniDAW.Editor
             if (playRow >= 0 && playRow < rows.Count)
             {
                 rows[playRow].root.AddToClassList("playing");
-                if (w.Follow && w.IsPlaying) ScrollToRow(playRow);
+                if (ctx.State.follow && ctx.Transport.IsPlaying) ScrollToRow(playRow);
             }
         }
 

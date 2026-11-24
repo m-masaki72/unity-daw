@@ -27,12 +27,12 @@ namespace UniDAW.Editor
             public int playing = -1;
         }
 
-        readonly UniDAWWindow w;
+        readonly ComposerContext ctx;
         readonly ChannelUI[] chs = new ChannelUI[Song.ChannelCount];
 
-        public StepView(UniDAWWindow window)
+        public StepView(ComposerContext context)
         {
-            w = window;
+            ctx = context;
             AddToClassList("cd-stepview");
             var scroll = new ScrollView(ScrollViewMode.Vertical);
             scroll.style.flexGrow = 1;
@@ -52,15 +52,15 @@ namespace UniDAW.Editor
                 var name = new Label(Song.ChannelNames[c]);
                 name.AddToClassList("cd-chname");
                 head.Add(name);
-                ui.mute = new Button(() => w.ToggleMute(ch)) { text = "M" };
-                ui.solo = new Button(() => w.ToggleSolo(ch)) { text = "S" };
+                ui.mute = new Button(() => ctx.Transport.ToggleMute(ch)) { text = "M" };
+                ui.solo = new Button(() => ctx.Transport.ToggleSolo(ch)) { text = "S" };
                 ui.mute.AddToClassList("cd-ms");
                 ui.solo.AddToClassList("cd-ms");
                 head.Add(ui.mute);
                 head.Add(ui.solo);
                 ui.len = new IntegerField("Len") { isDelayed = true, tooltip = "トラック長（0 = パターン長）。パターン長より短くするとポリメーター" };
                 ui.len.AddToClassList("cd-len");
-                ui.len.RegisterValueChangedCallback(e => w.SetTrackLength(ch, e.newValue));
+                ui.len.RegisterValueChangedCallback(e => ctx.Session.SetTrackLength(ch, e.newValue));
                 head.Add(ui.len);
                 ui.info = new Label();
                 ui.info.AddToClassList("cd-chinfo");
@@ -97,9 +97,9 @@ namespace UniDAW.Editor
                 s.root.Add(s.lockDot);
                 s.root.RegisterCallback<PointerDownEvent>(e =>
                 {
-                    if (e.button == 0) w.StepClick(ch, i, true);
-                    else w.StepClick(ch, i, false);
-                    w.FocusMain();
+                    if (e.button == 0) ctx.Cells.StepClick(ch, i, true);
+                    else ctx.Cells.StepClick(ch, i, false);
+                    ctx.FocusMain();
                     e.StopPropagation();
                 });
                 ui.steps.Add(s);
@@ -111,8 +111,8 @@ namespace UniDAW.Editor
 
         public void Refresh()
         {
-            var song = w.Song;
-            var p = w.CurrentPattern;
+            var song = ctx.State.song;
+            var p = ctx.State.CurrentPattern;
             if (p == null) return;
             int rpb = song != null ? System.Math.Max(1, song.rowsPerBeat) : 4;
             for (int c = 0; c < Song.ChannelCount; c++)
@@ -121,10 +121,10 @@ namespace UniDAW.Editor
                 EnsureSteps(c, p.length);
                 int tl = p.TrackLength(c);
                 ui.len.SetValueWithoutNotify(p.tracks[c].length);
-                ui.mute.EnableInClassList("on", w.IsMuted(c));
-                ui.solo.EnableInClassList("on", w.IsSoloed(c));
-                var inst = song != null ? song.GetInstrument(UniDAWMidiBridge.ChannelInstrument[c]) : null;
-                ui.info.text = (tl < p.length ? $"poly {tl}/{p.length}  " : "") + (inst != null ? $"Inst {UniDAWMidiBridge.ChannelInstrument[c]:X2} {inst.name}" : "");
+                ui.mute.EnableInClassList("on", ctx.Transport.IsMuted(c));
+                ui.solo.EnableInClassList("on", ctx.Transport.IsSoloed(c));
+                var inst = song != null ? song.GetInstrument(ctx.Session.ChannelInstrument(c)) : null;
+                ui.info.text = (tl < p.length ? $"poly {tl}/{p.length}  " : "") + (inst != null ? $"Inst {ctx.Session.ChannelInstrument(c):X2} {inst.name}" : "");
                 for (int i = 0; i < p.length; i++)
                 {
                     var s = ui.steps[i];
@@ -135,12 +135,12 @@ namespace UniDAW.Editor
                     s.root.EnableInClassList("on", cell.HasNote);
                     s.root.EnableInClassList("off", cell.IsOff);
                     s.root.EnableInClassList("fxonly", !cell.HasNote && !cell.IsOff && !cell.IsBlank);
-                    s.root.EnableInClassList("cursor", c == w.CursorChannel && i == w.CursorRow);
+                    s.root.EnableInClassList("cursor", c == ctx.State.cursorCh && i == ctx.State.cursorRow);
                     s.root.EnableInClassList("prob", cell.probability < 100 || cell.HasCondition);
                     s.note.text = cell.HasNote || cell.IsOff ? NoteText.Format(cell.note, Song.Kinds[c]) : "";
                     float v = cell.HasNote ? (cell.volume >= 0 ? cell.volume : 15) / 15f : 0f;
                     s.vol.style.height = Length.Percent(v * 100f);
-                    bool locks = cell.instrument >= 0 && cell.HasNote && cell.instrument != UniDAWMidiBridge.ChannelInstrument[c];
+                    bool locks = cell.instrument >= 0 && cell.HasNote && cell.instrument != ctx.Session.ChannelInstrument(c);
                     locks |= cell.volume >= 0 || !cell.fx1.IsEmpty || !cell.fx2.IsEmpty || cell.probability < 100 || cell.HasCondition;
                     s.lockDot.style.display = locks ? DisplayStyle.Flex : DisplayStyle.None;
                     s.root.tooltip = $"{i:X2}  " + NoteText.Format(cell.note, Song.Kinds[c]) +
@@ -158,13 +158,13 @@ namespace UniDAW.Editor
 
         public void UpdatePlayhead()
         {
-            var p = w.CurrentPattern;
-            int row = w.PlayheadRow;
+            var p = ctx.State.CurrentPattern;
+            int row = ctx.Transport.PlayheadRow;
             for (int c = 0; c < Song.ChannelCount; c++)
             {
                 var ui = chs[c];
                 int idx = -1;
-                if (p != null && row >= 0 && row < p.length) idx = p.CellIndex(c, row, w.PlayheadLoop);
+                if (p != null && row >= 0 && row < p.length) idx = p.CellIndex(c, row, ctx.Transport.PlayheadLoop);
                 if (idx == ui.playing) continue;
                 if (ui.playing >= 0 && ui.playing < ui.steps.Count) ui.steps[ui.playing].root.RemoveFromClassList("playing");
                 ui.playing = idx;

@@ -23,6 +23,23 @@ Unity をエディタとして使う音楽制作向けの DAW です。ステッ
   - MIDI 入力（Windows / WinMM）：ツールバーの MIDI In からデバイスを選ぶ。● Rec がオンのとき、停止中はステップ入力、再生中はリアルタイム録音
 - 映像連携：`UniDAWPlayer`（AudioSource）＋`UniDAWVisualizer`、`onNote` UnityEvent
 
+## コードの層構成
+依存は上から下への一方向のみ。フォルダ＝将来 asmdef を分けるときの境界です。
+
+| 層 | フォルダ | 役割 | 依存してよい先 |
+|---|---|---|---|
+| Model | `Runtime/Model` | Song / Pattern / Cell / Instrument、記法（NoteText・FxText） | UnityEngine（ScriptableObject のみ） |
+| Audio | `Runtime/Audio` | `ChipEngine`（シーケンサー）・`ChipChannel`（発音）・`ChipMixer`・`TriggerConditions`・`OfflineRenderer`・WAV | Model（UnityEngine 非依存） |
+| Midi | `Runtime/Midi` | SMF 読み書き・Song 変換・MIDI 入力（`UniDAW.Midi`） | Model |
+| Unity | `Runtime/Unity` | `UniDAWPlayer` / `UniDAWVisualizer`（シーン用コンポーネント） | Model・Audio |
+| Services | `Editor/Services` | アセット入出力・インポーター・CLI・プレビュー音声（`IAudioHost`）・MIDI 入力の橋渡し | Runtime 全体 |
+| Composer | `Editor/Composer` | エディタの状態と操作。UIElements に依存しない（`ComposerState`・`ComposerSession`・`Transport`・`CellCommands`・`ComposerKeymap`・`MidiRecorder`・`SongFileCommands`） | Services |
+| UI | `Editor/UI` | `UniDAWWindow`（配置と配線のみ）、パネル、`Views/`（トラッカー・ステップ・ピアノロール） | Composer（`ComposerContext` 経由） |
+
+- 新しい編集操作は Composer に足し、UI からは呼ぶだけにする（Undo・読み取り専用チェックは `ComposerSession` が一括で行う）
+- 新しい表示は `IPatternView` を実装して `UniDAWWindow.BuildCenter` に並べ、`PatternViewKind` に値を**追記**する
+- Audio / Midi / Model は UnityEngine の実行時 API を使わない（オーディオスレッド・テスト・CLI から使うため）
+
 ## キー操作（トラッカー）
 | キー | 動作 |
 |---|---|
