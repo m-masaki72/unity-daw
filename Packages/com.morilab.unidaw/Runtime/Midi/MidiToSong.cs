@@ -44,6 +44,9 @@ namespace UniDAW.Midi
     /// <summary>MIDI → 4ch チップ曲 変換（ポリフォニーを単音へ落とし込む）。</summary>
     public static class MidiToSong
     {
+        /// <summary>取り込む長さの上限（行）。これより後ろのノートは捨てる（壊れたファイルでの巨大な確保を防ぐ）。</summary>
+        public const int MaxImportRows = Pattern.MaxRows * 256;
+
         struct RowNote
         {
             public int row;
@@ -65,18 +68,20 @@ namespace UniDAW.Midi
         {
             opt = opt ?? new MidiImportOptions();
             report = new MidiImportReport { sourceNotes = data.notes.Count };
+            if (data.division <= 0) throw new ArgumentException("MIDI の分解能 (division) が不正です");
+            int rowsPerBeat = Math.Max(1, Math.Min(16, opt.rowsPerBeat));
             var song = Song.CreateDefault(opt.rowsPerPattern);
             song.title = title;
             song.name = title;
             song.bpm = (float)Math.Round(Math.Max(20, Math.Min(400, data.InitialBpm)), 2);
-            song.rowsPerBeat = opt.rowsPerBeat;
+            song.rowsPerBeat = rowsPerBeat;
             song.speed = opt.speed;
 
-            double ticksPerRow = data.division / (double)opt.rowsPerBeat;
+            double ticksPerRow = data.division / (double)rowsPerBeat;
             RowNote ToRow(MidiNote n, int instrument)
             {
-                int r = (int)Math.Round(n.startTick / ticksPerRow);
-                int e = (int)Math.Round(n.endTick / ticksPerRow);
+                int r = (int)Math.Min(int.MaxValue / 2, Math.Round(n.startTick / ticksPerRow));
+                int e = (int)Math.Min(int.MaxValue / 2, Math.Round(n.endTick / ticksPerRow));
                 if (e <= r) e = r + 1;
                 int vol = opt.velocityToVolume ? Math.Max(1, Math.Min(15, (int)Math.Round(n.velocity / 127.0 * 15))) : 15;
                 return new RowNote { row = r, endRow = e, note = n.note + opt.transpose, vol = vol, instrument = instrument };
@@ -169,8 +174,11 @@ namespace UniDAW.Midi
             // ---- 行配置 ----
             int totalRows = 1;
             foreach (var l in lanes)
+            {
+                report.droppedNotes += l.RemoveAll(n => n.row >= MaxImportRows);
                 foreach (var n in l)
-                    totalRows = Math.Max(totalRows, n.endRow);
+                    totalRows = Math.Max(totalRows, Math.Min(MaxImportRows, n.endRow));
+            }
             int rpp = Math.Max(1, Math.Min(Pattern.MaxRows, opt.rowsPerPattern));
             int patternCount = (totalRows + rpp - 1) / rpp;
             var flat = new Cell[Song.ChannelCount, patternCount * rpp];

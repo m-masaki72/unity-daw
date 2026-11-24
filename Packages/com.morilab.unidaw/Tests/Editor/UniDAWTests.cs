@@ -516,5 +516,56 @@ namespace UniDAW.Tests
                 UnityEngine.Object.DestroyImmediate(song);
             }
         }
+    
+        // ---- 壊れた / 悪意のある MIDI --------------------------------------------------
+
+        static byte[] Smf(int division, params byte[] track)
+        {
+            var b = new List<byte> { (byte)'M', (byte)'T', (byte)'h', (byte)'d', 0, 0, 0, 6, 0, 0, 0, 1, (byte)(division >> 8), (byte)division };
+            b.AddRange(new[] { (byte)'M', (byte)'T', (byte)'r', (byte)'k' });
+            int n = track.Length;
+            b.AddRange(new[] { (byte)(n >> 24), (byte)(n >> 16), (byte)(n >> 8), (byte)n });
+            b.AddRange(track);
+            return b.ToArray();
+        }
+
+        [Test]
+        public void Smf_RejectsZeroDivisionAndBadHeader()
+        {
+            Assert.Throws<System.IO.InvalidDataException>(() => SmfReader.Read(Smf(0, 0, 0x90, 60, 100)));
+            var bad = Smf(96, 0, 0x90, 60, 100);
+            bad[4] = 0x7F; // ヘッダ長がファイルより長い
+            Assert.Throws<System.IO.InvalidDataException>(() => SmfReader.Read(bad));
+        }
+
+        [Test]
+        public void Smf_TruncatedDataEndsTrackQuietly()
+        {
+            // ノートオン → 途中で切れたノートオフ / メタ / SysEx
+            foreach (var tail in new[] { new byte[] { 10, 0x80, 60 }, new byte[] { 10, 0xFF, 0x03, 50, 65 }, new byte[] { 10, 0xF0, 0x7F } })
+            {
+                var track = new List<byte> { 0, 0x90, 60, 100 };
+                track.AddRange(tail);
+                var d = SmfReader.Read(Smf(96, track.ToArray()));
+                Assert.AreEqual(1, d.notes.Count);
+            }
+            // チャンクの長さが実データより長い
+            var b = Smf(96, 0, 0x90, 60, 100, 8, 0x80, 60, 0);
+            b[21] = 0xFF;
+            Assert.AreEqual(1, SmfReader.Read(b).notes.Count);
+        }
+
+        [Test]
+        public void MidiImport_HugeTimeIsCapped()
+        {
+            // 0x0FFFFFFF tick 後のノート × 数個（分解能 1）→ 巨大な配列を確保しない
+            var track = new List<byte> { 0, 0x90, 60, 100, 1, 0x80, 60, 0 };
+            for (int i = 0; i < 4; i++) track.AddRange(new byte[] { 0xFF, 0xFF, 0xFF, 0x7F, 0x90, 64, 100, 1, 0x80, 64, 0 });
+            var song = MidiToSong.Import(Smf(1, track.ToArray()), new MidiImportOptions { rowsPerBeat = 16 }, "huge", out var report);
+            Assert.LessOrEqual(song.order.Count * 64, MidiToSong.MaxImportRows);
+            Assert.AreEqual(4, report.droppedNotes);
+            Assert.AreEqual(60, song.patterns[0].tracks[0].cells[0].note);
+            UnityEngine.Object.DestroyImmediate(song);
+        }
     }
 }

@@ -43,20 +43,22 @@ namespace UniDAW.Midi
             var d = new MidiFileData();
             int pos = 0;
             if (bytes.Length < 14 || Ascii(bytes, 0, 4) != "MThd") throw new InvalidDataException("MThd ヘッダがありません");
-            int hlen = (int)ReadU32(bytes, 4);
+            long hlen = ReadU32(bytes, 4);
+            if (hlen < 6 || 8 + hlen > bytes.Length) throw new InvalidDataException("MThd ヘッダの長さが不正です");
             d.format = ReadU16(bytes, 8);
             int ntracks = ReadU16(bytes, 10);
             int div = ReadU16(bytes, 12);
             if ((div & 0x8000) != 0) throw new InvalidDataException("SMPTE タイムベースは未対応です");
+            if (div == 0) throw new InvalidDataException("分解能 (division) が 0 です");
             d.division = div;
-            pos = 8 + hlen;
+            pos = (int)(8 + hlen);
 
             for (int t = 0; t < ntracks && pos + 8 <= bytes.Length; t++)
             {
                 string id = Ascii(bytes, pos, 4);
-                int len = (int)ReadU32(bytes, pos + 4);
+                long len = ReadU32(bytes, pos + 4);
                 pos += 8;
-                int end = Math.Min(bytes.Length, pos + len);
+                int end = (int)Math.Min(bytes.Length, pos + len);
                 if (id == "MTrk") ReadTrack(bytes, pos, end, t, d);
                 else d.trackNames.Add("");
                 pos = end;
@@ -83,9 +85,12 @@ namespace UniDAW.Midi
                 });
             }
 
+            bool Has(int n) => pos + n <= end;
+
             while (pos < end)
             {
-                tick += ReadVlq(b, ref pos);
+                tick += ReadVlq(b, ref pos, end);
+                if (tick > MaxTick) throw new InvalidDataException("曲が長すぎます（時刻が上限を超えています）");
                 if (pos >= end) break;
                 int status = b[pos];
                 if (status >= 0x80)
@@ -101,8 +106,10 @@ namespace UniDAW.Midi
 
                 if (status == 0xFF)
                 {
+                    if (!Has(1)) break;
                     int type = b[pos++];
-                    int len = (int)ReadVlq(b, ref pos);
+                    int len = (int)ReadVlq(b, ref pos, end);
+                    if (!Has(len)) break;
                     if (type == 0x51 && len >= 3)
                     {
                         int us = (b[pos] << 16) | (b[pos + 1] << 8) | b[pos + 2];
@@ -118,16 +125,18 @@ namespace UniDAW.Midi
                 }
                 if (status == 0xF0 || status == 0xF7)
                 {
-                    int len = (int)ReadVlq(b, ref pos);
+                    int len = (int)ReadVlq(b, ref pos, end);
+                    if (!Has(len)) break;
                     pos += len;
                     continue;
                 }
 
                 int kind = status & 0xF0;
                 int chn = status & 0x0F;
+                int dataLen = kind == 0xC0 || kind == 0xD0 ? 1 : 2;
+                if (!Has(dataLen)) break;
                 int d1 = b[pos++] & 0x7F;
-                int d2 = 0;
-                if (kind != 0xC0 && kind != 0xD0) d2 = b[pos++] & 0x7F;
+                int d2 = dataLen == 2 ? b[pos++] & 0x7F : 0;
 
                 if (kind == 0x90 && d2 > 0)
                 {
@@ -158,10 +167,15 @@ namespace UniDAW.Midi
             }
         }
 
-        internal static long ReadVlq(byte[] b, ref int pos)
+        /// <summary>読み込める時刻の上限（tick）。超えるファイルは壊れているとみなす。</summary>
+        public const long MaxTick = 1L << 31;
+
+        internal static long ReadVlq(byte[] b, ref int pos) => ReadVlq(b, ref pos, b.Length);
+
+        internal static long ReadVlq(byte[] b, ref int pos, int end)
         {
             long v = 0;
-            for (int i = 0; i < 4 && pos < b.Length; i++)
+            for (int i = 0; i < 4 && pos < end; i++)
             {
                 int c = b[pos++];
                 v = (v << 7) | (uint)(c & 0x7F);
