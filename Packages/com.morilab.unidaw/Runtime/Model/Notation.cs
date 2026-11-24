@@ -74,6 +74,9 @@ namespace UniDAW
                 case FxType.Duty: return 'V';
                 case FxType.Speed: return 'F';
                 case FxType.NoteCut: return 'S';
+                case FxType.NoteDelay: return 'G';
+                case FxType.NoteSlideUp: return 'Q';
+                case FxType.NoteSlideDown: return 'R';
                 default: return '.';
             }
         }
@@ -91,6 +94,9 @@ namespace UniDAW
                 case 'V': return FxType.Duty;
                 case 'F': return FxType.Speed;
                 case 'S': return FxType.NoteCut;
+                case 'G': return FxType.NoteDelay;
+                case 'Q': return FxType.NoteSlideUp;
+                case 'R': return FxType.NoteSlideDown;
                 default: return FxType.None;
             }
         }
@@ -108,7 +114,31 @@ namespace UniDAW
                 case FxType.Duty: return "Duty / Noise Mode";
                 case FxType.Speed: return "Speed / Tempo";
                 case FxType.NoteCut: return "Note Cut";
+                case FxType.NoteDelay: return "Note Delay";
+                case FxType.NoteSlideUp: return "Note Slide Up";
+                case FxType.NoteSlideDown: return "Note Slide Down";
                 default: return "None";
+            }
+        }
+
+        /// <summary>エフェクトの使い方（ステータスバーのヘルプ用）。</summary>
+        public static string Help(FxType t)
+        {
+            switch (t)
+            {
+                case FxType.Arpeggio: return "0xy アルペジオ: 0 / +x / +y 半音を tick 毎に巡回（例 037 = マイナー）";
+                case FxType.SlideUp: return "1xx スライドアップ: tick 毎に xx/16 半音上昇";
+                case FxType.SlideDown: return "2xx スライドダウン: tick 毎に xx/16 半音下降";
+                case FxType.Portamento: return "3xx ポルタメント: 次ノートへ xx/16 半音/tick で滑る（再発音しない）";
+                case FxType.Vibrato: return "4xy ビブラート: 速度 x, 深さ y";
+                case FxType.VolumeSlide: return "Axy ボリュームスライド: x 上昇 / y 下降（1/8 段/tick）";
+                case FxType.Duty: return "Vxx デューティ: 0=12.5% 1=25% 2=50% 3=75%（ノイズは 1 でショートモード）";
+                case FxType.Speed: return "Fxx スピード/テンポ: 00-1F は tick/行, 20 以上は BPM";
+                case FxType.NoteCut: return "Sxx ノートカット: 行の xx tick 目で音を止める";
+                case FxType.NoteDelay: return "Gxx ノートディレイ: 行の xx tick 目まで発音を遅らせる（スウィング・フラム）";
+                case FxType.NoteSlideUp: return "Qxy ノートスライドアップ: 速度 x で y 半音上へ滑る";
+                case FxType.NoteSlideDown: return "Rxy ノートスライドダウン: 速度 x で y 半音下へ滑る";
+                default: return "エフェクト: 0 1 2 3 4 A V F S G Q R + 2 桁 16 進";
             }
         }
 

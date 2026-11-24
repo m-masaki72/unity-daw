@@ -27,6 +27,8 @@ namespace UniDAW
         public List<Instrument> instruments = new List<Instrument>();
         public List<Pattern> patterns = new List<Pattern>();
         public List<int> order = new List<int>();
+        /// <summary>順序表の各エントリのトランスポーズ（半音、order と同じ長さ。ノイズには効かない）。LSDj のチェイン移調に相当。</summary>
+        public List<int> orderTranspose = new List<int>();
 
         public static Song CreateDefault(int patternLength = 16)
         {
@@ -40,6 +42,7 @@ namespace UniDAW
             instruments = DefaultInstruments();
             patterns = new List<Pattern> { new Pattern(patternLength, "A") };
             order = new List<int> { 0 };
+            orderTranspose = new List<int> { 0 };
         }
 
         public static List<Instrument> DefaultInstruments() => new List<Instrument>
@@ -63,6 +66,42 @@ namespace UniDAW
         public int PatternAtOrder(int orderIndex) =>
             orderIndex >= 0 && orderIndex < order.Count ? order[orderIndex] : -1;
 
+        public int TransposeAtOrder(int orderIndex) =>
+            orderTranspose != null && orderIndex >= 0 && orderIndex < orderTranspose.Count ? orderTranspose[orderIndex] : 0;
+
+        /// <summary>順序表にエントリを挿入（トランスポーズも同期）。</summary>
+        public void InsertOrder(int index, int pattern, int transpose = 0)
+        {
+            SyncOrderTranspose();
+            index = Math.Max(0, Math.Min(order.Count, index));
+            order.Insert(index, pattern);
+            orderTranspose.Insert(index, transpose);
+        }
+
+        public void RemoveOrder(int index)
+        {
+            SyncOrderTranspose();
+            if (index < 0 || index >= order.Count) return;
+            order.RemoveAt(index);
+            orderTranspose.RemoveAt(index);
+        }
+
+        public void SwapOrder(int a, int b)
+        {
+            SyncOrderTranspose();
+            (order[a], order[b]) = (order[b], order[a]);
+            (orderTranspose[a], orderTranspose[b]) = (orderTranspose[b], orderTranspose[a]);
+        }
+
+        /// <summary>トランスポーズ表を順序表と同じ長さに揃える。</summary>
+        public void SyncOrderTranspose()
+        {
+            if (orderTranspose == null) orderTranspose = new List<int>();
+            while (orderTranspose.Count < order.Count) orderTranspose.Add(0);
+            if (orderTranspose.Count > order.Count) orderTranspose.RemoveRange(order.Count, orderTranspose.Count - order.Count);
+            for (int i = 0; i < orderTranspose.Count; i++) orderTranspose[i] = Math.Max(-48, Math.Min(48, orderTranspose[i]));
+        }
+
         /// <summary>シリアライズ後やインポート後に形を整える。</summary>
         public void Validate()
         {
@@ -74,6 +113,7 @@ namespace UniDAW
             for (int i = 0; i < order.Count; i++)
                 order[i] = Math.Max(0, Math.Min(patterns.Count - 1, order[i]));
             if (order.Count == 0) order.Add(0);
+            SyncOrderTranspose();
         }
 
         void OnValidate() => Validate();

@@ -41,6 +41,10 @@ namespace UniDAW
             public int dutyOverride;
             public int cutTick;
             public float outPitch;
+            // Gxx ノートディレイ待ちのセル
+            public bool delayPending;
+            public Cell delayCell;
+            public int delayTick, delayCycle, delayIdx, delayPi, delayTranspose;
         }
 
         enum CmdType { Play, PlayPattern, Stop, NoteOn, NoteOff, AllNotesOff }
@@ -275,6 +279,7 @@ namespace UniDAW
             for (int c = 0; c < Channels; c++)
             {
                 st[c].active = false;
+                st[c].delayPending = false;
                 voices[c].gate = false;
             }
         }
@@ -300,7 +305,11 @@ namespace UniDAW
 
         void Tick(Song s)
         {
-            if (playing && s != null && tickInRow == 0) ProcessRow(s);
+            if (playing && s != null)
+            {
+                if (tickInRow == 0) ProcessRow(s);
+                else FireDelayed(s);
+            }
             for (int c = 0; c < Channels; c++) UpdateChannel(c, s);
             if (playing)
             {
@@ -332,17 +341,47 @@ namespace UniDAW
                 PlayingPattern = pi;
                 int cycle = loopPattern ? patternLoop : SongCycle(s, pi);
                 PlayingLoop = loopPattern ? patternLoop : 0;
+                int transpose = loopPattern ? 0 : s.TransposeAtOrder(orderPos);
+                int speed = CurrentSpeed(s);
                 for (int c = 0; c < Channels && c < p.tracks.Length; c++)
                 {
+                    st[c].delayPending = false;
                     var t = p.tracks[c];
                     int idx = p.CellIndex(c, row, loopPattern ? patternLoop : 0);
                     if (t.cells == null || idx >= t.cells.Length) continue;
-                    ApplyCell(c, t.cells[idx], s, cycle, idx, pi);
+                    var cell = t.cells[idx];
+                    int delay = cell.FxParam(FxType.NoteDelay);
+                    if (delay > 0)
+                    {
+                        // 行の長さ以上のディレイはその行では鳴らない（FamiTracker 互換）
+                        if (delay >= speed) continue;
+                        ref var ch = ref st[c];
+                        ch.delayPending = true;
+                        ch.delayCell = cell;
+                        ch.delayTick = delay;
+                        ch.delayCycle = cycle;
+                        ch.delayIdx = idx;
+                        ch.delayPi = pi;
+                        ch.delayTranspose = transpose;
+                        continue;
+                    }
+                    ApplyCell(c, cell, s, cycle, idx, pi, transpose);
                 }
             }
             catch (Exception)
             {
                 // 編集中の構造変更と競合しても音声スレッドは止めない
+            }
+        }
+
+        void FireDelayed(Song s)
+        {
+            for (int c = 0; c < Channels; c++)
+            {
+                ref var ch = ref st[c];
+                if (!ch.delayPending || tickInRow < ch.delayTick) continue;
+                ch.delayPending = false;
+                ApplyCell(c, ch.delayCell, s, ch.delayCycle, ch.delayIdx, ch.delayPi, ch.delayTranspose);
             }
         }
 
@@ -408,7 +447,7 @@ namespace UniDAW
             return h ^ (h >> 16);
         }
 
-        void ApplyCell(int c, in Cell cell, Song s, int cycle, int idx, int pi)
+        void ApplyCell(int c, in Cell cell, Song s, int cycle, int idx, int pi, int transpose)
         {
             if (cell.IsBlank) return;
             if ((cell.HasNote || cell.IsOff) && !PassesConditions(cell, c, cycle, idx, pi)) return;
@@ -422,16 +461,18 @@ namespace UniDAW
             }
             else if (cell.HasNote)
             {
+                int note = cell.note;
+                if (transpose != 0 && Song.Kinds[c] != ChannelKind.Noise) note = Math.Max(0, Math.Min(127, note + transpose));
                 // リリース中の音へのポルタメントは新規発音として扱う（減衰したまま無音にならないように）
                 if (cell.HasFx(FxType.Portamento) && ch.active && !ch.released)
                 {
-                    ch.portaTarget = cell.note;
-                    ch.baseNote = cell.note;
+                    ch.portaTarget = note;
+                    ch.baseNote = note;
                     if (cell.volume >= 0) ch.volume = cell.volume;
                 }
                 else
                 {
-                    Trigger(c, cell.note, cell.volume >= 0 ? cell.volume : 15, false, row);
+                    Trigger(c, note, cell.volume >= 0 ? cell.volume : 15, false, row);
                 }
             }
             else if (cell.volume >= 0)
@@ -480,6 +521,14 @@ namespace UniDAW
                     break;
                 case FxType.NoteCut:
                     ch.cutTick = fx.param;
+                    break;
+                case FxType.NoteSlideUp:
+                case FxType.NoteSlideDown:
+                    if (!ch.active || fx.Y == 0) break;
+                    int target = ch.baseNote + (fx.type == FxType.NoteSlideUp ? fx.Y : -fx.Y);
+                    ch.portaTarget = Math.Max(0, Math.Min(127, target));
+                    ch.baseNote = (int)ch.portaTarget;
+                    ch.portaSpeed = fx.X * 2 + 1;
                     break;
             }
         }

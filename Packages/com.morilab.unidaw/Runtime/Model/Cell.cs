@@ -15,6 +15,9 @@ namespace UniDAW
         Duty,         // Vxx : デューティ（ノイズは bit0 でショートモード）
         Speed,        // Fxx : xx<0x20 ならスピード(tick/row)、それ以上は BPM
         NoteCut,      // Sxx : xx tick 後にカット
+        NoteDelay,    // Gxx : 行の xx tick 後に発音（行内の後ノリ・フラム）
+        NoteSlideUp,  // Qxy : 速度 x で y 半音上へスライド
+        NoteSlideDown,// Rxy : 速度 x で y 半音下へスライド
     }
 
     [Serializable]
@@ -87,6 +90,9 @@ namespace UniDAW
             volume >= 0 || !fx1.IsEmpty || !fx2.IsEmpty || probability < 100 || HasCondition;
 
         public bool HasFx(FxType t) => fx1.type == t || fx2.type == t;
+
+        /// <summary>エフェクト t のパラメータ（fx1 優先）。無ければ -1。</summary>
+        public int FxParam(FxType t) => fx1.type == t ? fx1.param : fx2.type == t ? fx2.param : -1;
 
         public bool ContentEquals(in Cell o) =>
             note == o.note && instrument == o.instrument && volume == o.volume &&

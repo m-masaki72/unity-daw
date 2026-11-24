@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace UniDAW.Midi
 {
-    /// <summary>Song → Standard MIDI File（順序表を1周展開。エフェクト・確率・条件は無視）。</summary>
+    /// <summary>Song → Standard MIDI File（順序表を1周展開。順序表トランスポーズと Gxx ディレイは反映、他のエフェクト・確率・条件は無視）。</summary>
     public static class SongToMidi
     {
         /// <summary>ノイズのピッチ → GM ドラム番号（DrumMap の逆の近似）。</summary>
@@ -37,10 +37,12 @@ namespace UniDAW.Midi
             }
 
             long tick = 0;
-            foreach (int pi in song.order)
+            int speed = Math.Max(1, song.speed);
+            for (int oi = 0; oi < song.order.Count; oi++)
             {
-                var p = song.GetPattern(pi);
+                var p = song.GetPattern(song.order[oi]);
                 if (p == null) continue;
+                int transpose = song.TransposeAtOrder(oi);
                 for (int row = 0; row < p.length; row++, tick += ticksPerRow)
                 {
                     for (int c = 0; c < Song.ChannelCount; c++)
@@ -48,21 +50,25 @@ namespace UniDAW.Midi
                         var cell = p.tracks[c].cells[p.CellIndex(c, row)];
                         if (cell.instrument >= 0) lastInst[c] = cell.instrument;
                         if (!cell.HasNote && !cell.IsOff) continue;
-                        Close(tracks[c], ref open[c], tick);
+                        int delay = Math.Max(0, cell.FxParam(FxType.NoteDelay));
+                        if (delay >= speed) continue;
+                        long at = tick + (long)ticksPerRow * delay / speed;
+                        Close(tracks[c], ref open[c], at);
                         if (cell.IsOff) continue;
                         bool noise = Song.Kinds[c] == ChannelKind.Noise;
+                        int note = noise ? cell.note : Math.Max(0, Math.Min(127, cell.note + transpose));
                         int vol = cell.volume >= 0 ? cell.volume : 15;
                         open[c] = new MidiNote
                         {
                             channel = noise ? 9 : c,
-                            note = noise ? NoiseToGm(cell.note, lastInst[c]) : cell.note,
+                            note = noise ? NoiseToGm(cell.note, lastInst[c]) : note,
                             velocity = Math.Max(1, Math.Min(127, (int)Math.Round(vol / 15.0 * 127))),
-                            startTick = tick,
+                            startTick = at,
                         };
                         if (noise)
                         {
                             // ドラムは短く
-                            Close(tracks[c], ref open[c], tick + Math.Max(1, ticksPerRow / 2));
+                            Close(tracks[c], ref open[c], at + Math.Max(1, ticksPerRow / 2));
                         }
                     }
                 }
