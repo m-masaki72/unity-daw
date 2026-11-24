@@ -1,7 +1,7 @@
 {
   "dependencies": {
-    "com.chipdaw.core": {
-      "version": "file:com.chipdaw.core",
+    "com.morilab.unidaw": {
+      "version": "file:com.morilab.unidaw",
       "depth": 0,
       "source": "embedded",
       "dependencies": {
