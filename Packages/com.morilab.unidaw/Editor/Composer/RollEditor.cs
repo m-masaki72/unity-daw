@@ -229,6 +229,16 @@ namespace UniDAW.Editor
             Apply("Roll Paste", notes, pasted);
         }
 
+        /// <summary>行 from..to に始まるノートを notes で置き換え、置いたノートを選択する（生成結果の書き込み）。</summary>
+        public void ReplaceRange(string undoName, int from, int to, IEnumerable<RollNote> notes)
+        {
+            if (!s.CanEdit()) return;
+            var list = Notes().Where(n => n.start < from || n.start >= to).ToList();
+            var added = notes.ToList();
+            list.AddRange(added);
+            Apply(undoName, list, new HashSet<int>(added.Select(n => n.start)));
+        }
+
         public bool HasClipboard => clipboard != null && clipboard.Count > 0;
     }
 }

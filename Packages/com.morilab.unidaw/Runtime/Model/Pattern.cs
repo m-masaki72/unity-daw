@@ -27,6 +27,8 @@ namespace UniDAW
 
         public string name = "";
         public int length = 16;
+        /// <summary>コード進行（"C G Am F" / "I V vi IV"）。パターン全体に均等に割り付ける。空 = なし。</summary>
+        public string chords = "";
         public Track[] tracks = Array.Empty<Track>();
 
         public Pattern() { }
@@ -84,7 +86,7 @@ namespace UniDAW
 
         public Pattern Clone()
         {
-            var p = new Pattern { name = name, length = length, tracks = new Track[tracks.Length] };
+            var p = new Pattern { name = name, length = length, chords = chords, tracks = new Track[tracks.Length] };
             for (int i = 0; i < tracks.Length; i++) p.tracks[i] = tracks[i].Clone();
             return p;
         }

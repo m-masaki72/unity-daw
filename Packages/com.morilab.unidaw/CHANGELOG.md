@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0] - 2026-11-25
+- 入力支援（下ゾーンの Assist タブ、ネット不要）
+  - 曲のキー（`Song.keyRoot` / `scaleMode`）とスケール補正。ピアノロールでスケール外の段を暗く表示
+  - パターンごとのコード進行（`Pattern.chords`、音名・ローマ数字・分数コード）から和音・ベース・ドラムを生成
+  - 曲から学習するマルコフモデルによるメロディの続きの提案と「別案」
+- Runtime に `Scale` / `Chord` / `ChordProgression` / `Accompaniment` / `MelodyModel`（UnityEngine 非依存）
+
 ## [0.3.0] - 2026-11-24
 - ミキサー（下ゾーン、F3）：チャンネルごとの音量・パン・ミュート / ソロとマスター音量を曲に保存。再生・書き出しに反映し Undo 可能。ゲーム側の `ChipEngine.Mute` / `Solo` は従来どおり上書きとして有効
 - ステレオ出力：`ChipEngine.Render` が 2ch 以上で L/R を出力（センターはモノラルと同じ音量）。`ChipEngine.OutputLevels`、`RenderSongStereo`、`WavWriter.Write16` を追加。WAV 書き出しはステレオに

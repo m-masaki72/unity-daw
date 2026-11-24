@@ -10,7 +10,7 @@ namespace UniDAW.Editor
     public enum RollTool { Select = 0, Draw = 1, Erase = 2 }
 
     /// <summary>下ゾーン（Cubase の Lower Zone）のタブ（int としてシリアライズされるので値は固定）。</summary>
-    public enum LowerTab { Mixer = 0, Instrument = 1 }
+    public enum LowerTab { Mixer = 0, Instrument = 1, Assist = 2 }
 
     /// <summary>
     /// コンポーザーの編集状態（ウィンドウにシリアライズされ、ドメインリロードを越えて残る）。
@@ -42,6 +42,14 @@ namespace UniDAW.Editor
         public LowerTab lowerTab;
         /// <summary>楽器エディタで編集中のマクロ。</summary>
         public MacroKind macro;
+        /// <summary>入力支援：伴奏の型・メロディ提案の長さ / ばらつき / 乱数の種。</summary>
+        public BassStyle assistBass = BassStyle.Octave;
+        public ChordStyle assistChord = ChordStyle.Arpeggio;
+        public DrumStyle assistDrums = DrumStyle.Basic;
+        public bool assistFill = true;
+        public int assistRows = 16;
+        public float assistTemperature = 1f;
+        public int assistSeed;
 
         public Pattern CurrentPattern => song != null ? song.GetPattern(patternIndex) : null;
 

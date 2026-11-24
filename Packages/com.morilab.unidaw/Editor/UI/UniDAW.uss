@@ -460,3 +460,12 @@
 .cd-insted-foot { flex-direction: row; align-items: flex-start; flex-shrink: 0; }
 .cd-insted-seq { flex-grow: 1; margin: 0 6px 0 0; }
 .cd-insted-info { width: 260px; flex-shrink: 0; white-space: normal; font-size: 10px; color: rgb(150, 150, 165); }
+
+/* ---- 入力支援（下ゾーン） */
+.cd-assist { flex-direction: row; flex-grow: 1; min-height: 0; padding: 4px; }
+.cd-assist-sec { flex-grow: 1; flex-basis: 0; min-width: 0; margin-right: 8px; padding: 4px 6px; background-color: rgb(30, 30, 39); border-radius: 3px; }
+.cd-assist-row { flex-direction: row; flex-wrap: wrap; align-items: center; margin-bottom: 4px; }
+.cd-assist-row > * { margin-right: 4px; margin-bottom: 2px; }
+.cd-assist-chords { margin: 0 0 4px 0; }
+.cd-assist-info { white-space: normal; font-size: 10px; color: rgb(150, 150, 165); margin-top: 4px; }
+.cd-assist-info.error { color: rgb(240, 130, 110); }

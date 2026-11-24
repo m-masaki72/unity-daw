@@ -30,6 +30,7 @@ namespace UniDAW.Editor
         MidiRecorder recorder;
         SongFileCommands files;
         MixerCommands mixer;
+        AssistCommands assist;
         ComposerContext ctx;
 
         // ---- UI
@@ -44,6 +45,7 @@ namespace UniDAW.Editor
         SegmentedControl lowerSeg;
         MixerView mixerView;
         InstrumentEditor instrumentEditor;
+        AssistPanel assistPanel;
         bool lowerCollapsed;
         StatusBar statusBar;
         Label help;
@@ -65,6 +67,7 @@ namespace UniDAW.Editor
         public RollEditor Roll => roll;
         public Transport Transport => transport;
         public MixerCommands Mixer => mixer;
+        public AssistCommands Assist => assist;
         public ComposerSession Session => session;
         public ComposerState State => state;
         public string FxHelpAtCursor() => session.FxHelpAtCursor();
@@ -111,7 +114,8 @@ namespace UniDAW.Editor
             recorder = new MidiRecorder(session);
             files = new SongFileCommands(session);
             mixer = new MixerCommands(session);
-            ctx = new ComposerContext(session, cells, roll, files, mixer, FocusMain);
+            assist = new AssistCommands(session, roll);
+            ctx = new ComposerContext(session, cells, roll, files, mixer, assist, FocusMain);
 
             session.Changed += RefreshAll;
             session.Notified += Notify;
@@ -215,7 +219,7 @@ namespace UniDAW.Editor
             lowerZone.AddToClassList("cd-lower");
             var bar = new VisualElement();
             bar.AddToClassList("cd-lower-bar");
-            lowerSeg = new SegmentedControl(new[] { "Mixer (F3)", "Instrument" }, i => session.ShowLowerTab((LowerTab)i));
+            lowerSeg = new SegmentedControl(new[] { "Mixer (F3)", "Instrument", "Assist" }, i => session.ShowLowerTab((LowerTab)i));
             bar.Add(lowerSeg);
             var spacer = new VisualElement();
             spacer.style.flexGrow = 1;
@@ -228,6 +232,8 @@ namespace UniDAW.Editor
             lowerZone.Add(mixerView);
             instrumentEditor = new InstrumentEditor(ctx);
             lowerZone.Add(instrumentEditor);
+            assistPanel = new AssistPanel(ctx);
+            lowerZone.Add(assistPanel);
             return lowerZone;
         }
 
@@ -242,11 +248,16 @@ namespace UniDAW.Editor
             }
             if (!open) return;
             lowerSeg.SetIndex((int)state.lowerTab);
-            bool mix = state.lowerTab == LowerTab.Mixer;
-            mixerView.style.display = mix ? DisplayStyle.Flex : DisplayStyle.None;
-            instrumentEditor.style.display = mix ? DisplayStyle.None : DisplayStyle.Flex;
-            if (mix) mixerView.Refresh();
-            else instrumentEditor.Refresh();
+            var tab = state.lowerTab;
+            mixerView.style.display = tab == LowerTab.Mixer ? DisplayStyle.Flex : DisplayStyle.None;
+            instrumentEditor.style.display = tab == LowerTab.Instrument ? DisplayStyle.Flex : DisplayStyle.None;
+            assistPanel.style.display = tab == LowerTab.Assist ? DisplayStyle.Flex : DisplayStyle.None;
+            switch (tab)
+            {
+                case LowerTab.Mixer: mixerView.Refresh(); break;
+                case LowerTab.Instrument: instrumentEditor.Refresh(); break;
+                default: assistPanel.Refresh(); break;
+            }
         }
 
         VisualElement BuildRightPanel()

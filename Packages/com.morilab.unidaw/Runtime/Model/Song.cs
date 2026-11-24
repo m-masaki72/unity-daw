@@ -33,6 +33,11 @@ namespace UniDAW
         public List<ChannelMix> mixer = new List<ChannelMix>();
         /// <summary>マスター音量（dB）。</summary>
         public float masterDb;
+        /// <summary>キーの主音（0..11）とスケール。Chromatic = 指定なし（補正・色分けをしない）。</summary>
+        public int keyRoot;
+        public ScaleMode scaleMode;
+
+        public Scale Key => new Scale(keyRoot, scaleMode);
 
         public static Song CreateDefault(int patternLength = 16)
         {
@@ -149,6 +154,9 @@ namespace UniDAW
                 mixer[c].pan = ChannelMix.ClampPan(mixer[c].pan);
             }
             masterDb = ChannelMix.ClampDb(masterDb);
+            var key = Key;
+            keyRoot = key.root;
+            scaleMode = key.mode;
             if (patterns == null) patterns = new List<Pattern>();
             if (order == null) order = new List<int>();
             if (patterns.Count == 0) patterns.Add(new Pattern(16, "A"));

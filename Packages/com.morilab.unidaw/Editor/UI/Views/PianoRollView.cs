@@ -407,12 +407,32 @@ namespace UniDAW.Editor
             int rpb = Math.Max(1, song.rowsPerBeat);
             float width = len * CellW, height = (hi - lo + 1) * RowH;
 
-            // 背景（黒鍵の段を暗く、C の段に線）
+            // 背景（黒鍵の段を暗く、C の段に線）。キーがあればスケール外を暗く・主音を明るく
+            var key = song.Key;
+            bool scaled = !noise && !key.IsChromatic;
             for (int n = lo; n <= hi; n++)
             {
                 bool black = !noise && NoteText.IsBlackKey(n);
-                Fill(p, 0, YOf(n), width, RowH, black ? new Color(0.13f, 0.13f, 0.15f) : new Color(0.18f, 0.18f, 0.2f));
+                Color bg = black ? new Color(0.13f, 0.13f, 0.15f) : new Color(0.18f, 0.18f, 0.2f);
+                if (scaled)
+                    bg = !key.Contains(n) ? new Color(0.1f, 0.1f, 0.115f)
+                        : Scale.Pc(n - key.root) == 0 ? new Color(0.22f, 0.21f, 0.26f) : new Color(0.18f, 0.18f, 0.2f);
+                Fill(p, 0, YOf(n), width, RowH, bg);
                 if (!noise && n % 12 == 0) Fill(p, 0, YOf(n) + RowH - 1, width, 1, new Color(0.3f, 0.3f, 0.34f));
+            }
+            // コード進行：区間ごとに構成音の段を色付けし、区切りに線
+            if (!noise)
+            {
+                var chords = ChordProgression.Parse(pat.chords, key, out _);
+                for (int i = 0; i < chords.Count; i++)
+                {
+                    int s = ChordProgression.StartRow(i, chords.Count, len), e = ChordProgression.StartRow(i + 1, chords.Count, len);
+                    for (int n = lo; n <= hi; n++)
+                        if (chords[i].ContainsPc(n))
+                            Fill(p, s * CellW, YOf(n), (e - s) * CellW, RowH,
+                                Scale.Pc(n - chords[i].root) == 0 ? new Color(0.35f, 0.6f, 1f, 0.16f) : new Color(0.35f, 0.6f, 1f, 0.08f));
+                    if (i > 0) Fill(p, s * CellW - 1, 0, 2, height, new Color(0.45f, 0.65f, 1f, 0.5f));
+                }
             }
             // 縦線（拍は濃く）とポリメーターの折り返し部分
             for (int r = 0; r <= len; r++)
