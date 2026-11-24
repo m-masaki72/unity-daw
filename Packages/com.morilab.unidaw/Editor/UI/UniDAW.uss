@@ -1,14 +1,235 @@
+/* =====================================================================
+   テーマ：Unity 標準部品の見た目をこのウィンドウ内だけ上書きする
+   （このシートはウィンドウのルートに付くので、同じ詳細度ならテーマより優先される。
+     個別の部品の指定は後ろに書くので、ここは先頭に置く）
+   ===================================================================== */
 .cd-root {
     flex-grow: 1;
-    background-color: rgb(24, 24, 30);
-    color: rgb(210, 210, 220);
+    background-color: rgb(22, 22, 28);
+    color: rgb(214, 214, 224);
 }
 
-.cd-toolbar { flex-shrink: 0; }
-.cd-songfield { width: 180px; }
+.unity-button {
+    background-color: rgb(42, 42, 54);
+    border-width: 1px;
+    border-color: rgb(56, 56, 70);
+    border-radius: 4px;
+    color: rgb(208, 208, 222);
+}
+.unity-button:hover { background-color: rgb(54, 54, 68); border-color: rgb(72, 72, 90); }
+.unity-button:active { background-color: rgb(32, 32, 42); }
+
+.unity-base-text-field__input,
+.unity-object-field__input,
+.unity-base-popup-field__input {
+    background-color: rgb(15, 15, 21);
+    border-width: 1px;
+    border-color: rgb(48, 48, 60);
+    border-radius: 3px;
+    color: rgb(224, 224, 234);
+}
+.unity-base-text-field__input:hover,
+.unity-object-field__input:hover { border-color: rgb(70, 70, 88); }
+.unity-base-text-field__input:focus { border-color: rgb(100, 140, 230); }
+
 .cd-small { flex-direction: row; align-items: center; margin-left: 4px; margin-right: 2px; }
 .cd-small > Label { min-width: 0; padding-right: 2px; font-size: 11px; }
-.cd-rec:checked { color: rgb(255, 90, 90); }
+
+/* =====================================================================
+   トランスポートバー
+   ===================================================================== */
+.cd-tbar {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    min-height: 48px;
+    padding: 4px 8px;
+    background-color: rgb(32, 32, 41);
+    border-bottom-width: 1px;
+    border-color: rgb(12, 12, 16);
+}
+.cd-tb-group { flex-direction: row; align-items: center; margin: 2px 2px; }
+.cd-tb-sep { width: 1px; height: 30px; margin: 0 4px; background-color: rgb(56, 56, 70); }
+.cd-tb-spacer { flex-grow: 1; }
+
+/* アイコンボタン */
+.cd-ibtn {
+    width: 40px;
+    height: 36px;
+    margin: 0 2px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: rgb(58, 58, 74);
+    background-color: rgb(44, 44, 57);
+    color: rgb(196, 196, 212);
+}
+.cd-ibtn:hover { background-color: rgb(58, 58, 74); color: rgb(240, 240, 250); }
+.cd-ibtn:active { background-color: rgb(30, 30, 40); }
+.cd-ibtn-icon { width: 14px; height: 14px; margin-bottom: 3px; }
+.cd-ibtn-cap {
+    margin: 0;
+    padding: 0;
+    font-size: 8px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    color: rgb(140, 140, 158);
+}
+.cd-ibtn.play { color: rgb(120, 220, 150); }
+.cd-ibtn.play.on {
+    background-color: rgb(36, 92, 58);
+    border-color: rgb(96, 224, 140);
+    color: rgb(170, 255, 196);
+}
+.cd-ibtn.play.on > .cd-ibtn-cap { color: rgb(170, 255, 196); }
+.cd-ibtn.rec { color: rgb(232, 88, 88); }
+.cd-ibtn.rec.on {
+    background-color: rgb(112, 28, 34);
+    border-color: rgb(255, 90, 90);
+    color: rgb(255, 150, 150);
+}
+.cd-ibtn.rec.on > .cd-ibtn-cap { color: rgb(255, 170, 170); }
+.cd-ibtn.flat {
+    width: 30px;
+    height: 30px;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+}
+.cd-ibtn.flat:hover { background-color: rgb(48, 48, 62); }
+.cd-ibtn.flat > .cd-ibtn-icon { margin-bottom: 0; }
+
+/* 液晶風の位置表示 */
+.cd-lcd {
+    flex-direction: row;
+    align-items: center;
+    height: 36px;
+    margin: 2px 8px;
+    padding: 0 8px;
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: rgb(36, 54, 44);
+    background-color: rgb(9, 14, 11);
+}
+.cd-lcd-state {
+    width: 40px;
+    margin: 0;
+    padding: 0;
+    font-size: 11px;
+    -unity-font-style: bold;
+    color: rgb(70, 104, 82);
+}
+.cd-lcd.playing > .cd-lcd-state { color: rgb(120, 255, 160); }
+.cd-lcd-field { align-items: center; margin-left: 7px; }
+.cd-lcd-cap { margin: 0; padding: 0; font-size: 8px; color: rgb(64, 100, 78); }
+.cd-lcd-val {
+    margin: 0;
+    padding: 0;
+    font-size: 17px;
+    -unity-font-style: bold;
+    color: rgb(96, 150, 114);
+}
+.cd-lcd.playing .cd-lcd-val { color: rgb(150, 255, 184); }
+
+/* 数値ボックス */
+.cd-nbox {
+    min-width: 40px;
+    height: 36px;
+    margin: 0 2px;
+    padding: 0 5px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: rgb(48, 48, 62);
+    background-color: rgb(17, 17, 24);
+    cursor: resize-vertical;
+}
+.cd-nbox.wide { min-width: 58px; }
+.cd-nbox:hover { border-color: rgb(80, 80, 104); }
+.cd-nbox.dragging { border-color: rgb(110, 150, 240); }
+.cd-nbox-cap { margin: 0; padding: 0; font-size: 8px; -unity-font-style: bold; color: rgb(120, 120, 140); }
+.cd-nbox-val { margin: 0; padding: 0; font-size: 15px; -unity-font-style: bold; color: rgb(140, 190, 255); }
+.cd-nbox-edit { position: absolute; left: 2px; right: 2px; bottom: 3px; margin: 0; }
+.cd-nbox-edit > .unity-base-text-field__input { -unity-text-align: middle-center; font-size: 13px; }
+
+/* 表示切替 */
+.cd-seg {
+    flex-direction: row;
+    height: 28px;
+    margin: 0 4px;
+    padding: 2px;
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: rgb(48, 48, 62);
+    background-color: rgb(17, 17, 24);
+}
+.cd-seg-item {
+    padding: 0 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    -unity-text-align: middle-center;
+    color: rgb(140, 140, 158);
+}
+.cd-seg-item:hover { color: rgb(230, 230, 240); background-color: rgb(36, 36, 48); }
+.cd-seg-item.on { background-color: rgb(62, 86, 150); color: rgb(255, 255, 255); }
+
+/* 札 */
+.cd-tchip {
+    height: 24px;
+    margin: 0 4px;
+    padding: 0 8px;
+    border-radius: 12px;
+    border-width: 1px;
+    border-color: rgb(56, 56, 70);
+    font-size: 9px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    color: rgb(130, 130, 150);
+    background-color: rgb(28, 28, 37);
+}
+.cd-tchip:hover { color: rgb(220, 220, 235); }
+.cd-tchip.on { background-color: rgb(46, 64, 108); border-color: rgb(90, 124, 210); color: rgb(190, 212, 255); }
+
+.cd-mchip {
+    flex-direction: row;
+    align-items: center;
+    height: 28px;
+    margin: 0 4px;
+    padding: 0 6px 0 10px;
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: rgb(56, 56, 70);
+    background-color: rgb(40, 40, 52);
+}
+.cd-mchip:hover { background-color: rgb(52, 52, 66); }
+.cd-mchip-text { margin: 0; padding: 0; overflow: hidden; text-overflow: ellipsis; -unity-font-style: bold; color: rgb(226, 226, 236); }
+.cd-mchip-arrow { margin: 0 0 0 6px; padding: 0; font-size: 10px; color: rgb(130, 130, 150); }
+.cd-mchip.empty > .cd-mchip-text { color: rgb(255, 200, 110); }
+.cd-songchip { width: 150px; justify-content: space-between; }
+.cd-songchip > .cd-mchip-text { flex-shrink: 1; }
+.cd-midichip { max-width: 160px; }
+.cd-midichip > .cd-mchip-text { font-size: 10px; color: rgb(140, 140, 158); }
+.cd-midichip.on > .cd-mchip-text { color: rgb(150, 220, 255); }
+
+/* レベルメーター */
+.cd-meter { flex-direction: row; align-items: flex-end; height: 30px; margin: 0 6px; }
+.cd-meter-track {
+    width: 6px;
+    height: 100%;
+    margin: 0 1px;
+    border-radius: 2px;
+    justify-content: flex-end;
+    overflow: hidden;
+    background-color: rgb(15, 15, 21);
+}
+.cd-meter-fill { height: 0; border-radius: 2px; }
+.cd-meter-fill.c0 { background-color: rgb(255, 110, 110); }
+.cd-meter-fill.c1 { background-color: rgb(255, 196, 92); }
+.cd-meter-fill.c2 { background-color: rgb(110, 214, 255); }
+.cd-meter-fill.c3 { background-color: rgb(196, 152, 255); }
+
 
 .cd-banner {
     flex-direction: row;

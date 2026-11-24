@@ -11,7 +11,8 @@ Unity をエディタとして使う音楽制作向けの DAW です。ステッ
 ## 構成
 - 4ch：Pulse1 / Pulse2 / Triangle / Noise（NES 風）
 - **Window > UniDAW > Composer** でエディタを開く
-  - トラッカー／ステップ／ピアノロールの 3 表示（同じデータを編集、ツールバーの View で切替）。ピアノロールは左クリックで置く・消す、右クリックでノートオフ
+  - 上部のトランスポートバー：再生（PATTERN / SONG / STOP / REC）、再生位置の表示、BPM などはドラッグ・ホイールで変更（ダブルクリックで直接入力）、チャンネルごとのレベルメーター
+  - トラッカー／ステップ／ピアノロールの 3 表示（同じデータを編集、ツールバーの Tracker / Step / Piano で切替）。ピアノロールは左クリックで置く・消す、右クリックでノートオフ
   - パラメータロック（ステップごとの音量・エフェクト・確率・条件 A:B）
   - チャンネルごとのトラック長（ポリメーター）
   - トラッカーエフェクト：`0xy` アルペジオ / `1xx` `2xx` スライド / `3xx` ポルタメント / `4xy` ビブラート / `Axy` 音量スライド / `Vxx` デューティ / `Fxx` スピード・BPM / `Sxx` ノートカット / `Gxx` ノートディレイ / `Qxy` `Rxy` ノートスライド（速度 x・y 半音）。エフェクト列にカーソルを置くとステータスバーに説明を表示
@@ -34,7 +35,7 @@ Unity をエディタとして使う音楽制作向けの DAW です。ステッ
 | Unity | `Runtime/Unity` | `UniDAWPlayer` / `UniDAWVisualizer`（シーン用コンポーネント） | Model・Audio |
 | Services | `Editor/Services` | アセット入出力・インポーター・CLI・プレビュー音声（`IAudioHost`）・MIDI 入力の橋渡し | Runtime 全体 |
 | Composer | `Editor/Composer` | エディタの状態と操作。UIElements に依存しない（`ComposerState`・`ComposerSession`・`Transport`・`CellCommands`・`ComposerKeymap`・`MidiRecorder`・`SongFileCommands`） | Services |
-| UI | `Editor/UI` | `UniDAWWindow`（配置と配線のみ）、パネル、`Views/`（トラッカー・ステップ・ピアノロール） | Composer（`ComposerContext` 経由） |
+| UI | `Editor/UI` | `UniDAWWindow`（配置と配線のみ）、パネル、`Views/`（トラッカー・ステップ・ピアノロール）、`Controls/`（自作部品：`IconButton`・`NumberBox`・`SegmentedControl`・`LevelMeter` など。Composer に依存しない） | Composer（`ComposerContext` 経由） |
 
 - 新しい編集操作は Composer に足し、UI からは呼ぶだけにする（Undo・読み取り専用チェックは `ComposerSession` が一括で行う）
 - 新しい表示は `IPatternView` を実装して `UniDAWWindow.BuildCenter` に並べ、`PatternViewKind` に値を**追記**する

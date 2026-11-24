@@ -15,6 +15,15 @@ namespace UniDAW.Editor
         public const string DemoFromMidiPath = DemoDir + "/DemoFromMidi.asset";
         public const string DemoScenePath = DemoDir + "/UniDAWDemo.unity";
 
+        /// <summary>プロジェクト内の Song アセットをパス順に列挙する。</summary>
+        public static string[] FindSongPaths()
+        {
+            var paths = new System.Collections.Generic.List<string>();
+            foreach (var g in AssetDatabase.FindAssets("t:" + nameof(Song))) paths.Add(AssetDatabase.GUIDToAssetPath(g));
+            paths.Sort(System.StringComparer.OrdinalIgnoreCase);
+            return paths.ToArray();
+        }
+
         static void EnsureFolder(string assetDir)
         {
             if (AssetDatabase.IsValidFolder(assetDir)) return;

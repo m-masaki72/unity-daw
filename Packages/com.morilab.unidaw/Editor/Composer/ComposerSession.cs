@@ -125,6 +125,13 @@ namespace UniDAW.Editor
             Changed?.Invoke();
         }
 
+        public void SetView(PatternViewKind kind)
+        {
+            if (State.view == kind) return;
+            State.view = kind;
+            Changed?.Invoke();
+        }
+
         public void CycleView()
         {
             int n = Enum.GetValues(typeof(PatternViewKind)).Length;

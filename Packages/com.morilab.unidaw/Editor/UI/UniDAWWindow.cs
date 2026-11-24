@@ -232,6 +232,7 @@ namespace UniDAW.Editor
             var e = transport.Engine;
             if (e == null) return;
             recorder.Drain(e);
+            toolbar?.UpdatePlayhead();
             if (!moved || toolbar == null || state.song == null) return;
 
             int pp = e.IsPlaying ? e.PlayingPattern : -1;
