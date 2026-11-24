@@ -82,6 +82,9 @@ namespace ChipDaw.Editor
             }
         }
 
+        public const string PackageRoot = "Packages/com.chipdaw.core";
+        const string StyleSheetPath = PackageRoot + "/Editor/ChipDaw.uss";
+
         [MenuItem("Window/ChipDaw/Composer")]
         public static ChipDawWindow Open()
         {
@@ -142,7 +145,8 @@ namespace ChipDaw.Editor
         {
             var root = rootVisualElement;
             root.Clear();
-            var guids = AssetDatabase.FindAssets("ChipDaw t:StyleSheet");
+            var ss0 = AssetDatabase.LoadAssetAtPath<StyleSheet>(StyleSheetPath);
+            var guids = ss0 != null ? new[] { AssetDatabase.AssetPathToGUID(StyleSheetPath) } : AssetDatabase.FindAssets("ChipDaw t:StyleSheet");
             foreach (var g in guids)
             {
                 var ss = AssetDatabase.LoadAssetAtPath<StyleSheet>(AssetDatabase.GUIDToAssetPath(g));

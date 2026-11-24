@@ -1,5 +1,14 @@
 {
   "dependencies": {
+    "com.chipdaw.core": {
+      "version": "file:com.chipdaw.core",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.unity.modules.audio": "1.0.0",
+        "com.unity.modules.uielements": "1.0.0"
+      }
+    },
     "com.unity.ext.nunit": {
       "version": "2.1.0",
       "depth": 1,
