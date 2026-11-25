@@ -30,6 +30,7 @@ namespace UniDAW.Editor
                 "Space : 再生/停止   Enter : 再生\n" +
                 "Num0 / Esc : 停止   Num. : 先頭へ\n" +
                 "Num/ : サイクル   Num* : 録音\n" +
+                "Alt+C : メトロノーム\n" +
                 "F3 : ミキサー   Ctrl+Alt+E : 下ゾーン\n" +
                 "Num- / Num+ : 前/次の順序\n" +
                 "\nトラッカー / ステップ\n" +
@@ -111,6 +112,12 @@ namespace UniDAW.Editor
             if (k == KeyCode.E && ctrl && alt)
             {
                 s.ToggleLowerZone();
+                return true;
+            }
+            // Alt+C = メトロノーム（Cubase の C はノート入力と重なるので Alt 付き）
+            if (k == KeyCode.C && alt && !ctrl)
+            {
+                s.Transport.ToggleMetronome();
                 return true;
             }
             return false;

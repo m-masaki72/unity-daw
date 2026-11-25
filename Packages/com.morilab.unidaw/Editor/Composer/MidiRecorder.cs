@@ -28,6 +28,8 @@ namespace UniDAW.Editor
                 if (!latest.TryGetValue(n.channel, out var prev) || n.note > prev.note || n.channel == 3) latest[n.channel] = n;
             }
             if (!s.State.recording || s.Song == null || latest.Count == 0 || s.IsReadOnly) return;
+            // プリカウント中は記録しない（ステップ入力にも回さない）
+            if (e != null && e.IsPlaying && e.CountingIn) return;
 
             bool live = e != null && e.IsPlaying && e.PlayingPattern >= 0;
             int pat = live ? e.PlayingPattern : s.State.patternIndex;

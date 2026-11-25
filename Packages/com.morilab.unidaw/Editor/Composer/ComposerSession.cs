@@ -312,6 +312,81 @@ namespace UniDAW.Editor
             State.orderIndex = b;
         });
 
+        /// <summary>エントリを別の位置へ移す（アレンジ表示のドラッグ）。移調も一緒に動く。</summary>
+        public void MoveOrderTo(int from, int to)
+        {
+            if (Song == null || from == to || from < 0 || from >= Song.order.Count) return;
+            OrderEdit("Move Order", s =>
+            {
+                int pat = s.order[from], tr = s.TransposeAtOrder(from);
+                s.RemoveOrder(from);
+                int dst = Mathf.Clamp(to, 0, s.order.Count);
+                s.InsertOrder(dst, pat, tr);
+                State.orderIndex = dst;
+            });
+        }
+
+        /// <summary>エントリをすぐ後ろに複製する（同じパターンを共有）。</summary>
+        public void DuplicateOrderEntry(int index)
+        {
+            if (Song == null || index < 0 || index >= Song.order.Count) return;
+            OrderEdit("Duplicate Order", s =>
+            {
+                s.InsertOrder(index + 1, s.order[index], s.TransposeAtOrder(index));
+                State.orderIndex = index + 1;
+            });
+        }
+
+        public void RemoveOrderEntryAt(int index)
+        {
+            if (Song == null || Song.order.Count <= 1 || index < 0 || index >= Song.order.Count) return;
+            OrderEdit("Remove Order", s =>
+            {
+                s.RemoveOrder(index);
+                State.orderIndex = Mathf.Min(index, s.order.Count - 1);
+            });
+        }
+
+        /// <summary>エントリのパターンを複製して、このエントリだけの別パターンにする（他の出現は変わらない）。</summary>
+        public void MakeOrderUnique(int index)
+        {
+            if (Song == null || index < 0 || index >= Song.order.Count) return;
+            OrderEdit("Make Unique", s =>
+            {
+                var c = s.GetPattern(s.order[index]).Clone();
+                c.name += "'";
+                s.patterns.Add(c);
+                s.order[index] = s.patterns.Count - 1;
+                State.orderIndex = index;
+            });
+        }
+
+        public void SetOrderPattern(int index, int pattern)
+        {
+            if (Song == null || index < 0 || index >= Song.order.Count) return;
+            OrderEdit("Order Pattern", s =>
+            {
+                s.order[index] = Mathf.Clamp(pattern, 0, s.patterns.Count - 1);
+                State.orderIndex = index;
+            });
+        }
+
+        public void TransposeOrderAt(int index, int? delta)
+        {
+            if (Song == null || index < 0 || index >= Song.order.Count) return;
+            OrderEdit("Order Transpose", s =>
+            {
+                s.SetOrderTranspose(index, delta.HasValue ? s.TransposeAtOrder(index) + delta.Value : 0);
+                State.orderIndex = index;
+            });
+        }
+
+        public void SetArrangeZoom(float zoom)
+        {
+            State.arrangeZoom = Mathf.Clamp(zoom, ComposerState.MinArrangeZoom, ComposerState.MaxArrangeZoom);
+            Changed?.Invoke();
+        }
+
         public void ShiftOrderPattern(int delta) => OrderEdit("Order Pattern", s =>
             s.order[State.orderIndex] = Mathf.Clamp(s.order[State.orderIndex] + delta, 0, s.patterns.Count - 1));
 

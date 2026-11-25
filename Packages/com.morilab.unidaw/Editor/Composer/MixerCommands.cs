@@ -91,11 +91,34 @@ namespace UniDAW.Editor
         public void CommitMaster(float start, float end) =>
             Commit("Master Volume", () => Song.masterDb = start, s => s.masterDb = ChannelMix.ClampDb(end));
 
-        /// <summary>ミキサー設定を初期値（0 dB・センター・ミュート/ソロなし）へ。</summary>
+        // ---- センドエフェクト ---------------------------------------------------------
+
+        public float SendLevel(int ch, SendKind kind) => Mix(ch)?.Send(kind) ?? 0f;
+        public float Fx(FxParam p) => Song?.effects?.Get(p) ?? SongEffects.Range(p).def;
+        public bool PingPong => Song?.effects?.delayPingPong ?? true;
+        public int DelayChoice => Song?.effects?.DelayChoice ?? 2;
+
+        public void PreviewSend(int ch, SendKind kind, float v) => Live(() => Mix(ch).SetSend(kind, v));
+
+        public void CommitSend(int ch, SendKind kind, float start, float end) =>
+            Commit(kind == SendKind.Delay ? "Delay Send" : "Reverb Send", () => Mix(ch).SetSend(kind, start), s => s.Mix(ch).SetSend(kind, end));
+
+        public void PreviewFx(FxParam p, float v) => Live(() => Song.effects.Set(p, v));
+
+        public void CommitFx(FxParam p, float start, float end) =>
+            Commit("Effect " + p, () => Song.effects.Set(p, start), s => s.effects.Set(p, end));
+
+        public void SetDelayChoice(int i) => session.ModifySong("Delay Time", s =>
+            s.effects.delayBeats = SongEffects.DelayBeatChoices[Math.Max(0, Math.Min(SongEffects.DelayBeatChoices.Length - 1, i))]);
+
+        public void SetPingPong(bool on) => session.ModifySong("Delay Ping-Pong", s => s.effects.delayPingPong = on);
+
+        /// <summary>ミキサー設定を初期値（0 dB・センター・ミュート/ソロなし・送りなし）へ。エフェクトの設定も既定に戻す。</summary>
         public void ResetMixer() => session.ModifySong("Reset Mixer", s =>
         {
             s.mixer = Song.DefaultMixer();
             s.masterDb = 0f;
+            s.effects = new SongEffects();
         });
 
         void Live(Action change)

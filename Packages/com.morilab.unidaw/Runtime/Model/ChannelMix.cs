@@ -19,6 +19,18 @@ namespace UniDAW
         public float pan;
         public bool mute;
         public bool solo;
+        /// <summary>ディレイ / リバーブへの送り量（0..1、フェーダー・パン後）。</summary>
+        public float delaySend;
+        public float reverbSend;
+
+        public float Send(SendKind kind) => kind == SendKind.Delay ? delaySend : reverbSend;
+
+        public void SetSend(SendKind kind, float v)
+        {
+            v = SongEffects.Clamp01(v);
+            if (kind == SendKind.Delay) delaySend = v;
+            else reverbSend = v;
+        }
 
         public float Gain => DbToGain(volumeDb);
 

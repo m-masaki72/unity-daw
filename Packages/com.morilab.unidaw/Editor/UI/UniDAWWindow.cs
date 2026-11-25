@@ -46,6 +46,7 @@ namespace UniDAW.Editor
         MixerView mixerView;
         InstrumentEditor instrumentEditor;
         AssistPanel assistPanel;
+        ArrangeView arrangeView;
         bool lowerCollapsed;
         StatusBar statusBar;
         Label help;
@@ -219,7 +220,7 @@ namespace UniDAW.Editor
             lowerZone.AddToClassList("cd-lower");
             var bar = new VisualElement();
             bar.AddToClassList("cd-lower-bar");
-            lowerSeg = new SegmentedControl(new[] { "Mixer (F3)", "Instrument", "Assist" }, i => session.ShowLowerTab((LowerTab)i));
+            lowerSeg = new SegmentedControl(new[] { "Mixer (F3)", "Instrument", "Assist", "Arrange" }, i => session.ShowLowerTab((LowerTab)i));
             bar.Add(lowerSeg);
             var spacer = new VisualElement();
             spacer.style.flexGrow = 1;
@@ -234,6 +235,8 @@ namespace UniDAW.Editor
             lowerZone.Add(instrumentEditor);
             assistPanel = new AssistPanel(ctx);
             lowerZone.Add(assistPanel);
+            arrangeView = new ArrangeView(ctx);
+            lowerZone.Add(arrangeView);
             return lowerZone;
         }
 
@@ -252,11 +255,13 @@ namespace UniDAW.Editor
             mixerView.style.display = tab == LowerTab.Mixer ? DisplayStyle.Flex : DisplayStyle.None;
             instrumentEditor.style.display = tab == LowerTab.Instrument ? DisplayStyle.Flex : DisplayStyle.None;
             assistPanel.style.display = tab == LowerTab.Assist ? DisplayStyle.Flex : DisplayStyle.None;
+            arrangeView.style.display = tab == LowerTab.Arrange ? DisplayStyle.Flex : DisplayStyle.None;
             switch (tab)
             {
                 case LowerTab.Mixer: mixerView.Refresh(); break;
                 case LowerTab.Instrument: instrumentEditor.Refresh(); break;
-                default: assistPanel.Refresh(); break;
+                case LowerTab.Assist: assistPanel.Refresh(); break;
+                case LowerTab.Arrange: arrangeView.Refresh(); break;
             }
         }
 
@@ -306,6 +311,7 @@ namespace UniDAW.Editor
             recorder.Drain(e);
             toolbar?.UpdatePlayhead();
             if (state.lowerOpen && state.lowerTab == LowerTab.Mixer) mixerView?.UpdateMeters();
+            if (state.lowerOpen && state.lowerTab == LowerTab.Arrange) arrangeView?.UpdatePlayhead();
             if (!moved || toolbar == null || state.song == null) return;
 
             int pp = e.IsPlaying ? e.PlayingPattern : -1;

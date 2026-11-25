@@ -12,7 +12,7 @@ namespace UniDAW.Editor
         sealed class Strip
         {
             public VisualElement root;
-            public Fader volume, pan;
+            public Fader volume, pan, delay, reverb;
             public Label db, panLabel;
             public Button mute, solo;
             public LevelMeter meter;
@@ -24,6 +24,10 @@ namespace UniDAW.Editor
         readonly Label masterDb;
         readonly LevelMeter masterMeter;
         readonly float[] one = new float[1];
+        readonly Fader[] fxFaders = new Fader[5];
+        readonly Label[] fxLabels = new Label[5];
+        readonly MenuChip delayTime;
+        readonly ToggleChip pingPong;
 
         public MixerView(ComposerContext ctx)
         {
@@ -57,6 +61,9 @@ namespace UniDAW.Editor
                 ms.Add(s.solo);
                 s.root.Add(ms);
 
+                s.delay = SendFader(s.root, "DLY", ch, SendKind.Delay);
+                s.reverb = SendFader(s.root, "REV", ch, SendKind.Reverb);
+
                 var faderRow = new VisualElement();
                 faderRow.AddToClassList("cd-strip-faderrow");
                 s.volume = new Fader(true, ChannelMix.MinDb, ChannelMix.MaxDb, 0f, 1f);
@@ -70,6 +77,29 @@ namespace UniDAW.Editor
                 s.db = SmallLabel(s.root, "cd-strip-db");
                 Add(s.root);
             }
+
+            // ---- センドエフェクト
+            var fx = new VisualElement();
+            fx.AddToClassList("cd-strip");
+            fx.AddToClassList("cd-fxstrip");
+            var fxTitle = new Label("Send FX");
+            fxTitle.AddToClassList("cd-strip-name");
+            fx.Add(fxTitle);
+            fx.Add(Caption("Delay"));
+            var dRow = new VisualElement();
+            dRow.AddToClassList("cd-btnrow");
+            delayTime = new MenuChip(ShowDelayMenu, "ディレイタイム（拍、テンポに同期）");
+            dRow.Add(delayTime);
+            pingPong = new ToggleChip("PING", v => m.SetPingPong(v), "左右に交互に跳ねる");
+            dRow.Add(pingPong);
+            fx.Add(dRow);
+            FxFader(fx, "FB", FxParam.DelayFeedback);
+            FxFader(fx, "RET", FxParam.DelayReturn);
+            fx.Add(Caption("Reverb"));
+            FxFader(fx, "SIZE", FxParam.ReverbSize);
+            FxFader(fx, "DAMP", FxParam.ReverbDamp);
+            FxFader(fx, "RET", FxParam.ReverbReturn);
+            Add(fx);
 
             var mr = new VisualElement();
             mr.AddToClassList("cd-strip");
@@ -96,6 +126,66 @@ namespace UniDAW.Editor
             masterDb = SmallLabel(mr, "cd-strip-db");
             Add(mr);
         }
+
+        static Label Caption(string text)
+        {
+            var l = new Label(text);
+            l.AddToClassList("cd-fx-caption");
+            return l;
+        }
+
+        Fader SendFader(VisualElement parent, string caption, int ch, SendKind kind)
+        {
+            var m = ctx.Mixer;
+            var row = new VisualElement();
+            row.AddToClassList("cd-send");
+            var cap = new Label(caption);
+            cap.AddToClassList("cd-send-cap");
+            row.Add(cap);
+            var f = new Fader(false, 0f, 1f, 0f, 1f / 32f);
+            f.tooltip = (kind == SendKind.Delay ? "ディレイ" : "リバーブ") + "への送り量\n" + f.tooltip;
+            f.Dragged += v => m.PreviewSend(ch, kind, v);
+            f.Committed += (a, b) => m.CommitSend(ch, kind, a, b);
+            row.Add(f);
+            parent.Add(row);
+            return f;
+        }
+
+        void FxFader(VisualElement parent, string caption, FxParam p)
+        {
+            var m = ctx.Mixer;
+            var (min, max, def) = SongEffects.Range(p);
+            var row = new VisualElement();
+            row.AddToClassList("cd-send");
+            var cap = new Label(caption);
+            cap.AddToClassList("cd-send-cap");
+            row.Add(cap);
+            var f = new Fader(false, min, max, def, (max - min) / 48f);
+            f.Dragged += v => m.PreviewFx(p, v);
+            f.Committed += (a, b) => m.CommitFx(p, a, b);
+            row.Add(f);
+            var val = new Label();
+            val.AddToClassList("cd-send-val");
+            row.Add(val);
+            parent.Add(row);
+            fxFaders[(int)p] = f;
+            fxLabels[(int)p] = val;
+        }
+
+        void ShowDelayMenu(VisualElement anchor)
+        {
+            var m = ctx.Mixer;
+            var menu = new UnityEditor.GenericMenu();
+            for (int i = 0; i < SongEffects.DelayBeatNames.Length; i++)
+            {
+                int idx = i;
+                menu.AddItem(new GUIContent(SongEffects.DelayBeatNames[i]), m.DelayChoice == i, () => m.SetDelayChoice(idx));
+            }
+            menu.DropDown(anchor.worldBound);
+        }
+
+        static string FxText(FxParam p, float v) =>
+            p == FxParam.DelayReturn || p == FxParam.ReverbReturn ? ChannelMix.FormatDb(v) : Mathf.RoundToInt(v * 100) + "%";
 
         static Label SmallLabel(VisualElement parent, string cls)
         {
@@ -128,11 +218,16 @@ namespace UniDAW.Editor
                 var s = strips[c];
                 if (!s.volume.IsDragging) s.volume.SetValueWithoutNotify(m.VolumeDb(c));
                 if (!s.pan.IsDragging) s.pan.SetValueWithoutNotify(m.Pan(c));
+                s.delay.SetValueWithoutNotify(m.SendLevel(c, SendKind.Delay));
+                s.reverb.SetValueWithoutNotify(m.SendLevel(c, SendKind.Reverb));
                 s.mute.EnableInClassList("on", m.IsMuted(c));
                 s.solo.EnableInClassList("on", m.IsSoloed(c));
                 s.root.EnableInClassList("silenced", m.IsSilenced(c));
             }
             master.SetValueWithoutNotify(m.MasterDb);
+            for (int i = 0; i < fxFaders.Length; i++) fxFaders[i].SetValueWithoutNotify(m.Fx((FxParam)i));
+            delayTime.Text = SongEffects.DelayBeatNames[m.DelayChoice];
+            pingPong.Value = m.PingPong;
             UpdateLabels();
         }
 
@@ -158,6 +253,7 @@ namespace UniDAW.Editor
                 SetText(s.panLabel, ChannelMix.FormatPan(s.pan.Value));
             }
             SetText(masterDb, ChannelMix.FormatDb(master.Value));
+            for (int i = 0; i < fxFaders.Length; i++) SetText(fxLabels[i], FxText((FxParam)i, fxFaders[i].Value));
         }
 
         static void SetText(Label l, string t)

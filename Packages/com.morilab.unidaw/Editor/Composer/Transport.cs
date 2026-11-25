@@ -64,17 +64,48 @@ namespace UniDAW.Editor
             var e = Engine;
             host.EnsureRunning();
             e.Song = state.song;
+            e.Metronome = state.metronome;
             return e;
         }
 
+        /// <summary>メトロノームの切り替え（再生中もすぐ効く）。</summary>
+        public void ToggleMetronome()
+        {
+            state.metronome = !state.metronome;
+            var e = Engine;
+            if (e != null) e.Metronome = state.metronome;
+            Changed?.Invoke();
+        }
+
+        public void ToggleCountIn()
+        {
+            state.countIn = !state.countIn;
+            Changed?.Invoke();
+        }
+
+        /// <summary>順序表の位置から曲を再生する（アレンジ表示のダブルクリック）。</summary>
+        public void PlayFromOrder(int order)
+        {
+            if (state.song == null) return;
+            state.loop = false;
+            Prepare().Play(order, 0, CountIn);
+            Changed?.Invoke();
+        }
+
+        /// <summary>プリカウントの拍数（4/4 の 1 小節）。</summary>
+        public const int CountInBeats = 4;
+
+        /// <summary>録音オン・プリカウントオンなら 1 小節数えてから始める。</summary>
+        int CountIn => state.recording && state.countIn ? CountInBeats : 0;
+
         public void PlayPattern()
         {
-            if (state.song != null) Prepare().PlayPattern(state.patternIndex, 0);
+            if (state.song != null) Prepare().PlayPattern(state.patternIndex, 0, CountIn);
         }
 
         public void PlaySong()
         {
-            if (state.song != null) Prepare().Play(state.orderIndex, 0);
+            if (state.song != null) Prepare().Play(state.orderIndex, 0, CountIn);
         }
 
         public void Stop()
@@ -111,7 +142,7 @@ namespace UniDAW.Editor
         {
             state.loop = !state.loop;
             var e = Engine;
-            if (e != null && e.IsPlaying && state.song != null)
+            if (e != null && e.IsPlaying && !e.CountingIn && state.song != null)
             {
                 int pat = e.PlayingPattern, order = e.PlayingOrder, row = e.PlayingRow;
                 if (state.loop) Prepare().PlayPattern(pat, row);
@@ -148,6 +179,7 @@ namespace UniDAW.Editor
             UniDAWMidiBridge.TargetChannel = state.cursorCh;
             if (e == null) return false;
             if (state.song != null && e.Song != state.song) e.Song = state.song;
+            e.Metronome = state.metronome;
             host.DispatchEvents();
 
             double now = EditorApplication.timeSinceStartup;

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.0] - 2026-11-25
+- メトロノーム（CLICK / Alt+C）と録音時の 1 小節プリカウント（PRE）。`ChipEngine.Metronome` / `CountingIn`、`Play` / `PlayPattern` の `countInBeats`
+- アレンジ表示（下ゾーンの Arrange タブ）：順序表をブロックで表示し、ドラッグで並べ替え、複製・削除・固有化・移調、ここから再生
+- センドエフェクト：チャンネルごとのディレイ / リバーブ送り（`ChannelMix.delaySend` / `reverbSend`）と曲のエフェクト設定（`Song.effects`）。
+  テンポ同期のステレオ（ピンポン）ディレイと軽量リバーブ。送りのない曲は従来と同じ音・同じ負荷
+
 ## [0.5.0] - 2026-11-25
 - Claude による提案（Assist タブ）：言葉での依頼と曲の文脈から、メロディ・コード進行・両方を提案して Undo 付きで書き込み
   - Messages API（構造化出力、Opus 5.5 / Sonnet 5.5、拒否時はサーバー側フォールバック）。API キーは EditorPrefs か環境変数 `ANTHROPIC_API_KEY`

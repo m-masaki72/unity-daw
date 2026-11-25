@@ -49,7 +49,7 @@ namespace UniDAW
 
         readonly ChipChannel[] channels = new ChipChannel[Channels];
         readonly DelayedCell[] delayed = new DelayedCell[Channels];
-        readonly ChipMixer mixer = new ChipMixer();
+        readonly ChipMixer mixer;
         readonly ConcurrentQueue<Command> commands = new ConcurrentQueue<Command>();
 
         /// <summary>ノート発音イベント（映像連携用）。メインスレッドで取り出す。</summary>
@@ -64,6 +64,18 @@ namespace UniDAW
         /// <summary>マスター出力の L/R ピーク（0..1）。</summary>
         public readonly float[] OutputLevels = new float[2];
         public float MasterVolume = 0.8f;
+
+        /// <summary>メトロノーム（拍ごとにクリック、小節頭は高い音）。エディタの試聴用で、書き出しには入らない。</summary>
+        public volatile bool Metronome;
+        public float MetronomeVolume = 0.5f;
+        /// <summary>プリカウント中か（この間は曲を進めない。<see cref="PlayingPattern"/> は -1）。</summary>
+        public bool CountingIn => countInRows > 0 && playing;
+
+        const float ClickDecaySeconds = 0.012f;
+        const float ClickFreq = 1000f, ClickAccentFreq = 1600f;
+        float clickPhase, clickFreq, clickEnv, clickDecay;
+        volatile int countInRows;
+        int countInTotal;
 
         volatile Song song;
         readonly double sampleRate;
@@ -96,6 +108,8 @@ namespace UniDAW
         public ChipEngine(double sampleRate)
         {
             this.sampleRate = sampleRate > 0 ? sampleRate : 48000;
+            mixer = new ChipMixer(this.sampleRate);
+            clickDecay = (float)Math.Exp(-1.0 / (ClickDecaySeconds * this.sampleRate));
             for (int c = 0; c < Channels; c++) channels[c] = new ChipChannel(Song.Kinds[c]);
         }
 
@@ -112,11 +126,12 @@ namespace UniDAW
 
         // ---- メインスレッド用 API -------------------------------------------------
 
-        public void Play(int order = 0, int row = 0) =>
-            commands.Enqueue(new Command { type = CmdType.Play, a = order, b = row });
+        /// <summary>順序表に沿って再生。<paramref name="countInBeats"/> 拍のプリカウント（クリック）の後に始める。</summary>
+        public void Play(int order = 0, int row = 0, int countInBeats = 0) =>
+            commands.Enqueue(new Command { type = CmdType.Play, a = order, b = row, c = countInBeats });
 
-        public void PlayPattern(int patternIndex, int row = 0) =>
-            commands.Enqueue(new Command { type = CmdType.PlayPattern, a = patternIndex, b = row });
+        public void PlayPattern(int patternIndex, int row = 0, int countInBeats = 0) =>
+            commands.Enqueue(new Command { type = CmdType.PlayPattern, a = patternIndex, b = row, c = countInBeats });
 
         public void Stop() => commands.Enqueue(new Command { type = CmdType.Stop });
 
@@ -150,7 +165,7 @@ namespace UniDAW
         {
             DrainCommands();
             var s = song;
-            mixer.BeginBlock(s, Mute, Solo, MasterVolume);
+            mixer.BeginBlock(s, Mute, Solo, MasterVolume, CurrentBpm(s), frames);
 
             int idx = offset;
             for (int i = 0; i < frames; i++)
@@ -163,6 +178,15 @@ namespace UniDAW
                 }
 
                 mixer.Mix(channels, sampleRate, out float l, out float r);
+                if (clickEnv > 1e-4f)
+                {
+                    float k = (float)Math.Sin(clickPhase * 2.0 * Math.PI) * clickEnv * MetronomeVolume * 0.5f;
+                    clickPhase += (float)(clickFreq / sampleRate);
+                    if (clickPhase >= 1f) clickPhase -= 1f;
+                    clickEnv *= clickDecay;
+                    l += k;
+                    r += k;
+                }
                 if (outChannels == 1)
                 {
                     data[idx++] = (l + r) * 0.5f;
@@ -183,15 +207,16 @@ namespace UniDAW
                 switch (cmd.type)
                 {
                     case CmdType.Play:
-                        StartPlayback(false, cmd.a, cmd.b);
+                        StartPlayback(false, cmd.a, cmd.b, cmd.c);
                         break;
                     case CmdType.PlayPattern:
-                        StartPlayback(true, cmd.a, cmd.b);
+                        StartPlayback(true, cmd.a, cmd.b, cmd.c);
                         break;
                     case CmdType.Stop:
                         playing = false;
                         IsPlaying = false;
                         PlayingPattern = -1;
+                        countInRows = 0;
                         CutAll();
                         break;
                     case CmdType.NoteOn:
@@ -212,7 +237,7 @@ namespace UniDAW
             }
         }
 
-        void StartPlayback(bool patternMode, int a, int startRow)
+        void StartPlayback(bool patternMode, int a, int startRow, int countInBeats)
         {
             CutAll();
             playing = true;
@@ -228,6 +253,9 @@ namespace UniDAW
             SongLoopCount = 0;
             speedOverride = -1;
             bpmOverride = -1;
+            countInTotal = Math.Max(0, Math.Min(16, countInBeats)) * RowsPerBeat(song);
+            countInRows = countInTotal;
+            if (countInRows > 0) PlayingPattern = -1;
             samplesToTick = 1; // 最初のサンプルで tick → 以降ちょうど SamplesPerTick 間隔
         }
 
@@ -240,12 +268,15 @@ namespace UniDAW
             }
         }
 
+        static int RowsPerBeat(Song s) => s != null ? Math.Max(1, s.rowsPerBeat) : 4;
+
+        float CurrentBpm(Song s) => Math.Max(1f, bpmOverride > 0 ? bpmOverride : (s != null ? s.bpm : 150f));
+
         double SamplesPerTick(Song s)
         {
-            float bpm = bpmOverride > 0 ? bpmOverride : (s != null ? s.bpm : 150f);
-            int rpb = s != null ? Math.Max(1, s.rowsPerBeat) : 4;
+            float bpm = CurrentBpm(s);
+            int rpb = RowsPerBeat(s);
             int spd = CurrentSpeed(s);
-            if (bpm < 1f) bpm = 1f;
             // tick/秒 = bpm * rowsPerBeat * speed / 60
             return sampleRate * 60.0 / (bpm * rpb * spd);
         }
@@ -259,8 +290,28 @@ namespace UniDAW
             return s.PatternAtOrder(orderPos);
         }
 
+        void Click(bool accent)
+        {
+            clickFreq = accent ? ClickAccentFreq : ClickFreq;
+            clickPhase = 0f;
+            clickEnv = 1f;
+        }
+
         void Tick(Song s)
         {
+            if (playing && countInRows > 0)
+            {
+                int rpb = RowsPerBeat(s);
+                int done = countInTotal - countInRows;
+                if (tickInRow == 0 && done % rpb == 0) Click(done % (rpb * 4) == 0);
+                for (int c = 0; c < Channels; c++) UpdateChannel(c, s);
+                if (++tickInRow >= CurrentSpeed(s))
+                {
+                    tickInRow = 0;
+                    countInRows--;
+                }
+                return;
+            }
             if (playing && s != null)
             {
                 if (tickInRow == 0) ProcessRow(s);
@@ -292,6 +343,11 @@ namespace UniDAW
                     return;
                 }
                 if (row >= p.length) row = 0;
+                if (Metronome)
+                {
+                    int rpb = RowsPerBeat(s);
+                    if (row % rpb == 0) Click(row % (rpb * 4) == 0);
+                }
                 PlayingRow = row;
                 PlayingOrder = orderPos;
                 PlayingPattern = pi;

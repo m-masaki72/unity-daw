@@ -10,7 +10,7 @@ namespace UniDAW.Editor
     public enum RollTool { Select = 0, Draw = 1, Erase = 2 }
 
     /// <summary>下ゾーン（Cubase の Lower Zone）のタブ（int としてシリアライズされるので値は固定）。</summary>
-    public enum LowerTab { Mixer = 0, Instrument = 1, Assist = 2 }
+    public enum LowerTab { Mixer = 0, Instrument = 1, Assist = 2, Arrange = 3 }
 
     /// <summary>
     /// コンポーザーの編集状態（ウィンドウにシリアライズされ、ドメインリロードを越えて残る）。
@@ -37,6 +37,13 @@ namespace UniDAW.Editor
         public bool loop = true;
         public RollTool rollTool;
         public bool recording;
+        /// <summary>メトロノーム（再生中に拍のクリック）。</summary>
+        public bool metronome;
+        /// <summary>録音オンで再生を始めるとき 1 小節のプリカウントを入れる。</summary>
+        public bool countIn = true;
+        /// <summary>アレンジ表示の横幅（1 行あたりのピクセル）。</summary>
+        public float arrangeZoom = 3f;
+        public const float MinArrangeZoom = 0.5f, MaxArrangeZoom = 16f;
         /// <summary>下ゾーン（ミキサー / 楽器エディタ）を開いているか。</summary>
         public bool lowerOpen = true;
         public LowerTab lowerTab;

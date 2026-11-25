@@ -20,7 +20,7 @@ namespace UniDAW.Editor
         readonly VisualElement lcd;
         readonly NumberBox bpmBox, rpbBox, speedBox, octaveBox, stepBox;
         readonly SegmentedControl viewSeg;
-        readonly ToggleChip followChip;
+        readonly ToggleChip followChip, clickChip, preChip;
         readonly LevelMeter meter;
 
         public ComposerToolbar(ComposerContext ctx)
@@ -61,6 +61,10 @@ namespace UniDAW.Editor
             transport.Add(playButton);
             transport.Add(recButton);
             transport.Add(loopButton);
+            clickChip = new ToggleChip("CLICK", _ => { t.ToggleMetronome(); ctx.FocusMain(); }, "メトロノーム (Alt+C)。再生中に拍ごとにクリック（書き出しには入りません）");
+            preChip = new ToggleChip("PRE", _ => { t.ToggleCountIn(); ctx.FocusMain(); }, "プリカウント。録音オンで再生を始めると 1 小節数えてから始めます");
+            transport.Add(clickChip);
+            transport.Add(preChip);
             Add(transport);
 
             // ---- 位置表示（液晶風） ----
@@ -226,6 +230,8 @@ namespace UniDAW.Editor
             followChip.Value = st.follow;
             recButton.Active = st.recording;
             loopButton.Active = st.loop;
+            clickChip.Value = st.metronome;
+            preChip.Value = st.countIn;
             octaveBox.SetValueWithoutNotify(st.octave);
             stepBox.SetValueWithoutNotify(st.editStep);
             midiChip.Text = MidiInput.IsOpen ? "MIDI  " + MidiInput.OpenDeviceName : "MIDI  —";
@@ -249,7 +255,7 @@ namespace UniDAW.Editor
             meter.Push(playing ? e.Levels : null);
 
             lcd.EnableInClassList("playing", playing);
-            Set(lcdState, playing ? (e.IsPatternMode ? "LOOP" : "PLAY") : "STOP");
+            Set(lcdState, playing ? (e.CountingIn ? "COUNT" : e.IsPatternMode ? "LOOP" : "PLAY") : "STOP");
             Set(lcdOrder, (playing ? e.PlayingOrder : st.orderIndex).ToString("X2"));
             Set(lcdPattern, (playing ? e.PlayingPattern : st.patternIndex).ToString("X2"));
             Set(lcdRow, (playing ? e.PlayingRow : st.cursorRow).ToString("X2"));
