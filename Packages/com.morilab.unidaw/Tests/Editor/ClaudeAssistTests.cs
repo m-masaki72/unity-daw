@@ -110,6 +110,47 @@ namespace UniDAW.Tests
         }
 
         [Test]
+        public void ClaudeAssist_WritesDrumsAndBriefsBass()
+        {
+            var song = Song.CreateDefault(16);
+            var w = ScriptableObject.CreateInstance<UniDAWWindow>();
+            try
+            {
+                w.SetSong(song);
+                var p = song.patterns[0];
+                p.tracks[3].cells[0] = Cell.NoteCell(3, Song.InstKick);
+                string sent = null;
+                Action<string, string> pending = null;
+                var c = new ClaudeAssist(w.Session, w.Roll, (model, msg, done) => { sent = msg; pending = done; return () => { }; });
+                w.State.cursorCh = 3;
+                w.State.cursorRow = 0;
+                w.State.assistRows = 16;
+                w.State.aiTarget = AiTarget.Melody;
+                Assert.AreEqual("ドラム", ClaudePrompt.TargetLabel(w.State.aiTarget, 3));
+                Assert.IsTrue(c.Request());
+                StringAssert.Contains("General MIDI drum key", sent);
+                StringAssert.Contains("0 Kick", sent, "既存の打点は楽器名で伝える");
+                pending(Reply("{\"candidates\":[{\"comment\":\"d\",\"chords\":\"\",\"notes\":[" +
+                              "{\"start\":0,\"length\":1,\"pitch\":36},{\"start\":4,\"length\":1,\"pitch\":38},{\"start\":6,\"length\":1,\"pitch\":42}]}]}"), null);
+                var cells = p.tracks[3].cells;
+                Assert.AreEqual((3, Song.InstKick), (cells[0].note, cells[0].instrument));
+                Assert.AreEqual((9, Song.InstSnare), (cells[4].note, cells[4].instrument));
+                Assert.AreEqual((14, Song.InstHat), (cells[6].note, cells[6].instrument));
+                Assert.AreNotEqual(Cell.Off, cells[1].note, "打点の間で音を切らない");
+
+                w.State.cursorCh = 2;
+                Assert.IsTrue(c.Request());
+                StringAssert.Contains("bass line", sent);
+                Assert.AreEqual("ベース＋コード", ClaudePrompt.TargetLabel(AiTarget.MelodyAndChords, 2));
+            }
+            finally
+            {
+                Object.DestroyImmediate(w);
+                Object.DestroyImmediate(song);
+            }
+        }
+
+        [Test]
         public void ClaudeAssist_ChoosesBetweenCandidates()
         {
             var song = Song.CreateDefault(32);
@@ -234,10 +275,6 @@ namespace UniDAW.Tests
                 Assert.IsFalse(c.Busy);
                 late(Reply("{\"comment\":\"\",\"chords\":\"Dm\",\"notes\":[]}"), null);
                 Assert.AreNotEqual("Dm", song.patterns[0].chords, "中止後の返答は無視");
-
-                w.State.cursorCh = 3;
-                w.State.aiTarget = AiTarget.Melody;
-                Assert.IsFalse(c.Request(), "ノイズではメロディを頼めない");
             }
             finally
             {

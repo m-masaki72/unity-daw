@@ -76,11 +76,6 @@ namespace UniDAW.Editor
             if (song == null || p == null || Busy) return false;
             var target = State.aiTarget;
             int ch = State.cursorCh;
-            if (target != AiTarget.Chords && Song.Kinds[ch] == ChannelKind.Noise)
-            {
-                SetStatus("メロディは音程のあるチャンネル（Pulse / Triangle）で頼んでくださいまし", true);
-                return false;
-            }
             if (!s.CanEdit()) return false;
 
             int tl = p.TrackLength(ch), from, to;
@@ -103,7 +98,9 @@ namespace UniDAW.Editor
                 return false;
             }
 
-            var (min, max, _) = AssistCommands.PitchRange(ch);
+            var (min, max, _) = Song.Kinds[ch] == ChannelKind.Noise
+                ? (ClaudePrompt.DrumMinKey, ClaudePrompt.DrumMaxKey, 0)
+                : AssistCommands.PitchRange(ch);
             var req = new ClaudePrompt.Request { target = target, channel = ch, from = from, to = to, minPitch = min, maxPitch = max, text = State.aiPrompt };
             string model = ClaudePrompt.ModelIds[Math.Max(0, Math.Min(ClaudePrompt.ModelIds.Length - 1, State.aiModel))];
             string message = ClaudePrompt.BuildUserMessage(song, State.patternIndex, State.orderIndex, req);
@@ -111,7 +108,7 @@ namespace UniDAW.Editor
             int id = ++requestId;
             int pi = State.patternIndex;
             Busy = true;
-            SetStatus($"Claude が考えています…（{ClaudePrompt.TargetNames[(int)target]}、行 {from}〜{to - 1}）", false);
+            SetStatus($"Claude が考えています…（{ClaudePrompt.TargetLabel(target, ch)}、行 {from}〜{to - 1}）", false);
             cancel = send(model, message, (json, netError) =>
             {
                 if (id != requestId) return;
@@ -180,6 +177,31 @@ namespace UniDAW.Editor
             return true;
         }
 
+        /// <summary>GM ドラム番号 → ノイズのピッチと楽器。音は次の打点まで伸ばす（減衰を切らない）。</summary>
+        IEnumerable<RollNote> DrumNotes(List<MelodyModel.Note> notes, int to)
+        {
+            for (int i = 0; i < notes.Count; i++)
+            {
+                var hit = UniDAW.Midi.DrumMap.Map(notes[i].pitch);
+                int end = i + 1 < notes.Count ? notes[i + 1].start : to;
+                yield return new RollNote(notes[i].start, Math.Max(1, end - notes[i].start), hit.pitch, Cell.NoteCell(hit.pitch, DrumInstrument(hit.instrument)));
+            }
+        }
+
+        /// <summary>既定の楽器番号を、この曲で同じ名前の楽器に読み替える（無ければ番号のまま、範囲外ならチャンネルの楽器）。</summary>
+        int DrumInstrument(int defaultIndex)
+        {
+            var defaults = Song.DefaultInstruments();
+            var list = s.Song.instruments;
+            if (defaultIndex >= 0 && defaultIndex < defaults.Count)
+            {
+                string name = defaults[defaultIndex].name;
+                int found = list.FindIndex(i => i != null && string.Equals(i.name, name, StringComparison.OrdinalIgnoreCase));
+                if (found >= 0) return found;
+            }
+            return defaultIndex >= 0 && defaultIndex < list.Count ? defaultIndex : s.ChannelInstrument(Song.ChannelCount - 1);
+        }
+
         void Apply(ClaudeReply.Suggestion sg, ClaudePrompt.Request req, string label)
         {
             string done = "";
@@ -193,8 +215,9 @@ namespace UniDAW.Editor
             {
                 var notes = ClaudeReply.FitNotes(sg.notes, req.from, req.to, req.minPitch, req.maxPitch);
                 int inst = s.ChannelInstrument(req.channel);
-                roll.ReplaceRange("AI Suggest", req.from, req.to,
-                    notes.Select(n => new RollNote(n.start, n.length, n.pitch, Cell.NoteCell(n.pitch, inst))));
+                roll.ReplaceRange("AI Suggest", req.from, req.to, Song.Kinds[req.channel] == ChannelKind.Noise
+                    ? DrumNotes(notes, req.to)
+                    : notes.Select(n => new RollNote(n.start, n.length, n.pitch, Cell.NoteCell(n.pitch, inst))));
                 done += (done.Length > 0 ? " / " : "") + $"{notes.Count} 音（行 {req.from}〜{req.to - 1}）";
             }
             SetStatus(label + (sg.comment.Length > 0 ? sg.comment + "  " : "") + $"[{done}]", false);

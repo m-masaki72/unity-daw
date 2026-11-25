@@ -15,6 +15,20 @@ namespace UniDAW.Editor
     public static class ClaudePrompt
     {
         public static readonly string[] TargetNames = { "メロディ", "コード進行", "メロディ＋コード" };
+        /// <summary>チャンネルごとの役割（Assist の表示用）。</summary>
+        public static readonly string[] PartNames = { "メロディ", "ハーモニー", "ベース", "ドラム" };
+
+        /// <summary>ドラムは GM ドラム番号で頼み、<see cref="UniDAW.Midi.DrumMap"/> でノイズの音に置き換える。</summary>
+        public const int DrumMinKey = 35, DrumMaxKey = 59;
+
+        /// <summary>頼む内容の表示名（メロディの部分はカーソルのチャンネルの役割に置き換える）。</summary>
+        public static string TargetLabel(AiTarget t, int ch)
+        {
+            string part = ch >= 0 && ch < PartNames.Length ? PartNames[ch] : TargetNames[0];
+            return t == AiTarget.Melody ? part : t == AiTarget.MelodyAndChords ? part + "＋コード" : TargetNames[(int)t];
+        }
+
+        public static string[] TargetLabels(int ch) => new[] { TargetLabel(AiTarget.Melody, ch), TargetLabel(AiTarget.Chords, ch), TargetLabel(AiTarget.MelodyAndChords, ch) };
         public static readonly string[] ModelIds = { "claude-opus-5-5", "claude-sonnet-5-5" };
         public static readonly string[] ModelNames = { "Opus 5.5（高品質）", "Sonnet 5.5（速い）" };
 
@@ -59,7 +73,8 @@ namespace UniDAW.Editor
             "and slash chords like C/E. Leave chords empty when only a melody was requested.\n\n" +
             "Follow the song's key and chords unless the request asks to change them. Make the result idiomatic for the request " +
             "and consistent with the surrounding material: motifs, rhythm, register and phrase length. " +
-            "Prefer singable lines with clear phrasing and some rests.";
+            "Prefer singable lines with clear phrasing and some rests. " +
+            "When the task is a drum part for the Noise channel, pitch is a General MIDI drum key instead of a note (the task lists them).";
 
         // ---- 文脈 --------------------------------------------------------------------
 
@@ -69,6 +84,43 @@ namespace UniDAW.Editor
         {
             var parts = notes.Select(n => noise ? $"{n.start}" : $"{n.start}+{n.length} {NoteName(n.pitch)}({n.pitch})").ToList();
             return parts.Count == 0 ? "(empty)" : string.Join(", ", parts);
+        }
+
+        /// <summary>ドラムの打点を「行 楽器名」で並べる（ノイズのピッチより楽器名のほうが伝わる）。</summary>
+        static string DrumHits(Song song, Pattern p, int ch)
+        {
+            var parts = new List<string>();
+            int tl = p.TrackLength(ch), inst = -1;
+            for (int r = 0; r < tl; r++)
+            {
+                var c = p.tracks[ch].cells[r];
+                if (c.instrument >= 0) inst = c.instrument;
+                if (c.HasNote) parts.Add($"{r} {song.GetInstrument(inst)?.name ?? "hit"}");
+            }
+            return parts.Count == 0 ? "(empty)" : string.Join(", ", parts);
+        }
+
+        static string Part(Song song, Pattern p, int ch) =>
+            Song.Kinds[ch] == ChannelKind.Noise ? DrumHits(song, p, ch) : Notes(MelodyModel.Extract(p, ch), false);
+
+        /// <summary>チャンネルの役割に応じた書き方の注文。</summary>
+        static string RoleHint(int ch)
+        {
+            switch (Song.Kinds[ch])
+            {
+                case ChannelKind.Noise:
+                    return "This is the drum part. For each hit, pitch is a General MIDI drum key: 36 kick, 38 snare, 42 closed hi-hat, " +
+                           "46 open hi-hat, 49 crash, 45 / 48 / 50 toms. One hit per row (the channel is monophonic); length is ignored, use 1. " +
+                           "Lock the kick with the bass rhythm and keep a clear backbeat unless the request says otherwise; use fills and crashes " +
+                           "to mark phrase ends.";
+                case ChannelKind.Triangle:
+                    return "This is the bass line (triangle wave, no volume control). Ground the harmony: chord roots on strong beats, " +
+                           "with fifths, octaves and passing tones between them, and lock the rhythm with the kick drum hits listed for ch3.";
+                default:
+                    return ch == 1
+                        ? "This channel is the harmony / counter-line: complement ch0 (answer its phrases, sustain chord tones) rather than doubling it."
+                        : "This is the lead melody.";
+            }
         }
 
         static string Chords(Pattern p, Scale key)
@@ -96,8 +148,7 @@ namespace UniDAW.Editor
             sb.AppendLine("## Current pattern (notes as start+length name(MIDI); drums as hit rows)");
             for (int ch = 0; ch < Song.ChannelCount; ch++)
             {
-                bool noise = Song.Kinds[ch] == ChannelKind.Noise;
-                sb.AppendLine($"ch{ch} {Song.ChannelNames[ch]}: {Notes(MelodyModel.Extract(p, ch), noise)}");
+                sb.AppendLine($"ch{ch} {Song.ChannelNames[ch]}: {Part(song, p, ch)}");
             }
 
             if (req.target != AiTarget.Chords && orderIndex > 0 && orderIndex - 1 < song.order.Count)
@@ -108,15 +159,18 @@ namespace UniDAW.Editor
                 {
                     sb.AppendLine();
                     sb.AppendLine($"## Previous pattern in the order (pattern {prev}, {pp.length} rows, chords: {Chords(pp, key)})");
-                    sb.AppendLine($"ch{req.channel} {Song.ChannelNames[req.channel]}: {Notes(MelodyModel.Extract(pp, req.channel), false)}");
+                    sb.AppendLine($"ch{req.channel} {Song.ChannelNames[req.channel]}: {Part(song, pp, req.channel)}");
                 }
             }
 
             sb.AppendLine();
             sb.AppendLine("## Task");
             if (req.target != AiTarget.Chords)
+            {
                 sb.AppendLine($"Write notes for ch{req.channel} {Song.ChannelNames[req.channel]}, rows {req.from} to {req.to - 1} " +
                               $"(existing notes there will be replaced). Allowed pitch range: {req.minPitch}-{req.maxPitch}.");
+                sb.AppendLine(RoleHint(req.channel));
+            }
             if (req.target != AiTarget.Melody)
                 sb.AppendLine($"Write a chord progression for the whole pattern ({p.length} rows).");
             if (req.target == AiTarget.MelodyAndChords)

@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.12.0] - 2026-11-26
+- Claude 提案がベースとドラムに対応：カーソルが Triangle ならベース、Noise ならドラムとして頼む（チップの表示も切り替わる）。
+  ドラムは GM ドラム番号で受け取り `DrumMap` でノイズのピッチと Kick / Snare / Hat / Crash 楽器に置き換え、既存の打点は楽器名で伝える。
+  チャンネルの役割（リード／対旋律／ベース／ドラム）ごとの書き方をプロンプトに追加
+
 ## [0.11.0] - 2026-11-26
 - 楽器プリセット：内蔵 22 種（`InstrumentLibrary`）と、ユーザー保存（`InstrumentPresets`、Unity の設定フォルダの JSON）。
   楽器エディタの「Presets」一覧でクリック試聴（曲に入れずに鳴らす `ChipEngine.PreviewSlot`）、Load で置き換え、Add で追加、Save で保存

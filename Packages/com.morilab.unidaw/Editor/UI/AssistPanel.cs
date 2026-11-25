@@ -86,7 +86,7 @@ namespace UniDAW.Editor
             aiPrompt.RegisterValueChangedCallback(e => C.SetPrompt(e.newValue));
             ai.Add(aiPrompt);
             var aiRow = Row(ai);
-            aiTargetChip = new MenuChip(a => ShowMenu(a, ClaudePrompt.TargetNames, (int)ctx.State.aiTarget, i => C.SetTarget((AiTarget)i)), "頼む内容（メロディはカーソルのチャンネル、選択があればその範囲・なければカーソルから Rows 行）");
+            aiTargetChip = new MenuChip(a => ShowMenu(a, ClaudePrompt.TargetLabels(ctx.State.cursorCh), (int)ctx.State.aiTarget, i => C.SetTarget((AiTarget)i)), "頼む内容（メロディ／ベース／ドラムはカーソルのチャンネルで決まる。選択があればその範囲・なければカーソルから Rows 行）");
             aiModelChip = new MenuChip(a => ShowMenu(a, ClaudePrompt.ModelNames, ctx.State.aiModel, C.SetModel), "使うモデル");
             aiRow.Add(aiTargetChip);
             aiRow.Add(aiModelChip);
@@ -172,7 +172,7 @@ namespace UniDAW.Editor
             rowsBox.SetValueWithoutNotify(st.assistRows);
             tempBox.SetValueWithoutNotify(st.assistTemperature);
             rerollButton.SetEnabled(A.CanReroll);
-            aiTargetChip.Text = ClaudePrompt.TargetNames[(int)st.aiTarget];
+            aiTargetChip.Text = ClaudePrompt.TargetLabel(st.aiTarget, st.cursorCh);
             aiModelChip.Text = ClaudePrompt.ModelNames[System.Math.Max(0, System.Math.Min(ClaudePrompt.ModelNames.Length - 1, st.aiModel))];
             if (aiPrompt.focusController?.focusedElement != aiPrompt) aiPrompt.SetValueWithoutNotify(st.aiPrompt ?? "");
             aiSend.SetEnabled(!C.Busy);
