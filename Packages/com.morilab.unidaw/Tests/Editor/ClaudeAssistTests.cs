@@ -53,7 +53,7 @@ namespace UniDAW.Tests
         [Test]
         public void ParseResponse_ReadsSuggestionAndErrors()
         {
-            var sg = ClaudeReply.Parse(Reply("{\"comment\":\"上行で\",\"chords\":\"\",\"notes\":[{\"start\":8,\"length\":4,\"pitch\":72}]}"), out var err);
+            var sg = ClaudeReply.Parse(Reply("{\"comment\":\"上行で\",\"chords\":\"\",\"notes\":[{\"start\":8,\"length\":4,\"pitch\":72}]}"), out var err)[0];
             Assert.IsNull(err);
             Assert.AreEqual("上行で", sg.comment);
             Assert.AreEqual(1, sg.notes.Length);
@@ -73,14 +73,14 @@ namespace UniDAW.Tests
         {
             string ok = "{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,\"stop_reason\":\"tool_use\",\"result\":\"\"," +
                         "\"structured_output\":{\"comment\":\"明るく\",\"chords\":\"C\",\"notes\":[{\"start\":0,\"length\":4,\"pitch\":64}]}}";
-            var sg = ClaudeReply.Parse(ok, out var err);
+            var sg = ClaudeReply.Parse(ok, out var err)[0];
             Assert.IsNull(err);
             Assert.AreEqual("明るく", sg.comment);
             Assert.AreEqual(64, sg.notes[0].pitch);
 
             // structured_output がなければ result の文字列を JSON として読む
             string text = "{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,\"result\":\"{\\\"comment\\\":\\\"x\\\",\\\"chords\\\":\\\"Am\\\",\\\"notes\\\":[]}\"}";
-            sg = ClaudeReply.Parse(text, out err);
+            sg = ClaudeReply.Parse(text, out err)[0];
             Assert.IsNull(err);
             Assert.AreEqual("Am", sg.chords);
 
@@ -88,6 +88,72 @@ namespace UniDAW.Tests
             StringAssert.Contains("Not logged in", err);
             Assert.IsNull(ClaudeReply.Parse("{\"type\":\"result\",\"subtype\":\"error_max_turns\",\"is_error\":false}", out err));
             StringAssert.Contains("error_max_turns", err);
+        }
+
+        static string Cand(string comment, string chords, int start, int pitch) =>
+            "{\"comment\":\"" + comment + "\",\"chords\":\"" + chords + "\",\"notes\":[{\"start\":" + start + ",\"length\":2,\"pitch\":" + pitch + "}]}";
+
+        [Test]
+        public void ParseResponse_ReadsCandidates()
+        {
+            var list = ClaudeReply.Parse(Reply("{\"candidates\":[" + Cand("a", "C", 8, 72) + "," + Cand("b", "", 9, 74) + "]}"), out var err);
+            Assert.IsNull(err);
+            Assert.AreEqual(2, list.Count);
+            Assert.AreEqual("b", list[1].comment);
+            Assert.AreEqual(74, list[1].notes[0].pitch);
+            StringAssert.Contains("\"candidates\"", ClaudePrompt.Schema);
+
+            string cc = "{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,\"result\":\"\",\"structured_output\":{\"candidates\":[" + Cand("x", "Am", 0, 64) + "]}}";
+            list = ClaudeReply.Parse(cc, out err);
+            Assert.IsNull(err);
+            Assert.AreEqual("Am", list[0].chords);
+        }
+
+        [Test]
+        public void ClaudeAssist_ChoosesBetweenCandidates()
+        {
+            var song = Song.CreateDefault(32);
+            var w = ScriptableObject.CreateInstance<UniDAWWindow>();
+            try
+            {
+                w.SetSong(song);
+                var p = song.patterns[0];
+                p.tracks[0].cells[8] = Cell.NoteCell(60, 0);
+                p.chords = "F";
+                Action<string, string> pending = null;
+                var c = new ClaudeAssist(w.Session, w.Roll, (model, msg, done) => { pending = done; return () => { }; });
+                w.State.cursorRow = 8;
+                w.State.assistRows = 8;
+                w.State.aiTarget = AiTarget.MelodyAndChords;
+                Assert.IsTrue(c.Request());
+                pending(Reply("{\"candidates\":[" + Cand("a", "C", 8, 72) + "," + Cand("b", "G", 10, 74) + "]}"), null);
+                Assert.AreEqual(2, c.CandidateCount);
+                Assert.AreEqual(0, c.Chosen);
+                Assert.AreEqual(72, p.tracks[0].cells[8].note);
+                Assert.AreEqual("C", p.chords);
+                Assert.AreEqual(8, c.AuditionRow);
+
+                Assert.IsTrue(c.Choose(1));
+                Assert.IsFalse(p.tracks[0].cells[8].HasNote, "案1 の音は消える");
+                Assert.AreEqual(74, p.tracks[0].cells[10].note);
+                Assert.AreEqual("G", p.chords);
+                StringAssert.StartsWith("案2/2", c.Status);
+
+                Assert.IsTrue(c.Choose(-1));
+                Assert.AreEqual(60, p.tracks[0].cells[8].note, "元の音に戻る");
+                Assert.IsFalse(p.tracks[0].cells[10].HasNote);
+                Assert.AreEqual("F", p.chords);
+                Assert.IsFalse(c.Choose(5), "範囲外");
+
+                w.State.cursorCh = 1;
+                Assert.IsFalse(c.Choose(0), "チャンネルが変わったら切り替えない");
+                Assert.IsTrue(c.StatusIsError);
+            }
+            finally
+            {
+                Object.DestroyImmediate(w);
+                Object.DestroyImmediate(song);
+            }
         }
 
         [Test]

@@ -16,9 +16,24 @@ namespace UniDAW
         public static float[] RenderSongStereo(Song song, int sampleRate, double maxSeconds = 600) =>
             Render(song, sampleRate, 2, maxSeconds);
 
-        static float[] Render(Song song, int sampleRate, int channels, double maxSeconds)
+        /// <summary>
+        /// 1 チャンネルだけを曲 1 周ぶんレンダリング（ステム。ステレオ interleaved）。
+        /// フェーダー・パン・センド（ディレイ / リバーブの返り）は通常どおり乗る。曲のミキサーのソロより優先する。
+        /// </summary>
+        public static float[] RenderChannelStereo(Song song, int sampleRate, int channel, double maxSeconds = 600)
+        {
+            if (channel < 0 || channel >= ChipEngine.Channels) throw new ArgumentOutOfRangeException(nameof(channel));
+            return Render(song, sampleRate, 2, maxSeconds, e =>
+            {
+                for (int c = 0; c < ChipEngine.Channels; c++) e.Mute[c] = c != channel;
+                e.Solo[channel] = true;
+            });
+        }
+
+        static float[] Render(Song song, int sampleRate, int channels, double maxSeconds, Action<ChipEngine> setup = null)
         {
             var e = new ChipEngine(sampleRate) { Song = song, EmitNoteEvents = false };
+            setup?.Invoke(e);
             e.Play();
             var buf = new float[BlockFrames * channels];
             var outList = new List<float>(sampleRate * 10 * channels);

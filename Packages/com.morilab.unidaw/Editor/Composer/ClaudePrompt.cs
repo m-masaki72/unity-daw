@@ -27,7 +27,10 @@ namespace UniDAW.Editor
             public string text;
         }
 
-        public const string Schema =
+        /// <summary>頼む候補の数。</summary>
+        public const int CandidateCount = 3;
+
+        const string CandidateSchema =
             "{\"type\":\"object\",\"properties\":{" +
             "\"comment\":{\"type\":\"string\"}," +
             "\"chords\":{\"type\":\"string\"}," +
@@ -36,12 +39,17 @@ namespace UniDAW.Editor
             "\"required\":[\"start\",\"length\",\"pitch\"],\"additionalProperties\":false}}}," +
             "\"required\":[\"comment\",\"chords\",\"notes\"],\"additionalProperties\":false}";
 
+        public const string Schema =
+            "{\"type\":\"object\",\"properties\":{\"candidates\":{\"type\":\"array\",\"items\":" + CandidateSchema + "}}," +
+            "\"required\":[\"candidates\"],\"additionalProperties\":false}";
+
         public const string SystemPrompt =
             "You are a composition assistant inside UniDAW, a chiptune tracker with 4 channels: " +
             "Pulse 1 (lead melody), Pulse 2 (harmony / chords), Triangle (bass) and Noise (drums). " +
             "Time is a grid of rows; the song context states how many rows make a beat. " +
             "Each channel is monophonic: one note at a time.\n\n" +
-            "Reply with JSON only, following the schema:\n" +
+            "Reply with JSON only, following the schema: an object whose candidates array holds exactly 3 clearly different ideas " +
+            "(for example different contour, rhythm or harmonic colour), best first. Each candidate has:\n" +
             "- comment: one or two short sentences in Japanese explaining your musical idea.\n" +
             "- notes: the new notes for the requested channel and row range. start is an absolute row inside the range, " +
             "length is in rows, pitch is a MIDI note number (60 = C4) inside the allowed range. Notes must not overlap. " +

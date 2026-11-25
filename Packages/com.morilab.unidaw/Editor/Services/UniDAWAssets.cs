@@ -80,6 +80,19 @@ namespace UniDAW.Editor
             WavWriter.Write16(path, ChipEngine.RenderSongStereo(song, sampleRate), 2, sampleRate);
         }
 
+        /// <summary>チャンネルごとの WAV（ステム）を <paramref name="dir"/> に書き出す。書いたファイルのパスを返す。</summary>
+        public static string[] ExportStems(Song song, string dir, string baseName, int sampleRate = 48000)
+        {
+            Directory.CreateDirectory(dir);
+            var paths = new string[Song.ChannelCount];
+            for (int c = 0; c < Song.ChannelCount; c++)
+            {
+                paths[c] = Path.Combine(dir, $"{baseName}_{c + 1}_{Song.ChannelNames[c]}.wav");
+                WavWriter.Write16(paths[c], OfflineRenderer.RenderChannelStereo(song, sampleRate, c), 2, sampleRate);
+            }
+            return paths;
+        }
+
         public static void ExportMidi(Song song, string path)
         {
             var bytes = SongToMidi.Export(song);

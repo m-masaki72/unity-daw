@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace UniDAW.Editor
 {
     /// <summary>
-    /// Claude への依頼（メロディ・コード進行）。範囲を決めて送り、返ってきた提案を Undo 付きで書き込む。
+    /// Claude への依頼（メロディ・コード進行）。範囲を決めて送り、返ってきた候補の 1 つ目を Undo 付きで書き込む。
+    /// <see cref="Choose"/> で別の候補や元の内容に切り替えて聴き比べられる（書き込むのは曲のデータなので、トラッカーでもピアノロールでも同じに見える）。
     /// 文章化は <see cref="ClaudePrompt"/>、返答の検証は <see cref="ClaudeReply"/>、通信は差し替え可能な送信関数（既定は <see cref="ClaudeClient.Send"/>）。
     /// </summary>
     public sealed class ClaudeAssist
@@ -22,6 +24,22 @@ namespace UniDAW.Editor
         /// <summary>直近の状態（表示用）。</summary>
         public string Status { get; private set; } = "";
         public bool StatusIsError { get; private set; }
+
+        // ---- 直近の候補（切り替え用）
+        List<ClaudeReply.Suggestion> candidates = new List<ClaudeReply.Suggestion>();
+        ClaudePrompt.Request lastReq;
+        Song lastSong;
+        int lastPattern;
+        List<RollNote> originalNotes;
+        string originalChords;
+
+        /// <summary>候補の数（0 なら切り替えるものがない）。</summary>
+        public int CandidateCount => candidates.Count;
+        /// <summary>いま書き込まれている候補（-1 は元の内容）。</summary>
+        public int Chosen { get; private set; } = -1;
+        /// <summary>試聴の開始行（直近の依頼範囲の頭）。</summary>
+        public int AuditionRow => candidates.Count > 0 ? lastReq.from : State.cursorRow;
+        public string CandidateComment(int i) => i >= 0 && i < candidates.Count ? candidates[i].comment : "";
 
         public ClaudeAssist(ComposerSession session, RollEditor roll, Sender sender = null)
         {
@@ -104,8 +122,8 @@ namespace UniDAW.Editor
                     SetStatus(netError, true);
                     return;
                 }
-                var sg = ClaudeReply.Parse(json, out string error);
-                if (sg == null)
+                var list = ClaudeReply.Parse(json, out string error);
+                if (list == null)
                 {
                     SetStatus(error, true);
                     return;
@@ -115,7 +133,14 @@ namespace UniDAW.Editor
                     SetStatus("返答の間にパターンかチャンネルが変わったので、提案は書き込みませんでしたわ", true);
                     return;
                 }
-                Apply(sg, req);
+                candidates = list;
+                lastReq = req;
+                lastSong = song;
+                lastPattern = pi;
+                originalNotes = target != AiTarget.Chords ? roll.Notes().Where(n => n.start >= req.from && n.start < req.to).ToList() : null;
+                originalChords = s.CurrentPattern.chords ?? "";
+                Chosen = -1;
+                Choose(0);
             });
             return true;
         }
@@ -131,7 +156,31 @@ namespace UniDAW.Editor
             SetStatus("中止しましたわ", false);
         }
 
-        void Apply(ClaudeReply.Suggestion sg, ClaudePrompt.Request req)
+        /// <summary>候補 i を書き込む（-1 で依頼前の内容に戻す）。それぞれ 1 つの Undo になる。</summary>
+        public bool Choose(int i)
+        {
+            if (Busy || candidates.Count == 0 || i < -1 || i >= candidates.Count || i == Chosen) return false;
+            var req = lastReq;
+            if (s.Song != lastSong || State.patternIndex != lastPattern || (req.target != AiTarget.Chords && State.cursorCh != req.channel))
+            {
+                SetStatus("パターンかチャンネルが変わったので、候補は切り替えられませんわ", true);
+                return false;
+            }
+            if (!s.CanEdit()) return false;
+            Chosen = i;
+            if (i < 0)
+            {
+                if (req.target != AiTarget.Melody && s.CurrentPattern.chords != originalChords)
+                    s.ModifyPattern("AI Original", p => p.chords = originalChords);
+                if (originalNotes != null) roll.ReplaceRange("AI Original", req.from, req.to, originalNotes);
+                SetStatus("依頼前の内容に戻しましたわ", false);
+                return true;
+            }
+            Apply(candidates[i], req, $"案{i + 1}/{candidates.Count}: ");
+            return true;
+        }
+
+        void Apply(ClaudeReply.Suggestion sg, ClaudePrompt.Request req, string label)
         {
             string done = "";
             if (req.target != AiTarget.Melody && sg.chords.Trim().Length > 0)
@@ -148,7 +197,7 @@ namespace UniDAW.Editor
                     notes.Select(n => new RollNote(n.start, n.length, n.pitch, Cell.NoteCell(n.pitch, inst))));
                 done += (done.Length > 0 ? " / " : "") + $"{notes.Count} 音（行 {req.from}〜{req.to - 1}）";
             }
-            SetStatus((sg.comment.Length > 0 ? sg.comment + "  " : "") + $"[{done}]", false);
+            SetStatus(label + (sg.comment.Length > 0 ? sg.comment + "  " : "") + $"[{done}]", false);
         }
     }
 }

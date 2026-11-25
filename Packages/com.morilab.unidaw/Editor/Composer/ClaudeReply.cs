@@ -25,6 +25,32 @@ namespace UniDAW.Editor
             public SuggestedNote[] notes;
         }
 
+        /// <summary>返答の本体：候補の配列（candidates）か、以前の 1 案だけの形（comment / chords / notes）のどちらも読む。</summary>
+        [Serializable]
+        sealed class Body
+        {
+            public Suggestion[] candidates;
+            public string comment;
+            public string chords;
+            public SuggestedNote[] notes;
+
+            public bool HasContent =>
+                candidates is { Length: > 0 } || notes is { Length: > 0 } || !string.IsNullOrEmpty(comment) || !string.IsNullOrEmpty(chords);
+
+            public List<Suggestion> ToList()
+            {
+                var list = (candidates ?? Array.Empty<Suggestion>()).Where(c => c != null).ToList();
+                if (list.Count == 0) list.Add(new Suggestion { comment = comment, chords = chords, notes = notes });
+                foreach (var sg in list)
+                {
+                    sg.notes ??= Array.Empty<SuggestedNote>();
+                    sg.chords ??= "";
+                    sg.comment ??= "";
+                }
+                return list;
+            }
+        }
+
         [Serializable]
         sealed class ApiBlock
         {
@@ -49,11 +75,11 @@ namespace UniDAW.Editor
             // Claude Code（claude -p --output-format json）の結果
             public string subtype, result;
             public bool is_error;
-            public Suggestion structured_output;
+            public Body structured_output;
         }
 
-        /// <summary>API（Messages）か Claude Code（claude -p の結果 JSON）の返答を読む。失敗なら null と理由。</summary>
-        public static Suggestion Parse(string json, out string error)
+        /// <summary>API（Messages）か Claude Code（claude -p の結果 JSON）の返答を読み、候補（1 つ以上）を返す。失敗なら null と理由。</summary>
+        public static List<Suggestion> Parse(string json, out string error)
         {
             error = null;
             ApiResponse r;
@@ -79,7 +105,7 @@ namespace UniDAW.Editor
                 error = "返答が途中で切れました。範囲を短くしてくださいまし";
                 return null;
             }
-            Suggestion sg = null;
+            Body sg = null;
             if (r.type == "result")
             {
                 if (r.is_error || r.subtype != "success")
@@ -88,7 +114,7 @@ namespace UniDAW.Editor
                     return null;
                 }
                 var so = r.structured_output;
-                if (so != null && (so.notes != null || !string.IsNullOrEmpty(so.comment) || !string.IsNullOrEmpty(so.chords))) sg = so;
+                if (so != null && so.HasContent) sg = so;
             }
             if (sg == null)
             {
@@ -98,18 +124,15 @@ namespace UniDAW.Editor
                     error = "返答が空でした";
                     return null;
                 }
-                try { sg = JsonUtility.FromJson<Suggestion>(text); }
+                try { sg = JsonUtility.FromJson<Body>(text); }
                 catch (Exception) { sg = null; }
             }
-            if (sg == null)
+            if (sg == null || !sg.HasContent)
             {
                 error = "提案の形式を読めませんでした";
                 return null;
             }
-            sg.notes ??= Array.Empty<SuggestedNote>();
-            sg.chords ??= "";
-            sg.comment ??= "";
-            return sg;
+            return sg.ToList();
         }
 
         /// <summary>

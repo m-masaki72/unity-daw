@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.0] - 2026-11-26
+- ステム書き出し（File > Export Stems）：チャンネルごとの WAV。フェーダー・パン・センドは乗り、曲のソロ設定に関係なく各チャンネルを書き出す。
+  `OfflineRenderer.RenderChannelStereo` / `UniDAWAssets.ExportStems`
+- Claude 提案が 3 案を返すように。Assist タブの「元 / 案1 / 案2 / 案3」で切り替え（それぞれ Ctrl+Z で戻せる）、「▶ 試聴」で範囲の頭から鳴らす。
+  書き込むのは曲のデータなので、トラッカーでもピアノロールでも同じに見える。以前の 1 案だけの返答も読める
+
 ## [0.7.0] - 2026-11-25
 - Claude 提案をローカルの Claude Code（`claude -p`）でも使えるように。API キー不要でログイン済みアカウントを使う。
   Assist タブの「接続」で 自動 / Claude Code / API を切り替え（自動は API キー優先、なければ Claude Code）

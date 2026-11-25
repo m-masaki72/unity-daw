@@ -73,6 +73,30 @@ namespace UniDAW.Editor
             s.Notify("WAV を書き出しましたわ");
         }
 
+        public void ExportStems()
+        {
+            if (s.Song == null) return;
+            var dir = EditorUtility.SaveFolderPanel("Export Stems（チャンネル別 WAV）", "", "");
+            if (string.IsNullOrEmpty(dir)) return;
+            try
+            {
+                EditorUtility.DisplayProgressBar("UniDAW", "ステムを書き出しています…", 0.5f);
+                var paths = UniDAWAssets.ExportStems(s.Song, dir, SafeName(s.Song.title ?? s.Song.name));
+                s.Notify($"ステムを {paths.Length} 本書き出しましたわ");
+            }
+            finally
+            {
+                EditorUtility.ClearProgressBar();
+            }
+        }
+
+        static string SafeName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) name = "Song";
+            foreach (var c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '_');
+            return name;
+        }
+
         public void ExportMidi()
         {
             if (s.Song == null) return;

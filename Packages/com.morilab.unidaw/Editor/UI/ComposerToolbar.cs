@@ -165,6 +165,7 @@ namespace UniDAW.Editor
             Item(m, "Import MIDI.../Split By Pitch", true, () => f.ImportMidi(VoiceAssignMode.SplitByPitch));
             m.AddSeparator("");
             Item(m, "Export WAV...", has, f.ExportWav);
+            Item(m, "Export Stems (WAV per channel)...", has, f.ExportStems);
             Item(m, "Export MIDI...", has, f.ExportMidi);
             m.AddSeparator("");
             foreach (DawKeyPreset p in System.Enum.GetValues(typeof(DawKeyPreset)))

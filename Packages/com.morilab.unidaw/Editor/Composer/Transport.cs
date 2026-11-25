@@ -103,6 +103,12 @@ namespace UniDAW.Editor
             if (state.song != null) Prepare().PlayPattern(state.patternIndex, 0, CountIn);
         }
 
+        /// <summary>今のパターンを指定行からループ再生（試聴用。プリカウントなし）。</summary>
+        public void PlayPatternFrom(int row)
+        {
+            if (state.song != null) Prepare().PlayPattern(state.patternIndex, Math.Max(0, row), 0);
+        }
+
         public void PlaySong()
         {
             if (state.song != null) Prepare().Play(state.orderIndex, 0, CountIn);

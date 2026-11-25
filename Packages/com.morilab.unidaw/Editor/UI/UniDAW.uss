@@ -497,3 +497,6 @@
 .cd-arrange-title { position: absolute; left: 3px; top: 0; font-size: 10px; color: rgb(235, 235, 245); padding: 0; margin: 0; white-space: nowrap; }
 .cd-arrange-playhead { position: absolute; top: 0; bottom: 0; width: 1px; background-color: rgb(255, 120, 90); }
 .cd-arrange-drop { position: absolute; top: 18px; bottom: 0; width: 2px; background-color: rgb(255, 210, 90); }
+
+.cd-assist-cand { min-width: 34px; }
+.cd-assist-cand.on { background-color: rgb(62, 86, 150); border-color: rgb(90, 124, 210); color: rgb(255, 255, 255); }

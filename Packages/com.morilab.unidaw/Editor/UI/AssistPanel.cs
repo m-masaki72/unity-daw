@@ -21,6 +21,8 @@ namespace UniDAW.Editor
         readonly TextField aiPrompt, keyField;
         readonly Button aiSend, aiCancel;
         readonly Label aiStatus, keyInfo;
+        readonly Button[] candButtons = new Button[ClaudePrompt.CandidateCount + 1];
+        readonly VisualElement candRow;
         readonly VisualElement keyRow;
 
         AssistCommands A => ctx.Assist;
@@ -105,6 +107,21 @@ namespace UniDAW.Editor
             aiStatus = new Label();
             aiStatus.AddToClassList("cd-assist-info");
             ai.Add(aiStatus);
+            // 候補の切り替え（元 / 案1..）と試聴
+            candRow = Row(ai);
+            for (int i = 0; i < candButtons.Length; i++)
+            {
+                int k = i - 1;
+                var b = new Button(() => { C.Choose(k); ctx.FocusMain(); })
+                {
+                    text = k < 0 ? "元" : $"案{k + 1}",
+                    tooltip = k < 0 ? "依頼前の内容に戻す" : $"候補 {k + 1} を書き込む（切り替えるたびに Ctrl+Z で戻せます）",
+                };
+                b.AddToClassList("cd-assist-cand");
+                candButtons[i] = b;
+                candRow.Add(b);
+            }
+            candRow.Add(new Button(() => { ctx.Transport.PlayPatternFrom(C.AuditionRow); ctx.FocusMain(); }) { text = "▶ 試聴", tooltip = "提案した範囲の頭からパターンを鳴らす" });
             keyInfo = new Label();
             keyInfo.AddToClassList("cd-assist-info");
             ai.Add(keyInfo);
@@ -161,6 +178,14 @@ namespace UniDAW.Editor
             aiSend.SetEnabled(!C.Busy);
             aiCancel.SetEnabled(C.Busy);
             aiStatus.text = C.Status;
+            candRow.style.display = C.CandidateCount > 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            for (int i = 0; i < candButtons.Length; i++)
+            {
+                int k = i - 1;
+                candButtons[i].SetEnabled(!C.Busy && k < C.CandidateCount);
+                candButtons[i].EnableInClassList("on", k == C.Chosen);
+                if (k >= 0) candButtons[i].tooltip = C.CandidateComment(k);
+            }
             aiStatus.EnableInClassList("error", C.StatusIsError);
             aiBackendChip.Text = "接続: " + ClaudeClient.BackendNames[(int)ClaudeClient.Backend];
             keyInfo.text = ClaudeClient.Describe();
