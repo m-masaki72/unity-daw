@@ -86,7 +86,7 @@ namespace UniDAW.Editor
             aiPrompt.RegisterValueChangedCallback(e => C.SetPrompt(e.newValue));
             ai.Add(aiPrompt);
             var aiRow = Row(ai);
-            aiTargetChip = new MenuChip(a => ShowMenu(a, ClaudePrompt.TargetLabels(ctx.State.cursorCh), (int)ctx.State.aiTarget, i => C.SetTarget((AiTarget)i)), "頼む内容（メロディ／ベース／ドラムはカーソルのチャンネルで決まる。選択があればその範囲・なければカーソルから Rows 行。曲構成は曲全体のセクションと順序表）");
+            aiTargetChip = new MenuChip(a => ShowMenu(a, ClaudePrompt.TargetLabels(ctx.State.cursorCh), (int)ctx.State.aiTarget, i => C.SetTarget((AiTarget)i)), "頼む内容（メロディ／ベース／ドラムはカーソルのチャンネルで決まる。選択があればその範囲・なければカーソルから Rows 行。曲構成は曲全体のセクションと順序表。ミックスは全チャンネルの音量・パン・EQ・DUCK・送り）");
             aiModelChip = new MenuChip(a => ShowMenu(a, ClaudePrompt.ModelNames, ctx.State.aiModel, C.SetModel), "使うモデル");
             aiRow.Add(aiTargetChip);
             aiRow.Add(aiModelChip);

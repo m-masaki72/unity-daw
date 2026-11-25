@@ -100,6 +100,29 @@ namespace UniDAW.Tests
         }
 
         [Test]
+        public void Automation_EqFxOverridesMixerUntilStop()
+        {
+            var s = MakeSong();
+            Only(s, 2);
+            var (flat, _) = RenderLR(s);
+            var cell = s.patterns[0].tracks[2].cells[0];
+            cell.fx1 = new Fx(FxType.EqLow, 0);
+            s.patterns[0].tracks[2].cells[0] = cell;
+            var (cut, _) = RenderLR(s);
+            Assert.Less(cut / flat, 0.6, "L00 でロー -12 dB");
+            Assert.AreEqual(0f, s.mixer[2].eqLowDb, "ミキサーの値は書き換えない");
+
+            Assert.IsTrue(new Fx(FxType.EqHigh, 0x18).TryGetMix(out var p, out float v));
+            Assert.AreEqual((MixParam.EqHigh, 12f), (p, v));
+            Assert.IsTrue(new Fx(FxType.Duck, 0xFF).TryGetMix(out p, out v));
+            Assert.AreEqual((MixParam.Duck, 1f), (p, v));
+            Assert.IsFalse(new Fx(FxType.Arpeggio, 3).TryGetMix(out _, out _));
+            Assert.AreEqual((FxType.EqLow, 'D'), (FxText.TypeFromChar('L'), FxText.TypeChar(FxType.Duck)));
+
+            Object.DestroyImmediate(s);
+        }
+
+        [Test]
         public void MixerCommands_EqAndSidechainUndo()
         {
             var s = MakeSong();

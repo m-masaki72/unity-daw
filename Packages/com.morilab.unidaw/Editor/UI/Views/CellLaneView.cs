@@ -16,6 +16,7 @@ namespace UniDAW.Editor
         {
             FxType.Duty, FxType.Vibrato, FxType.VolumeSlide, FxType.Arpeggio, FxType.NoteCut, FxType.NoteDelay,
             FxType.SlideUp, FxType.SlideDown, FxType.Portamento,
+            FxType.EqLow, FxType.EqMid, FxType.EqHigh, FxType.Duck,
         };
 
         readonly ComposerContext ctx;

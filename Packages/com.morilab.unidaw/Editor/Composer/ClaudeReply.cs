@@ -33,6 +33,18 @@ namespace UniDAW.Editor
             public SuggestedNote[] notes;
             /// <summary>曲構成の依頼のときだけ入る。</summary>
             public Section[] sections;
+            /// <summary>ミックスの依頼のときだけ入る（-1 は変えない）。</summary>
+            public ChannelSetting[] mix;
+            public int sidechainSource = -1;
+            public float duckRelease = -1f;
+        }
+
+        /// <summary>ミックスの提案の 1 チャンネル分。</summary>
+        [Serializable]
+        public sealed class ChannelSetting
+        {
+            public int channel = -1;
+            public float volumeDb, pan, eqLow, eqMid, eqHigh, duck, delaySend, reverbSend;
         }
 
         /// <summary>返答の本体：候補の配列（candidates）か、以前の 1 案だけの形（comment / chords / notes）のどちらも読む。</summary>

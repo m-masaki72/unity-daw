@@ -86,6 +86,10 @@ namespace UniDAW
             new Info(FxType.NoteDelay, 'G', "Note Delay", "Gxx ノートディレイ: 行の xx tick 目まで発音を遅らせる（スウィング・フラム）"),
             new Info(FxType.NoteSlideUp, 'Q', "Note Slide Up", "Qxy ノートスライドアップ: 速度 x で y 半音上へ滑る"),
             new Info(FxType.NoteSlideDown, 'R', "Note Slide Down", "Rxy ノートスライドダウン: 速度 x で y 半音下へ滑る"),
+            new Info(FxType.EqLow, 'L', "EQ Low", "Lxx EQ ロー（120 Hz）: 00-18 → -12〜+12 dB（0C = 0 dB）。再生中ずっと効き、止めるとミキサーの値に戻る"),
+            new Info(FxType.EqMid, 'M', "EQ Mid", "Mxx EQ ミッド（1 kHz）: 00-18 → -12〜+12 dB（0C = 0 dB）"),
+            new Info(FxType.EqHigh, 'H', "EQ High", "Hxx EQ ハイ（6 kHz）: 00-18 → -12〜+12 dB（0C = 0 dB）"),
+            new Info(FxType.Duck, 'D', "Sidechain Duck", "Dxx サイドチェインの深さ: 00-FF → 0〜100%（80 ≒ 50%）"),
         };
 
         /// <summary>入力できるエフェクト文字の一覧（例 "0 1 2 3 4 A V F S G Q R"）。</summary>

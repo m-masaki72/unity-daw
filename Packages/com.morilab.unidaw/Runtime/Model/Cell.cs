@@ -18,6 +18,10 @@ namespace UniDAW
         NoteDelay,    // Gxx : 行の xx tick 後に発音（行内の後ノリ・フラム）
         NoteSlideUp,  // Qxy : 速度 x で y 半音上へスライド
         NoteSlideDown,// Rxy : 速度 x で y 半音下へスライド
+        EqLow,        // Lxx : EQ ロー（00-18 → -12..+12 dB、0C = 0 dB）
+        EqMid,        // Mxx : EQ ミッド
+        EqHigh,       // Hxx : EQ ハイ
+        Duck,         // Dxx : サイドチェインの深さ（00-FF → 0..100%）
     }
 
     [Serializable]
@@ -37,6 +41,30 @@ namespace UniDAW
         public int Y => param & 15;
 
         public static Fx None => default;
+
+        /// <summary>ミキサーのオートメーション（L / M / H / D）なら、そのパラメータと値を返す。</summary>
+        public bool TryGetMix(out MixParam p, out float value)
+        {
+            switch (type)
+            {
+                case FxType.EqLow: p = MixParam.EqLow; break;
+                case FxType.EqMid: p = MixParam.EqMid; break;
+                case FxType.EqHigh: p = MixParam.EqHigh; break;
+                case FxType.Duck:
+                    p = MixParam.Duck;
+                    value = param / 255f;
+                    return true;
+                default:
+                    p = default;
+                    value = 0f;
+                    return false;
+            }
+            value = Math.Min((int)param, EqParamMax) - EqParamZero;
+            return true;
+        }
+
+        /// <summary>EQ のオートメーションの値の上限（18 = +12 dB）と 0 dB の値（0C）。</summary>
+        public const int EqParamMax = 24, EqParamZero = 12;
         public override string ToString() => FxText.Format(this);
     }
 

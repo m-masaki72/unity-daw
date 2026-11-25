@@ -245,6 +245,7 @@ namespace UniDAW
                         Queued = -1;
                         click.Silence();
                         CutAll();
+                        mixer.ResetAutomation();
                         break;
                     case CmdType.NoteOn:
                         if (cmd.a >= 0 && cmd.a < Channels)
@@ -271,6 +272,7 @@ namespace UniDAW
         void StartPlayback(bool patternMode, int a, int startRow, int countInBeats)
         {
             CutAll();
+            mixer.ResetAutomation();
             playing = true;
             IsPlaying = true;
             loopPattern = patternMode;
@@ -522,6 +524,12 @@ namespace UniDAW
                 if (fx.param == 0) return;
                 if (fx.param < 0x20) speedOverride = fx.param;
                 else bpmOverride = fx.param;
+                return;
+            }
+            if (fx.TryGetMix(out var mp, out float mv))
+            {
+                // EQ / ダッキングのオートメーションはミキサー側の状態（停止・再生開始でミキサーの値へ戻る）
+                mixer.SetAutomation(c, mp, mv);
                 return;
             }
             channels[c].ApplyFx(fx);

@@ -26,6 +26,9 @@ namespace UniDAW
         readonly float[] samples = new float[ChipEngine.Channels];
         readonly ChipEq[] eq = new ChipEq[ChipEngine.Channels];
         readonly bool[] eqOn = new bool[ChipEngine.Channels];
+        readonly ChannelMix[] mixRef = new ChannelMix[ChipEngine.Channels];
+        /// <summary>エフェクト列（L / M / H / D）で上書きした値。NaN はミキサーの値。</summary>
+        readonly float[,] automation = new float[ChipEngine.Channels, 4];
         readonly double sampleRate;
         // サイドチェイン：検出用ローパス・エンベロープ・係数
         const double DetectorHz = 180.0;
@@ -48,6 +51,49 @@ namespace UniDAW
             this.sampleRate = sampleRate;
             detectCoef = (float)(1.0 - Math.Exp(-2.0 * Math.PI * DetectorHz / sampleRate));
             attackCoef = (float)(1.0 - Math.Exp(-1000.0 / (AttackMs * sampleRate)));
+            ResetAutomation();
+        }
+
+        /// <summary>オートメーションを外してミキサーの値に戻す（停止・再生開始）。</summary>
+        public void ResetAutomation()
+        {
+            for (int c = 0; c < mixRef.Length; c++)
+            {
+                for (int p = 0; p < 4; p++) automation[c, p] = float.NaN;
+                Resolve(c);
+            }
+        }
+
+        /// <summary>エフェクト列からの上書き（オーディオスレッド、tick の中で呼ぶ）。</summary>
+        public void SetAutomation(int c, MixParam p, float value)
+        {
+            if (c < 0 || c >= mixRef.Length) return;
+            automation[c, (int)p] = value;
+            Resolve(c);
+        }
+
+        /// <summary>今の値（オートメーション優先、テスト用）。</summary>
+        public float Value(int c, MixParam p)
+        {
+            float a = automation[c, (int)p];
+            if (!float.IsNaN(a)) return a;
+            var m = mixRef[c];
+            return m != null ? m.Get(p) : 0f;
+        }
+
+        /// <summary>EQ の係数とダッキングの深さを決め直す。</summary>
+        void Resolve(int c)
+        {
+            float lo = Value(c, MixParam.EqLow), md = Value(c, MixParam.EqMid), hi = Value(c, MixParam.EqHigh);
+            if (lo != 0f || md != 0f || hi != 0f || eq[c] != null)
+            {
+                eq[c] ??= new ChipEq();
+                eq[c].Set(lo, md, hi, sampleRate);
+            }
+            eqOn[c] = eq[c] != null && eq[c].Active;
+            duck[c] = c == scSource ? 0f : SongEffects.Clamp01(Value(c, MixParam.Duck));
+            anyDuck = false;
+            for (int i = 0; i < duck.Length; i++) anyDuck |= duck[i] > 0f;
         }
 
         /// <summary>今のサイドチェインのエンベロープ（テスト・表示用）。</summary>
@@ -74,20 +120,11 @@ namespace UniDAW
                 sendR[c] = g > 0f ? (m?.reverbSend ?? 0f) : 0f;
                 anySend |= sendD[c] > 0f || sendR[c] > 0f;
                 peak[c] = 0f;
-
-                if (m != null && (m.eqLowDb != 0f || m.eqMidDb != 0f || m.eqHighDb != 0f || eq[c] != null))
-                {
-                    eq[c] ??= new ChipEq();
-                    eq[c].Set(m.eqLowDb, m.eqMidDb, m.eqHighDb, sampleRate);
-                }
-                eqOn[c] = eq[c] != null && eq[c].Active;
-                duck[c] = m != null ? SongEffects.Clamp01(m.duck) : 0f;
+                mixRef[c] = m;
             }
             var e = song?.effects;
             scSource = Math.Max(0, Math.Min(gainL.Length - 1, e?.sidechainSource ?? 3));
-            duck[scSource] = 0f;
-            anyDuck = false;
-            for (int c = 0; c < duck.Length; c++) anyDuck |= duck[c] > 0f;
+            for (int c = 0; c < gainL.Length; c++) Resolve(c);
             float relMs = SongEffects.ReleaseMs(e?.duckRelease ?? 0.3f);
             releaseCoef = (float)Math.Exp(-1000.0 / (relMs * sampleRate));
             if (anySend && fx == null) fx = new ChipEffects(sampleRate);

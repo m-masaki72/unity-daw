@@ -226,6 +226,53 @@ namespace UniDAW.Tests
             }
         }
 
+        static string Ch(int ch, float db, float pan, float lo, float duck) =>
+            $"{{\"channel\":{ch},\"volumeDb\":{db},\"pan\":{pan},\"eqLow\":{lo},\"eqMid\":0,\"eqHigh\":-2,\"duck\":{duck},\"delaySend\":0.2,\"reverbSend\":0.3}}";
+
+        [Test]
+        public void ClaudeAssist_ProposesMixAndRestoresIt()
+        {
+            var song = Song.CreateDefault(16);
+            var w = ScriptableObject.CreateInstance<UniDAWWindow>();
+            try
+            {
+                w.SetSong(song);
+                song.mixer[1].mute = true;
+                string sent = null;
+                Action<string, string> pending = null;
+                var c = new ClaudeAssist(w.Session, w.Roll, (model, msg, done) => { sent = msg; pending = done; return () => { }; });
+                w.State.aiTarget = AiTarget.Mix;
+                Assert.AreEqual("ミックス", ClaudePrompt.TargetLabel(AiTarget.Mix, 0));
+                Assert.IsTrue(c.Request());
+                StringAssert.Contains("## Channels", sent);
+                StringAssert.Contains("2 Triangle", sent);
+                pending(Reply("{\"candidates\":[" +
+                              "{\"comment\":\"a\",\"mix\":[" + Ch(0, -3, -0.5f, 0, 0.5f) + "," + Ch(2, -60, 0, 30, 0) + "],\"sidechainSource\":2,\"duckRelease\":0.8}," +
+                              "{\"comment\":\"b\",\"mix\":[" + Ch(1, -6, 0.4f, -4, 0) + "],\"sidechainSource\":-1,\"duckRelease\":-1}]}"), null);
+                Assert.AreEqual(2, c.CandidateCount);
+                Assert.AreEqual((-3f, -0.5f, 0.5f), (song.mixer[0].volumeDb, song.mixer[0].pan, song.mixer[0].duck));
+                Assert.AreEqual((ChannelMix.MinDb, ChannelMix.MaxEqDb), (song.mixer[2].volumeDb, song.mixer[2].eqLowDb), "範囲外は丸める");
+                Assert.AreEqual((0.2f, 0.3f), (song.mixer[0].delaySend, song.mixer[0].reverbSend));
+                Assert.AreEqual((2, 0.8f), (song.effects.sidechainSource, song.effects.duckRelease));
+                Assert.IsTrue(song.mixer[1].mute, "ミュートはそのまま");
+
+                Assert.IsTrue(c.Choose(1));
+                Assert.AreEqual((0f, 0f), (song.mixer[0].volumeDb, song.mixer[0].duck), "前の案は外す");
+                Assert.AreEqual((-6f, -4f), (song.mixer[1].volumeDb, song.mixer[1].eqLowDb));
+                Assert.AreEqual(3, song.effects.sidechainSource);
+
+                song.mixer[1].mute = false;
+                Assert.IsTrue(c.Choose(-1));
+                Assert.AreEqual((0f, 0f), (song.mixer[1].volumeDb, song.mixer[1].eqLowDb));
+                Assert.IsFalse(song.mixer[1].mute, "切り替えの間に変えたミュートは残す");
+            }
+            finally
+            {
+                Object.DestroyImmediate(w);
+                Object.DestroyImmediate(song);
+            }
+        }
+
         [Test]
         public void ClaudeAssist_ChoosesBetweenCandidates()
         {

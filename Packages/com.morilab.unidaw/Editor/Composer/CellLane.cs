@@ -18,6 +18,9 @@ namespace UniDAW.Editor
             switch (fx)
             {
                 case FxType.Duty: return 3;
+                case FxType.EqLow:
+                case FxType.EqMid:
+                case FxType.EqHigh: return Fx.EqParamMax;
                 case FxType.NoteCut:
                 case FxType.NoteDelay: return 15;
                 default: return 255;

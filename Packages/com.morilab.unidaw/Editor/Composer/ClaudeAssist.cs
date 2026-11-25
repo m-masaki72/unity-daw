@@ -35,8 +35,11 @@ namespace UniDAW.Editor
         // 曲構成の依頼前の状態（パターン数・順序表）
         int originalPatternCount;
         List<int> originalOrder, originalTranspose;
-        /// <summary>送る依頼が曲構成か（既定の送信関数がシステムプロンプトとスキーマを選ぶ）。</summary>
-        bool sendingStructure;
+        // ミックスの依頼前のミキサー
+        List<ChannelMix> originalMixer;
+        SongEffects originalEffects;
+        /// <summary>送る依頼の種類（既定の送信関数がシステムプロンプトとスキーマを選ぶ）。</summary>
+        AiTarget sendingTarget;
 
         /// <summary>候補の数（0 なら切り替えるものがない）。</summary>
         public int CandidateCount => candidates.Count;
@@ -50,9 +53,11 @@ namespace UniDAW.Editor
         {
             s = session;
             this.roll = roll;
-            send = sender ?? ((model, msg, done) => sendingStructure
+            send = sender ?? ((model, msg, done) => sendingTarget == AiTarget.Structure
                 ? ClaudeClient.Send(model, ClaudeStructure.SystemPrompt, ClaudeStructure.Schema, msg, done)
-                : ClaudeClient.Send(model, ClaudePrompt.SystemPrompt, ClaudePrompt.Schema, msg, done));
+                : sendingTarget == AiTarget.Mix
+                    ? ClaudeClient.Send(model, ClaudeMix.SystemPrompt, ClaudeMix.Schema, msg, done)
+                    : ClaudeClient.Send(model, ClaudePrompt.SystemPrompt, ClaudePrompt.Schema, msg, done));
         }
 
         ComposerState State => s.State;
@@ -85,6 +90,7 @@ namespace UniDAW.Editor
             int ch = State.cursorCh;
             if (!s.CanEdit()) return false;
             if (target == AiTarget.Structure) return RequestStructure(song);
+            if (target == AiTarget.Mix) return RequestMix(song);
 
             int tl = p.TrackLength(ch), from, to;
             var sel = roll.Selection;
@@ -111,7 +117,7 @@ namespace UniDAW.Editor
                 : AssistCommands.PitchRange(ch);
             var req = new ClaudePrompt.Request { target = target, channel = ch, from = from, to = to, minPitch = min, maxPitch = max, text = State.aiPrompt };
             int pi = State.patternIndex;
-            return Send(false, ClaudePrompt.BuildUserMessage(song, pi, State.orderIndex, req),
+            return Send(target, ClaudePrompt.BuildUserMessage(song, pi, State.orderIndex, req),
                 $"{ClaudePrompt.TargetLabel(target, ch)}、行 {from}〜{to - 1}",
                 () => s.Song == song && State.patternIndex == pi && (target == AiTarget.Chords || State.cursorCh == ch)
                     ? null : "返答の間にパターンかチャンネルが変わったので、提案は書き込みませんでしたわ",
@@ -126,7 +132,7 @@ namespace UniDAW.Editor
         }
 
         bool RequestStructure(Song song) =>
-            Send(true, ClaudeStructure.BuildUserMessage(song, State.aiPrompt), "曲構成",
+            Send(AiTarget.Structure, ClaudeStructure.BuildUserMessage(song, State.aiPrompt), "曲構成",
                 () => s.Song == song ? null : "返答の間に曲が変わったので、提案は書き込みませんでしたわ",
                 () =>
                 {
@@ -138,14 +144,27 @@ namespace UniDAW.Editor
                     originalTranspose = new List<int>(song.orderTranspose);
                 });
 
+        bool RequestMix(Song song) =>
+            Send(AiTarget.Mix, ClaudeMix.BuildUserMessage(song, State.aiPrompt), "ミックス",
+                () => s.Song == song ? null : "返答の間に曲が変わったので、提案は書き込みませんでしたわ",
+                () =>
+                {
+                    lastReq = new ClaudePrompt.Request { target = AiTarget.Mix };
+                    lastSong = song;
+                    lastPattern = -1;
+                    song.Validate();
+                    originalMixer = song.mixer.Select(m => m.Clone()).ToList();
+                    originalEffects = song.effects.Clone();
+                });
+
         /// <summary>送って、返答を読み、まだ書き込める状態なら（stale が null を返せば）記録して候補 1 を書き込む。</summary>
-        bool Send(bool structure, string message, string what, Func<string> stale, Action remember)
+        bool Send(AiTarget target, string message, string what, Func<string> stale, Action remember)
         {
             string model = ClaudePrompt.ModelIds[Math.Max(0, Math.Min(ClaudePrompt.ModelIds.Length - 1, State.aiModel))];
             int id = ++requestId;
             Busy = true;
             SetStatus($"Claude が考えています…（{what}）", false);
-            sendingStructure = structure;
+            sendingTarget = target;
             cancel = send(model, message, (json, netError) =>
             {
                 if (id != requestId) return;
@@ -192,8 +211,8 @@ namespace UniDAW.Editor
         {
             if (Busy || candidates.Count == 0 || i < -1 || i >= candidates.Count || i == Chosen) return false;
             var req = lastReq;
-            bool structure = req.target == AiTarget.Structure;
-            if (s.Song != lastSong || !structure && (State.patternIndex != lastPattern || req.target != AiTarget.Chords && State.cursorCh != req.channel)
+            bool structure = req.target == AiTarget.Structure, mix = req.target == AiTarget.Mix;
+            if (s.Song != lastSong || !structure && !mix && (State.patternIndex != lastPattern || req.target != AiTarget.Chords && State.cursorCh != req.channel)
                 || structure && s.Song.patterns.Count < originalPatternCount)
             {
                 SetStatus("パターンかチャンネルが変わったので、候補は切り替えられませんわ", true);
@@ -201,6 +220,11 @@ namespace UniDAW.Editor
             }
             if (!s.CanEdit()) return false;
             Chosen = i;
+            if (mix)
+            {
+                ChooseMix(i);
+                return true;
+            }
             if (structure)
             {
                 ChooseStructure(i);
@@ -235,6 +259,32 @@ namespace UniDAW.Editor
             {
                 var c = candidates[i].comment;
                 SetStatus($"案{i + 1}/{candidates.Count}: " + (c.Length > 0 ? c + "  " : "") + $"[{order}]", false);
+            }
+        }
+
+        /// <summary>ミックスの候補 i（-1 は依頼前）にする：ミキサーを依頼前に戻してから書く（1 回の Undo）。ミュート / ソロは今のまま。</summary>
+        void ChooseMix(int i)
+        {
+            string label = null;
+            s.ModifySong(i < 0 ? "AI Original" : "AI Mix", song =>
+            {
+                song.Validate();
+                for (int c = 0; c < originalMixer.Count && c < song.mixer.Count; c++)
+                {
+                    var m = originalMixer[c].Clone();
+                    m.mute = song.mixer[c].mute;
+                    m.solo = song.mixer[c].solo;
+                    song.mixer[c] = m;
+                }
+                song.effects = originalEffects.Clone();
+                if (i >= 0) label = ClaudeMix.Apply(song, candidates[i]);
+            });
+            if (i < 0) SetStatus("依頼前のミックスに戻しましたわ", false);
+            else if (label == null) SetStatus($"案{i + 1}/{candidates.Count}: ミックスが空でしたわ", true);
+            else
+            {
+                var c = candidates[i].comment;
+                SetStatus($"案{i + 1}/{candidates.Count}: " + (c.Length > 0 ? c + "  " : "") + $"[{label}]", false);
             }
         }
 
