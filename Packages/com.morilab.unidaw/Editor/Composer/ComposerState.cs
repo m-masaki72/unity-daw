@@ -50,6 +50,9 @@ namespace UniDAW.Editor
         public int assistRows = 16;
         public float assistTemperature = 1f;
         public int assistSeed;
+        public AiTarget aiTarget;
+        public int aiModel;
+        public string aiPrompt = "";
 
         public Pattern CurrentPattern => song != null ? song.GetPattern(patternIndex) : null;
 

@@ -18,10 +18,14 @@ namespace UniDAW.Editor
         readonly RollEditor roll;
         (Song song, int pattern, int ch, int from, int rows) last;
 
+        /// <summary>Claude への依頼（ネットを使う提案）。</summary>
+        public ClaudeAssist Claude { get; }
+
         public AssistCommands(ComposerSession session, RollEditor roll)
         {
             s = session;
             this.roll = roll;
+            Claude = new ClaudeAssist(session, roll);
         }
 
         ComposerState State => s.State;
@@ -159,7 +163,7 @@ namespace UniDAW.Editor
         // ---- メロディ ----------------------------------------------------------------
 
         /// <summary>チャンネルの音域（提案で使う範囲）と、文脈がないときの中心。</summary>
-        static (int min, int max, int center) Range(int ch) =>
+        internal static (int min, int max, int center) PitchRange(int ch) =>
             Song.Kinds[ch] == ChannelKind.Triangle ? (28, 67, 45) : (48, 96, 72);
 
         /// <summary>
@@ -201,7 +205,7 @@ namespace UniDAW.Editor
             var model = MelodyModel.FromSong(song, (xp, xc, n) => xp == pi && xc == ch && n.start >= from && n.start < to);
             var context = MelodyModel.Extract(p, ch).Where(n => n.start < from).ToList();
             if (context.Count > 8) context = context.GetRange(context.Count - 8, 8);
-            var (min, max, center) = Range(ch);
+            var (min, max, center) = PitchRange(ch);
             var chords = Chords(out _);
             State.assistSeed++;
             var opts = new MelodyModel.Options

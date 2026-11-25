@@ -17,6 +17,11 @@ namespace UniDAW.Editor
         readonly Label chordInfo;
         readonly NumberBox rowsBox, tempBox;
         readonly Button rerollButton;
+        readonly MenuChip aiTargetChip, aiModelChip;
+        readonly TextField aiPrompt, keyField;
+        readonly Button aiSend, aiCancel;
+        readonly Label aiStatus, keyInfo;
+        readonly VisualElement keyRow;
 
         AssistCommands A => ctx.Assist;
 
@@ -71,7 +76,38 @@ namespace UniDAW.Editor
             var hint = new Label("曲の中のフレーズから音の動きとリズムを学びます。キーとコードを入れると、より音楽的になりますわ。");
             hint.AddToClassList("cd-assist-info");
             mel.Add(hint);
+
+            // ---- Claude
+            var ai = Section("Claude");
+            aiPrompt = new TextField { multiline = true, tooltip = "頼みたいこと。例: サビっぽく盛り上げて / 切なく、ゆったり / 前のパターンの動機を発展させて" };
+            aiPrompt.AddToClassList("cd-assist-prompt");
+            aiPrompt.RegisterValueChangedCallback(e => C.SetPrompt(e.newValue));
+            ai.Add(aiPrompt);
+            var aiRow = Row(ai);
+            aiTargetChip = new MenuChip(a => ShowMenu(a, ClaudePrompt.TargetNames, (int)ctx.State.aiTarget, i => C.SetTarget((AiTarget)i)), "頼む内容（メロディはカーソルのチャンネル、選択があればその範囲・なければカーソルから Rows 行）");
+            aiModelChip = new MenuChip(a => ShowMenu(a, ClaudePrompt.ModelNames, ctx.State.aiModel, C.SetModel), "使うモデル");
+            aiRow.Add(aiTargetChip);
+            aiRow.Add(aiModelChip);
+            aiSend = new Button(() => { C.Request(); ctx.FocusMain(); }) { text = "Claude に頼む", tooltip = "曲の内容と頼みごとを送り、提案を書き込みます（Ctrl+Z で戻せます）" };
+            aiCancel = new Button(C.Cancel) { text = "中止" };
+            var keyButton = new Button(() => keyRow.style.display = keyRow.style.display == DisplayStyle.None ? DisplayStyle.Flex : DisplayStyle.None) { text = "API キー…" };
+            ai.Add(ComposerContext.ButtonRow(aiSend, aiCancel, keyButton));
+            keyRow = Row(ai);
+            keyRow.style.display = DisplayStyle.None;
+            keyField = new TextField { isPasswordField = true, tooltip = "Anthropic の API キー。この PC の EditorPrefs に保存し、プロジェクトには書きません" };
+            keyField.AddToClassList("cd-assist-key");
+            keyRow.Add(keyField);
+            keyRow.Add(new Button(() => { ClaudeClient.StoredKey = keyField.value; keyField.SetValueWithoutNotify(""); keyRow.style.display = DisplayStyle.None; Refresh(); }) { text = "保存" });
+            keyRow.Add(new Button(() => { ClaudeClient.StoredKey = ""; Refresh(); }) { text = "消去" });
+            aiStatus = new Label();
+            aiStatus.AddToClassList("cd-assist-info");
+            ai.Add(aiStatus);
+            keyInfo = new Label();
+            keyInfo.AddToClassList("cd-assist-info");
+            ai.Add(keyInfo);
         }
+
+        ClaudeAssist C => A.Claude;
 
         VisualElement Section(string title)
         {
@@ -116,6 +152,15 @@ namespace UniDAW.Editor
             rowsBox.SetValueWithoutNotify(st.assistRows);
             tempBox.SetValueWithoutNotify(st.assistTemperature);
             rerollButton.SetEnabled(A.CanReroll);
+            aiTargetChip.Text = ClaudePrompt.TargetNames[(int)st.aiTarget];
+            aiModelChip.Text = ClaudePrompt.ModelNames[System.Math.Max(0, System.Math.Min(ClaudePrompt.ModelNames.Length - 1, st.aiModel))];
+            if (aiPrompt.focusController?.focusedElement != aiPrompt) aiPrompt.SetValueWithoutNotify(st.aiPrompt ?? "");
+            aiSend.SetEnabled(!C.Busy);
+            aiCancel.SetEnabled(C.Busy);
+            aiStatus.text = C.Status;
+            aiStatus.EnableInClassList("error", C.StatusIsError);
+            var src = ClaudeClient.KeySource;
+            keyInfo.text = src != null ? $"API キー: {src}。送るのは曲の音符・コード・頼みごとだけです" : $"API キーが未設定です（「API キー…」か環境変数 {ClaudeClient.EnvVar}）";
             if (!has) return;
 
             if (chordField.focusController?.focusedElement != chordField) chordField.SetValueWithoutNotify(A.ChordText);
