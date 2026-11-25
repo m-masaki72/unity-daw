@@ -47,6 +47,7 @@ namespace UniDAW.Editor
             PlaceOverlay(cursorCol, ctx.State.cursorRow, p.length);
             UpdatePlayhead();
             canvas.MarkDirtyRepaint();
+            lane.Refresh();
         }
 
         void RebuildKeys(bool noise)

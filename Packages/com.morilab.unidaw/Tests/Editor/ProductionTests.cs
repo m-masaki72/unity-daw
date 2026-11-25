@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using UniDAW.Editor;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -47,6 +48,26 @@ namespace UniDAW.Tests
             int frames = (int)System.Math.Ceiling(Rate * 60.0 / (s.bpm * s.rowsPerBeat)) * rows;
             var buf = new float[frames * 2];
             e.Render(buf, 0, frames, 2);
+        }
+
+        [Test]
+        public void CellLane_ReadsAndWritesTheSameColumnsAsTheTracker()
+        {
+            var c = Cell.NoteCell(60);
+            Assert.AreEqual(-1, CellLane.Get(c, LaneKind.Volume, FxType.None));
+            CellLane.Set(ref c, LaneKind.Volume, FxType.None, 20);
+            Assert.AreEqual(15, c.volume);
+
+            c.fx1 = new Fx(FxType.Vibrato, 0x24);
+            CellLane.Set(ref c, LaneKind.Effect, FxType.Duty, 9);
+            Assert.AreEqual((FxType.Vibrato, FxType.Duty, 3), (c.fx1.type, c.fx2.type, (int)c.fx2.param), "空いている列へ、上限で丸める");
+            Assert.AreEqual(3, CellLane.Get(c, LaneKind.Effect, FxType.Duty));
+            CellLane.Set(ref c, LaneKind.Effect, FxType.Vibrato, 0x46);
+            Assert.AreEqual(0x46, c.fx1.param, "同じ種類の列を上書き");
+            CellLane.Set(ref c, LaneKind.Effect, FxType.Duty, -1);
+            Assert.IsTrue(c.fx2.IsEmpty);
+            CellLane.Set(ref c, LaneKind.Effect, FxType.NoteCut, -1);
+            Assert.AreEqual(FxType.Vibrato, c.fx1.type, "無い種類を消しても他は残る");
         }
 
         [Test]

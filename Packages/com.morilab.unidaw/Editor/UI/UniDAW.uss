@@ -408,6 +408,8 @@
 .cd-roll-tools { height: 20px; margin: 0 6px; padding: 1px; }
 .cd-roll-tools > .cd-seg-item { padding: 0 8px; font-size: 10px; }
 .cd-roll-canvas.resize { cursor: resize-horizontal; }
+.cd-lane { flex-shrink: 0; border-top-width: 1px; border-color: rgb(60, 60, 72); }
+.cd-lane-fx { width: 150px; margin: 0 4px; font-size: 10px; }
 .cd-roll-marquee {
     border-width: 1px;
     border-color: rgb(150, 190, 255);

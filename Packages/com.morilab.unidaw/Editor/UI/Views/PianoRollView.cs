@@ -29,6 +29,7 @@ namespace UniDAW.Editor
         readonly VisualElement canvas;
         // 再生位置・カーソル列・範囲選択枠は重ね置きの要素にして、移動のたびにキャンバス全体を描き直さない
         readonly VisualElement playhead, cursorCol, marquee;
+        readonly CellLaneView lane;
         int lo = DefaultLo, hi = DefaultHi;
         (int lo, int hi, bool noise) keysBuilt = (-1, -1, false);
 
@@ -95,6 +96,9 @@ namespace UniDAW.Editor
             content.Add(canvas);
             scroll.Add(content);
             Add(scroll);
+            lane = new CellLaneView(ctx);
+            Add(lane);
+            scroll.horizontalScroller.valueChanged += lane.SyncScroll;
         }
 
         VisualElement Overlay(float width, Color color)
