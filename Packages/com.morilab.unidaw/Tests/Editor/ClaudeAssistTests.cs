@@ -11,12 +11,12 @@ namespace UniDAW.Tests
     public class ClaudeAssistTests
     {
         static string Reply(string innerJson, string stop = "end_turn") =>
-            "{\"type\":\"message\",\"stop_reason\":\"" + stop + "\",\"content\":[{\"type\":\"thinking\",\"thinking\":\"\"},{\"type\":\"text\",\"text\":" + ClaudePrompt.Str(innerJson) + "}]}";
+            "{\"type\":\"message\",\"stop_reason\":\"" + stop + "\",\"content\":[{\"type\":\"thinking\",\"thinking\":\"\"},{\"type\":\"text\",\"text\":" + ClaudeClient.JsonString(innerJson) + "}]}";
 
         [Test]
         public void Str_EscapesJson()
         {
-            Assert.AreEqual("\"a\\\"b\\\\c\\nd\\u0001\"", ClaudePrompt.Str("a\"b\\c\nd\u0001"));
+            Assert.AreEqual("\"a\\\"b\\\\c\\nd\\u0001\"", ClaudeClient.JsonString("a\"b\\c\nd\u0001"));
         }
 
         [Test]
@@ -38,7 +38,7 @@ namespace UniDAW.Tests
                 StringAssert.Contains("rows 8 to 23", msg);
                 StringAssert.Contains("切なく", msg);
 
-                string body = ClaudePrompt.BuildRequestBody("claude-opus-5-5", msg);
+                string body = ClaudeClient.BuildApiBody("claude-opus-5-5", ClaudePrompt.SystemPrompt, ClaudePrompt.Schema, msg);
                 StringAssert.Contains("\"model\":\"claude-opus-5-5\"", body);
                 StringAssert.Contains("\"json_schema\"", body);
                 StringAssert.DoesNotContain("x-api-key", body);
@@ -53,19 +53,60 @@ namespace UniDAW.Tests
         [Test]
         public void ParseResponse_ReadsSuggestionAndErrors()
         {
-            var sg = ClaudePrompt.ParseResponse(Reply("{\"comment\":\"上行で\",\"chords\":\"\",\"notes\":[{\"start\":8,\"length\":4,\"pitch\":72}]}"), out var err);
+            var sg = ClaudeReply.Parse(Reply("{\"comment\":\"上行で\",\"chords\":\"\",\"notes\":[{\"start\":8,\"length\":4,\"pitch\":72}]}"), out var err);
             Assert.IsNull(err);
             Assert.AreEqual("上行で", sg.comment);
             Assert.AreEqual(1, sg.notes.Length);
             Assert.AreEqual(72, sg.notes[0].pitch);
 
-            Assert.IsNull(ClaudePrompt.ParseResponse("{\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"invalid x-api-key\"}}", out err));
+            Assert.IsNull(ClaudeReply.Parse("{\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"invalid x-api-key\"}}", out err));
             StringAssert.Contains("authentication_error", err);
-            Assert.IsNull(ClaudePrompt.ParseResponse(Reply("{}", "refusal"), out err));
+            Assert.IsNull(ClaudeReply.Parse(Reply("{}", "refusal"), out err));
             Assert.IsNotNull(err);
-            Assert.IsNull(ClaudePrompt.ParseResponse(Reply("{}", "max_tokens"), out err));
-            Assert.IsNull(ClaudePrompt.ParseResponse("not json", out err));
+            Assert.IsNull(ClaudeReply.Parse(Reply("{}", "max_tokens"), out err));
+            Assert.IsNull(ClaudeReply.Parse("not json", out err));
             Assert.IsNotNull(err);
+        }
+
+        [Test]
+        public void ParseResponse_ReadsClaudeCodeResult()
+        {
+            string ok = "{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,\"stop_reason\":\"tool_use\",\"result\":\"\"," +
+                        "\"structured_output\":{\"comment\":\"明るく\",\"chords\":\"C\",\"notes\":[{\"start\":0,\"length\":4,\"pitch\":64}]}}";
+            var sg = ClaudeReply.Parse(ok, out var err);
+            Assert.IsNull(err);
+            Assert.AreEqual("明るく", sg.comment);
+            Assert.AreEqual(64, sg.notes[0].pitch);
+
+            // structured_output がなければ result の文字列を JSON として読む
+            string text = "{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,\"result\":\"{\\\"comment\\\":\\\"x\\\",\\\"chords\\\":\\\"Am\\\",\\\"notes\\\":[]}\"}";
+            sg = ClaudeReply.Parse(text, out err);
+            Assert.IsNull(err);
+            Assert.AreEqual("Am", sg.chords);
+
+            Assert.IsNull(ClaudeReply.Parse("{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":true,\"result\":\"Not logged in\"}", out err));
+            StringAssert.Contains("Not logged in", err);
+            Assert.IsNull(ClaudeReply.Parse("{\"type\":\"result\",\"subtype\":\"error_max_turns\",\"is_error\":false}", out err));
+            StringAssert.Contains("error_max_turns", err);
+        }
+
+        [Test]
+        public void Backend_AutoPrefersKeyThenClaudeCode()
+        {
+            Assert.AreEqual(ClaudeBackend.Api, ClaudeClient.Resolve(ClaudeBackend.Auto, true, true));
+            Assert.AreEqual(ClaudeBackend.ClaudeCode, ClaudeClient.Resolve(ClaudeBackend.Auto, false, true));
+            Assert.AreEqual(ClaudeBackend.Api, ClaudeClient.Resolve(ClaudeBackend.Auto, false, false));
+            Assert.AreEqual(ClaudeBackend.ClaudeCode, ClaudeClient.Resolve(ClaudeBackend.ClaudeCode, true, false), "明示した選択は優先");
+        }
+
+        [Test]
+        public void Quote_FollowsWindowsArgumentRules()
+        {
+            Assert.AreEqual("\"\"", ClaudeCodeClient.Quote(""));
+            Assert.AreEqual("\"a b\"", ClaudeCodeClient.Quote("a b"));
+            Assert.AreEqual("\"say \\\"hi\\\"\"", ClaudeCodeClient.Quote("say \"hi\""));
+            Assert.AreEqual("\"C:\\dir\\\\\"", ClaudeCodeClient.Quote("C:\\dir\\"), "末尾の \\ は二重に");
+            Assert.AreEqual("\"a\\\\\\\"b\"", ClaudeCodeClient.Quote("a\\\"b"));
         }
 
         [Test]
@@ -73,12 +114,12 @@ namespace UniDAW.Tests
         {
             var raw = new[]
             {
-                new ClaudePrompt.SuggestedNote { start = 4, length = 2, pitch = 60 },   // 範囲外
-                new ClaudePrompt.SuggestedNote { start = 10, length = 8, pitch = 40 },  // 音域外 → 52、次で切る
-                new ClaudePrompt.SuggestedNote { start = 12, length = 20, pitch = 100 }, // 音域外 → 88、範囲末で切る
-                new ClaudePrompt.SuggestedNote { start = 12, length = 1, pitch = 70 },  // 同じ開始は捨てる
+                new ClaudeReply.SuggestedNote { start = 4, length = 2, pitch = 60 },   // 範囲外
+                new ClaudeReply.SuggestedNote { start = 10, length = 8, pitch = 40 },  // 音域外 → 52、次で切る
+                new ClaudeReply.SuggestedNote { start = 12, length = 20, pitch = 100 }, // 音域外 → 88、範囲末で切る
+                new ClaudeReply.SuggestedNote { start = 12, length = 1, pitch = 70 },  // 同じ開始は捨てる
             };
-            var fit = ClaudePrompt.FitNotes(raw, 8, 16, 48, 96);
+            var fit = ClaudeReply.FitNotes(raw, 8, 16, 48, 96);
             Assert.AreEqual(2, fit.Count);
             Assert.AreEqual((10, 2, 52), (fit[0].start, fit[0].length, fit[0].pitch));
             Assert.AreEqual((12, 4, 88), (fit[1].start, fit[1].length, fit[1].pitch));
@@ -94,7 +135,7 @@ namespace UniDAW.Tests
                 w.SetSong(song);
                 string sent = null;
                 Action<string, string> pending = null;
-                var c = new ClaudeAssist(w.Session, w.Roll, (body, done) => { sent = body; pending = done; return () => { }; });
+                var c = new ClaudeAssist(w.Session, w.Roll, (model, msg, done) => { sent = msg; pending = done; return () => { }; });
                 w.State.cursorRow = 8;
                 w.State.assistRows = 8;
                 w.State.aiTarget = AiTarget.MelodyAndChords;

@@ -17,7 +17,7 @@ namespace UniDAW.Editor
         readonly Label chordInfo;
         readonly NumberBox rowsBox, tempBox;
         readonly Button rerollButton;
-        readonly MenuChip aiTargetChip, aiModelChip;
+        readonly MenuChip aiTargetChip, aiModelChip, aiBackendChip;
         readonly TextField aiPrompt, keyField;
         readonly Button aiSend, aiCancel;
         readonly Label aiStatus, keyInfo;
@@ -88,6 +88,9 @@ namespace UniDAW.Editor
             aiModelChip = new MenuChip(a => ShowMenu(a, ClaudePrompt.ModelNames, ctx.State.aiModel, C.SetModel), "使うモデル");
             aiRow.Add(aiTargetChip);
             aiRow.Add(aiModelChip);
+            aiBackendChip = new MenuChip(a => ShowMenu(a, ClaudeClient.BackendNames, (int)ClaudeClient.Backend, i => { ClaudeClient.Backend = (ClaudeBackend)i; Refresh(); }),
+                "接続方法：自動（API キーがあれば API、なければローカルの Claude Code）/ Claude Code（claude -p、ログイン済みのアカウントを使う）/ API キー");
+            aiRow.Add(aiBackendChip);
             aiSend = new Button(() => { C.Request(); ctx.FocusMain(); }) { text = "Claude に頼む", tooltip = "曲の内容と頼みごとを送り、提案を書き込みます（Ctrl+Z で戻せます）" };
             aiCancel = new Button(C.Cancel) { text = "中止" };
             var keyButton = new Button(() => keyRow.style.display = keyRow.style.display == DisplayStyle.None ? DisplayStyle.Flex : DisplayStyle.None) { text = "API キー…" };
@@ -159,8 +162,8 @@ namespace UniDAW.Editor
             aiCancel.SetEnabled(C.Busy);
             aiStatus.text = C.Status;
             aiStatus.EnableInClassList("error", C.StatusIsError);
-            var src = ClaudeClient.KeySource;
-            keyInfo.text = src != null ? $"API キー: {src}。送るのは曲の音符・コード・頼みごとだけです" : $"API キーが未設定です（「API キー…」か環境変数 {ClaudeClient.EnvVar}）";
+            aiBackendChip.Text = "接続: " + ClaudeClient.BackendNames[(int)ClaudeClient.Backend];
+            keyInfo.text = ClaudeClient.Describe();
             if (!has) return;
 
             if (chordField.focusController?.focusedElement != chordField) chordField.SetValueWithoutNotify(A.ChordText);

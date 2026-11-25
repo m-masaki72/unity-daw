@@ -187,6 +187,12 @@ namespace UniDAW.Editor
             Changed?.Invoke();
         }
 
+        public void SetArrangeZoom(float zoom)
+        {
+            State.arrangeZoom = Mathf.Clamp(zoom, ComposerState.MinArrangeZoom, ComposerState.MaxArrangeZoom);
+            Changed?.Invoke();
+        }
+
         public void SetMacro(MacroKind kind)
         {
             if (State.macro == kind) return;
@@ -282,117 +288,6 @@ namespace UniDAW.Editor
                 State.patternIndex = s.patterns.Count - 1;
             });
         }
-
-        // ---- 順序表 ----------------------------------------------------------------
-
-        /// <summary>順序表の編集。終わったら選択中エントリのパターンを表示する。</summary>
-        void OrderEdit(string undoName, Action<Song> change) => Edit(undoName, () =>
-        {
-            change(Song);
-            State.orderIndex = Mathf.Clamp(State.orderIndex, 0, Song.order.Count - 1);
-            State.patternIndex = Song.order[State.orderIndex];
-        });
-
-        public void InsertOrderEntry() => OrderEdit("Add Order", s =>
-        {
-            s.InsertOrder(State.orderIndex + 1, State.patternIndex, s.TransposeAtOrder(State.orderIndex));
-            State.orderIndex++;
-        });
-
-        public void RemoveOrderEntry() => OrderEdit("Remove Order", s =>
-        {
-            if (s.order.Count > 1) s.RemoveOrder(State.orderIndex);
-        });
-
-        public void MoveOrderEntry(int delta) => OrderEdit("Move Order", s =>
-        {
-            int a = State.orderIndex, b = a + delta;
-            if (b < 0 || b >= s.order.Count) return;
-            s.SwapOrder(a, b);
-            State.orderIndex = b;
-        });
-
-        /// <summary>エントリを別の位置へ移す（アレンジ表示のドラッグ）。移調も一緒に動く。</summary>
-        public void MoveOrderTo(int from, int to)
-        {
-            if (Song == null || from == to || from < 0 || from >= Song.order.Count) return;
-            OrderEdit("Move Order", s =>
-            {
-                int pat = s.order[from], tr = s.TransposeAtOrder(from);
-                s.RemoveOrder(from);
-                int dst = Mathf.Clamp(to, 0, s.order.Count);
-                s.InsertOrder(dst, pat, tr);
-                State.orderIndex = dst;
-            });
-        }
-
-        /// <summary>エントリをすぐ後ろに複製する（同じパターンを共有）。</summary>
-        public void DuplicateOrderEntry(int index)
-        {
-            if (Song == null || index < 0 || index >= Song.order.Count) return;
-            OrderEdit("Duplicate Order", s =>
-            {
-                s.InsertOrder(index + 1, s.order[index], s.TransposeAtOrder(index));
-                State.orderIndex = index + 1;
-            });
-        }
-
-        public void RemoveOrderEntryAt(int index)
-        {
-            if (Song == null || Song.order.Count <= 1 || index < 0 || index >= Song.order.Count) return;
-            OrderEdit("Remove Order", s =>
-            {
-                s.RemoveOrder(index);
-                State.orderIndex = Mathf.Min(index, s.order.Count - 1);
-            });
-        }
-
-        /// <summary>エントリのパターンを複製して、このエントリだけの別パターンにする（他の出現は変わらない）。</summary>
-        public void MakeOrderUnique(int index)
-        {
-            if (Song == null || index < 0 || index >= Song.order.Count) return;
-            OrderEdit("Make Unique", s =>
-            {
-                var c = s.GetPattern(s.order[index]).Clone();
-                c.name += "'";
-                s.patterns.Add(c);
-                s.order[index] = s.patterns.Count - 1;
-                State.orderIndex = index;
-            });
-        }
-
-        public void SetOrderPattern(int index, int pattern)
-        {
-            if (Song == null || index < 0 || index >= Song.order.Count) return;
-            OrderEdit("Order Pattern", s =>
-            {
-                s.order[index] = Mathf.Clamp(pattern, 0, s.patterns.Count - 1);
-                State.orderIndex = index;
-            });
-        }
-
-        public void TransposeOrderAt(int index, int? delta)
-        {
-            if (Song == null || index < 0 || index >= Song.order.Count) return;
-            OrderEdit("Order Transpose", s =>
-            {
-                s.SetOrderTranspose(index, delta.HasValue ? s.TransposeAtOrder(index) + delta.Value : 0);
-                State.orderIndex = index;
-            });
-        }
-
-        public void SetArrangeZoom(float zoom)
-        {
-            State.arrangeZoom = Mathf.Clamp(zoom, ComposerState.MinArrangeZoom, ComposerState.MaxArrangeZoom);
-            Changed?.Invoke();
-        }
-
-        public void ShiftOrderPattern(int delta) => OrderEdit("Order Pattern", s =>
-            s.order[State.orderIndex] = Mathf.Clamp(s.order[State.orderIndex] + delta, 0, s.patterns.Count - 1));
-
-        /// <summary>エントリ単位の移調（パターンは共有のまま）。null で移調なしに戻す。</summary>
-        public void TransposeOrderEntry(int? delta) => OrderEdit("Order Transpose", s =>
-            s.SetOrderTranspose(State.orderIndex, delta.HasValue ? s.TransposeAtOrder(State.orderIndex) + delta.Value : 0));
 
         // ---- インストゥルメント ----------------------------------------------------
 

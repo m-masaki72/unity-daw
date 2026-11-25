@@ -41,20 +41,20 @@ namespace UniDAW.Editor
 
         /// <summary>
         /// ドラッグで落とした位置から移動先の番号を決める（ブロックの中心より左なら前、右なら後ろ）。
-        /// 戻り値は <see cref="ComposerSession.MoveOrderTo"/> にそのまま渡せる（取り除いた後の位置）。
+        /// 戻り値は <see cref="OrderCommands.Move"/> にそのまま渡せる（取り除いた後の位置）。
         /// </summary>
         public static int DropIndex(List<Block> blocks, int from, float row)
         {
-            int slot = blocks.Count;
-            for (int i = 0; i < blocks.Count; i++)
-            {
-                if (row < blocks[i].start + blocks[i].length * 0.5f)
-                {
-                    slot = i;
-                    break;
-                }
-            }
+            int slot = SlotAt(blocks, row);
             return slot > from ? slot - 1 : slot;
+        }
+
+        /// <summary>行位置に落としたときの挿入位置（0..Count、取り除く前の番号）。</summary>
+        public static int SlotAt(List<Block> blocks, float row)
+        {
+            for (int i = 0; i < blocks.Count; i++)
+                if (row < blocks[i].start + blocks[i].length * 0.5f) return i;
+            return blocks.Count;
         }
 
         /// <summary>行数を「小節.拍」で表す（4/4）。</summary>

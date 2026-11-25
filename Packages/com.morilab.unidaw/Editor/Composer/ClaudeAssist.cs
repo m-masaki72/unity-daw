@@ -5,12 +5,12 @@ namespace UniDAW.Editor
 {
     /// <summary>
     /// Claude への依頼（メロディ・コード進行）。範囲を決めて送り、返ってきた提案を Undo 付きで書き込む。
-    /// 文章化と検証は <see cref="ClaudePrompt"/>、通信は差し替え可能な送信関数（既定は <see cref="ClaudeClient.Send"/>）。
+    /// 文章化は <see cref="ClaudePrompt"/>、返答の検証は <see cref="ClaudeReply"/>、通信は差し替え可能な送信関数（既定は <see cref="ClaudeClient.Send"/>）。
     /// </summary>
     public sealed class ClaudeAssist
     {
-        /// <summary>本文を送り、done(返答, 通信エラー) を呼ぶ。戻り値は中止。</summary>
-        public delegate Action Sender(string body, Action<string, string> done);
+        /// <summary>依頼文をモデルに送り、done(返答, 通信エラー) を呼ぶ。戻り値は中止。</summary>
+        public delegate Action Sender(string model, string userMessage, Action<string, string> done);
 
         readonly ComposerSession s;
         readonly RollEditor roll;
@@ -27,7 +27,7 @@ namespace UniDAW.Editor
         {
             s = session;
             this.roll = roll;
-            send = sender ?? ClaudeClient.Send;
+            send = sender ?? ((model, msg, done) => ClaudeClient.Send(model, ClaudePrompt.SystemPrompt, ClaudePrompt.Schema, msg, done));
         }
 
         ComposerState State => s.State;
@@ -67,9 +67,9 @@ namespace UniDAW.Editor
 
             int tl = p.TrackLength(ch), from, to;
             var sel = roll.Selection;
-            if (sel.Count > 0)
+            var picked = sel.Count > 0 ? roll.Notes().Where(n => sel.Contains(n.start)).ToList() : null;
+            if (picked != null && picked.Count > 0)
             {
-                var picked = roll.Notes().Where(n => sel.Contains(n.start)).ToList();
                 from = picked.Min(n => n.start);
                 to = picked.Max(n => n.End);
             }
@@ -88,13 +88,13 @@ namespace UniDAW.Editor
             var (min, max, _) = AssistCommands.PitchRange(ch);
             var req = new ClaudePrompt.Request { target = target, channel = ch, from = from, to = to, minPitch = min, maxPitch = max, text = State.aiPrompt };
             string model = ClaudePrompt.ModelIds[Math.Max(0, Math.Min(ClaudePrompt.ModelIds.Length - 1, State.aiModel))];
-            string body = ClaudePrompt.BuildRequestBody(model, ClaudePrompt.BuildUserMessage(song, State.patternIndex, State.orderIndex, req));
+            string message = ClaudePrompt.BuildUserMessage(song, State.patternIndex, State.orderIndex, req);
 
             int id = ++requestId;
             int pi = State.patternIndex;
             Busy = true;
             SetStatus($"Claude が考えています…（{ClaudePrompt.TargetNames[(int)target]}、行 {from}〜{to - 1}）", false);
-            cancel = send(body, (json, netError) =>
+            cancel = send(model, message, (json, netError) =>
             {
                 if (id != requestId) return;
                 Busy = false;
@@ -104,7 +104,7 @@ namespace UniDAW.Editor
                     SetStatus(netError, true);
                     return;
                 }
-                var sg = ClaudePrompt.ParseResponse(json, out string error);
+                var sg = ClaudeReply.Parse(json, out string error);
                 if (sg == null)
                 {
                     SetStatus(error, true);
@@ -131,7 +131,7 @@ namespace UniDAW.Editor
             SetStatus("中止しましたわ", false);
         }
 
-        void Apply(ClaudePrompt.Suggestion sg, ClaudePrompt.Request req)
+        void Apply(ClaudeReply.Suggestion sg, ClaudePrompt.Request req)
         {
             string done = "";
             if (req.target != AiTarget.Melody && sg.chords.Trim().Length > 0)
@@ -142,7 +142,7 @@ namespace UniDAW.Editor
             }
             if (req.target != AiTarget.Chords)
             {
-                var notes = ClaudePrompt.FitNotes(sg.notes, req.from, req.to, req.minPitch, req.maxPitch);
+                var notes = ClaudeReply.FitNotes(sg.notes, req.from, req.to, req.minPitch, req.maxPitch);
                 int inst = s.ChannelInstrument(req.channel);
                 roll.ReplaceRange("AI Suggest", req.from, req.to,
                     notes.Select(n => new RollNote(n.start, n.length, n.pitch, Cell.NoteCell(n.pitch, inst))));

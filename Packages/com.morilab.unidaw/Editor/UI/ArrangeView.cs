@@ -34,6 +34,7 @@ namespace UniDAW.Editor
         bool dragging;
 
         ComposerSession S => ctx.Session;
+        OrderCommands O => ctx.Order;
 
         public ArrangeView(ComposerContext ctx)
         {
@@ -42,11 +43,11 @@ namespace UniDAW.Editor
 
             var bar = new VisualElement();
             bar.AddToClassList("cd-arrange-bar");
-            bar.Add(ToolButton("複製", "選択中のエントリを後ろに複製（同じパターン）", () => S.DuplicateOrderEntry(ctx.State.orderIndex)));
-            bar.Add(ToolButton("削除", "選択中のエントリを順序表から外す（パターンは残る）", () => S.RemoveOrderEntryAt(ctx.State.orderIndex)));
-            bar.Add(ToolButton("固有化", "このエントリのパターンを複製して、ここだけ別に編集できるようにする", () => S.MakeOrderUnique(ctx.State.orderIndex)));
-            bar.Add(ToolButton("◀", "前へ移動", () => S.MoveOrderTo(ctx.State.orderIndex, ctx.State.orderIndex - 1)));
-            bar.Add(ToolButton("▶", "後ろへ移動", () => S.MoveOrderTo(ctx.State.orderIndex, ctx.State.orderIndex + 1)));
+            bar.Add(ToolButton("複製", "選択中のエントリを後ろに複製（同じパターン）", () => O.Duplicate(ctx.State.orderIndex)));
+            bar.Add(ToolButton("削除", "選択中のエントリを順序表から外す（パターンは残る）", () => O.Remove(ctx.State.orderIndex)));
+            bar.Add(ToolButton("固有化", "このエントリのパターンを複製して、ここだけ別に編集できるようにする", () => O.MakeUnique(ctx.State.orderIndex)));
+            bar.Add(ToolButton("◀", "前へ移動", () => O.Move(ctx.State.orderIndex, ctx.State.orderIndex - 1)));
+            bar.Add(ToolButton("▶", "後ろへ移動", () => O.Move(ctx.State.orderIndex, ctx.State.orderIndex + 1)));
             bar.Add(ToolButton("−", "縮小（Ctrl+ホイール）", () => S.SetArrangeZoom(ctx.State.arrangeZoom / 1.5f)));
             bar.Add(ToolButton("＋", "拡大（Ctrl+ホイール）", () => S.SetArrangeZoom(ctx.State.arrangeZoom * 1.5f)));
             info = new Label();
@@ -134,7 +135,7 @@ namespace UniDAW.Editor
             v.Add(title);
             v.tooltip = $"順序 {index:X2}: パターン {b.pattern:X2} {p?.name}（{b.length} 行）{(b.transpose != 0 ? $"、移調 {b.transpose:+0;-0}" : "")}\n" +
                         "クリック：選択   ダブルクリック：ここから再生   ドラッグ：並べ替え   右クリック：メニュー";
-            if (p != null) v.generateVisualContent += mgc => DrawNotes(mgc, v, p, b.transpose);
+            if (p != null) v.generateVisualContent += mgc => DrawNotes(mgc, v, p);
 
             v.RegisterCallback<PointerDownEvent>(e => OnBlockDown(e, v, index));
             v.RegisterCallback<PointerMoveEvent>(e => OnBlockMove(e, v));
@@ -161,16 +162,12 @@ namespace UniDAW.Editor
             {
                 if (n % every != 0) continue;
                 float x = r * zoom + 0.5f;
-                p.strokeColor = new Color(1f, 1f, 1f, 0.35f);
-                p.BeginPath();
-                p.MoveTo(new Vector2(x, 6f));
-                p.LineTo(new Vector2(x, RulerHeight));
-                p.Stroke();
+                p.Line(new Vector2(x, 6f), new Vector2(x, RulerHeight), new Color(1f, 1f, 1f, 0.35f));
                 mgc.DrawText((n + 1).ToString(), new Vector2(x + 2f, 1f), 9f, new Color(0.75f, 0.75f, 0.82f));
             }
         }
 
-        static void DrawNotes(MeshGenerationContext mgc, VisualElement v, Pattern p, int transpose)
+        static void DrawNotes(MeshGenerationContext mgc, VisualElement v, Pattern p)
         {
             var rect = v.contentRect;
             float top = 14f, h = rect.height - top - 2f, laneH = h / Song.ChannelCount;
@@ -178,14 +175,8 @@ namespace UniDAW.Editor
             float sx = rect.width / p.length;
             var pt = mgc.painter2D;
             pt.lineWidth = 1f;
-            pt.strokeColor = LaneLine;
             for (int c = 1; c < Song.ChannelCount; c++)
-            {
-                pt.BeginPath();
-                pt.MoveTo(new Vector2(0, top + c * laneH));
-                pt.LineTo(new Vector2(rect.width, top + c * laneH));
-                pt.Stroke();
-            }
+                pt.Line(new Vector2(0, top + c * laneH), new Vector2(rect.width, top + c * laneH), LaneLine);
             for (int c = 0; c < Song.ChannelCount; c++)
             {
                 var notes = MelodyModel.Extract(p, c);
@@ -199,18 +190,11 @@ namespace UniDAW.Editor
                 }
                 float span = Mathf.Max(1, hi - lo);
                 float laneTop = top + c * laneH + 1f, usable = laneH - 3f;
-                pt.fillColor = ChannelColors[c];
                 foreach (var n in notes)
                 {
                     float y = noise ? laneTop + usable * 0.5f : laneTop + usable * (1f - (n.pitch - lo) / span);
                     float x = n.start * sx, w = noise ? Mathf.Max(1f, sx * 0.6f) : Mathf.Max(1f, n.length * sx - 0.5f);
-                    pt.BeginPath();
-                    pt.MoveTo(new Vector2(x, y - 1f));
-                    pt.LineTo(new Vector2(x + w, y - 1f));
-                    pt.LineTo(new Vector2(x + w, y + 1f));
-                    pt.LineTo(new Vector2(x, y + 1f));
-                    pt.ClosePath();
-                    pt.Fill();
+                    pt.FillRect(x, y - 1f, w, 2f, ChannelColors[c]);
                 }
             }
         }
@@ -271,7 +255,7 @@ namespace UniDAW.Editor
             dragging = true;
             v.style.translate = new Translate(dx, 0);
             v.AddToClassList("drag");
-            int to = DropSlot(e.position);
+            int to = ArrangeLayout.SlotAt(blocks, RowAt(e.position));
             float mx = to >= blocks.Count ? ArrangeLayout.TotalRows(blocks) * zoom : blocks[to].start * zoom;
             dropMarker.style.left = mx - 1f;
             dropMarker.style.display = DisplayStyle.Flex;
@@ -290,21 +274,14 @@ namespace UniDAW.Editor
             dropMarker.style.display = DisplayStyle.None;
             if (moved)
             {
-                float row = canvas.WorldToLocal(e.position).x / Mathf.Max(0.01f, zoom);
-                S.MoveOrderTo(from, ArrangeLayout.DropIndex(blocks, from, row));
+                O.Move(from, ArrangeLayout.DropIndex(blocks, from, RowAt(e.position)));
             }
             else S.SelectOrder(index);
             e.StopPropagation();
         }
 
-        /// <summary>ドロップ先の挿入位置（0..Count、取り除く前の番号）。</summary>
-        int DropSlot(Vector2 worldPos)
-        {
-            float row = canvas.WorldToLocal(worldPos).x / Mathf.Max(0.01f, zoom);
-            for (int i = 0; i < blocks.Count; i++)
-                if (row < blocks[i].start + blocks[i].length * 0.5f) return i;
-            return blocks.Count;
-        }
+        /// <summary>画面上の位置 → 時間軸の行。</summary>
+        float RowAt(Vector2 worldPos) => canvas.WorldToLocal(worldPos).x / Mathf.Max(0.01f, zoom);
 
         void ShowMenu(int index)
         {
@@ -312,21 +289,21 @@ namespace UniDAW.Editor
             var m = new GenericMenu();
             m.AddItem(new GUIContent("ここから再生"), false, () => ctx.Transport.PlayFromOrder(index));
             m.AddSeparator("");
-            m.AddItem(new GUIContent("複製"), false, () => S.DuplicateOrderEntry(index));
-            if (song.order.Count > 1) m.AddItem(new GUIContent("削除"), false, () => S.RemoveOrderEntryAt(index));
+            m.AddItem(new GUIContent("複製"), false, () => O.Duplicate(index));
+            if (song.order.Count > 1) m.AddItem(new GUIContent("削除"), false, () => O.Remove(index));
             else m.AddDisabledItem(new GUIContent("削除"));
-            m.AddItem(new GUIContent("固有化（パターンを複製）"), false, () => S.MakeOrderUnique(index));
+            m.AddItem(new GUIContent("固有化（パターンを複製）"), false, () => O.MakeUnique(index));
             m.AddSeparator("");
             for (int i = 0; i < song.patterns.Count; i++)
             {
                 int pi = i;
-                m.AddItem(new GUIContent($"パターン/{i:X2} {song.patterns[i].name}"), song.order[index] == i, () => S.SetOrderPattern(index, pi));
+                m.AddItem(new GUIContent($"パターン/{i:X2} {song.patterns[i].name}"), song.order[index] == i, () => O.SetPattern(index, pi));
             }
-            m.AddItem(new GUIContent("移調/+1"), false, () => S.TransposeOrderAt(index, 1));
-            m.AddItem(new GUIContent("移調/-1"), false, () => S.TransposeOrderAt(index, -1));
-            m.AddItem(new GUIContent("移調/+12"), false, () => S.TransposeOrderAt(index, 12));
-            m.AddItem(new GUIContent("移調/-12"), false, () => S.TransposeOrderAt(index, -12));
-            m.AddItem(new GUIContent("移調/リセット"), false, () => S.TransposeOrderAt(index, null));
+            m.AddItem(new GUIContent("移調/+1"), false, () => O.Transpose(index, 1));
+            m.AddItem(new GUIContent("移調/-1"), false, () => O.Transpose(index, -1));
+            m.AddItem(new GUIContent("移調/+12"), false, () => O.Transpose(index, 12));
+            m.AddItem(new GUIContent("移調/-12"), false, () => O.Transpose(index, -12));
+            m.AddItem(new GUIContent("移調/リセット"), false, () => O.Transpose(index, null));
             m.ShowAsContext();
         }
     }

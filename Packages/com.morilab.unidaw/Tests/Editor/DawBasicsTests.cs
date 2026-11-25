@@ -157,32 +157,32 @@ namespace UniDAW.Tests
             try
             {
                 w.SetSong(song);
-                var ses = w.Session;
+                var ses = w.Order;
 
-                ses.MoveOrderTo(0, 1);
+                ses.Move(0, 1);
                 CollectionAssert.AreEqual(new[] { 1, 0 }, song.order);
                 Assert.AreEqual(1, w.State.orderIndex, "動かしたエントリが選択される");
 
                 UnityEditor.Undo.IncrementCurrentGroup();
-                ses.DuplicateOrderEntry(0);
+                ses.Duplicate(0);
                 CollectionAssert.AreEqual(new[] { 1, 1, 0 }, song.order);
 
                 UnityEditor.Undo.IncrementCurrentGroup();
                 int before = song.patterns.Count;
-                ses.MakeOrderUnique(1);
+                ses.MakeUnique(1);
                 Assert.AreEqual(before + 1, song.patterns.Count);
                 Assert.AreEqual(before, song.order[1], "このエントリだけ新しいパターン");
                 Assert.AreEqual(1, song.order[0], "他の出現はそのまま");
                 StringAssert.EndsWith("'", song.patterns[before].name);
 
                 UnityEditor.Undo.IncrementCurrentGroup();
-                ses.TransposeOrderAt(2, 12);
+                ses.Transpose(2, 12);
                 Assert.AreEqual(12, song.TransposeAtOrder(2));
-                ses.TransposeOrderAt(2, null);
+                ses.Transpose(2, null);
                 Assert.AreEqual(0, song.TransposeAtOrder(2));
 
                 UnityEditor.Undo.IncrementCurrentGroup();
-                ses.RemoveOrderEntryAt(0);
+                ses.Remove(0);
                 Assert.AreEqual(2, song.order.Count);
                 UnityEditor.Undo.PerformUndo();
                 Assert.AreEqual(3, song.order.Count, "削除を Undo で戻せる");

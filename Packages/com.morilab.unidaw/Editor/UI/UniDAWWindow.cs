@@ -30,6 +30,7 @@ namespace UniDAW.Editor
         MidiRecorder recorder;
         SongFileCommands files;
         MixerCommands mixer;
+        OrderCommands order;
         AssistCommands assist;
         ComposerContext ctx;
 
@@ -41,12 +42,7 @@ namespace UniDAW.Editor
         CellInspector inspector;
         InstrumentPanel instrumentPanel;
         TwoPaneSplitView split;
-        VisualElement lowerZone;
-        SegmentedControl lowerSeg;
-        MixerView mixerView;
-        InstrumentEditor instrumentEditor;
-        AssistPanel assistPanel;
-        ArrangeView arrangeView;
+        LowerZone lowerZone;
         bool lowerCollapsed;
         StatusBar statusBar;
         Label help;
@@ -68,6 +64,7 @@ namespace UniDAW.Editor
         public RollEditor Roll => roll;
         public Transport Transport => transport;
         public MixerCommands Mixer => mixer;
+        public OrderCommands Order => order;
         public AssistCommands Assist => assist;
         public ComposerSession Session => session;
         public ComposerState State => state;
@@ -115,8 +112,9 @@ namespace UniDAW.Editor
             recorder = new MidiRecorder(session);
             files = new SongFileCommands(session);
             mixer = new MixerCommands(session);
+            order = new OrderCommands(session);
             assist = new AssistCommands(session, roll);
-            ctx = new ComposerContext(session, cells, roll, files, mixer, assist, FocusMain);
+            ctx = new ComposerContext(session, cells, roll, files, mixer, order, assist, FocusMain);
 
             session.Changed += RefreshAll;
             session.Notified += Notify;
@@ -209,35 +207,9 @@ namespace UniDAW.Editor
             split = new TwoPaneSplitView(1, 230, TwoPaneSplitViewOrientation.Vertical);
             split.AddToClassList("cd-split");
             split.Add(mainArea);
-            split.Add(BuildLowerZone());
+            split.Add(lowerZone = new LowerZone(ctx));
             center.Add(split);
             return center;
-        }
-
-        VisualElement BuildLowerZone()
-        {
-            lowerZone = new VisualElement();
-            lowerZone.AddToClassList("cd-lower");
-            var bar = new VisualElement();
-            bar.AddToClassList("cd-lower-bar");
-            lowerSeg = new SegmentedControl(new[] { "Mixer (F3)", "Instrument", "Assist", "Arrange" }, i => session.ShowLowerTab((LowerTab)i));
-            bar.Add(lowerSeg);
-            var spacer = new VisualElement();
-            spacer.style.flexGrow = 1;
-            bar.Add(spacer);
-            var close = new Button(session.ToggleLowerZone) { text = "×", tooltip = "下ゾーンを閉じる（Ctrl+Alt+E）" };
-            close.AddToClassList("cd-lower-close");
-            bar.Add(close);
-            lowerZone.Add(bar);
-            mixerView = new MixerView(ctx);
-            lowerZone.Add(mixerView);
-            instrumentEditor = new InstrumentEditor(ctx);
-            lowerZone.Add(instrumentEditor);
-            assistPanel = new AssistPanel(ctx);
-            lowerZone.Add(assistPanel);
-            arrangeView = new ArrangeView(ctx);
-            lowerZone.Add(arrangeView);
-            return lowerZone;
         }
 
         void RefreshLowerZone()
@@ -249,20 +221,7 @@ namespace UniDAW.Editor
                 if (open) split.UnCollapse();
                 else split.CollapseChild(1);
             }
-            if (!open) return;
-            lowerSeg.SetIndex((int)state.lowerTab);
-            var tab = state.lowerTab;
-            mixerView.style.display = tab == LowerTab.Mixer ? DisplayStyle.Flex : DisplayStyle.None;
-            instrumentEditor.style.display = tab == LowerTab.Instrument ? DisplayStyle.Flex : DisplayStyle.None;
-            assistPanel.style.display = tab == LowerTab.Assist ? DisplayStyle.Flex : DisplayStyle.None;
-            arrangeView.style.display = tab == LowerTab.Arrange ? DisplayStyle.Flex : DisplayStyle.None;
-            switch (tab)
-            {
-                case LowerTab.Mixer: mixerView.Refresh(); break;
-                case LowerTab.Instrument: instrumentEditor.Refresh(); break;
-                case LowerTab.Assist: assistPanel.Refresh(); break;
-                case LowerTab.Arrange: arrangeView.Refresh(); break;
-            }
+            if (open) lowerZone.Refresh();
         }
 
         VisualElement BuildRightPanel()
@@ -310,8 +269,7 @@ namespace UniDAW.Editor
             if (e == null) return;
             recorder.Drain(e);
             toolbar?.UpdatePlayhead();
-            if (state.lowerOpen && state.lowerTab == LowerTab.Mixer) mixerView?.UpdateMeters();
-            if (state.lowerOpen && state.lowerTab == LowerTab.Arrange) arrangeView?.UpdatePlayhead();
+            lowerZone?.UpdatePlayback();
             if (!moved || toolbar == null || state.song == null) return;
 
             int pp = e.IsPlaying ? e.PlayingPattern : -1;

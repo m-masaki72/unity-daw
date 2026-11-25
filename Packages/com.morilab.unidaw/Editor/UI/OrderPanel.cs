@@ -11,7 +11,7 @@ namespace UniDAW.Editor
         public OrderPanel(ComposerContext ctx)
         {
             this.ctx = ctx;
-            var s = ctx.Session;
+            var s = ctx.Order;
             AddToClassList("cd-left");
             Add(ComposerContext.Title("Order"));
             var sv = new ScrollView();
@@ -21,18 +21,18 @@ namespace UniDAW.Editor
             Add(sv);
 
             Add(ComposerContext.ButtonRow(
-                new Button(s.InsertOrderEntry) { text = "+", tooltip = "現在のパターンを順序表に挿入" },
-                new Button(s.RemoveOrderEntry) { text = "−", tooltip = "削除" },
-                new Button(() => s.MoveOrderEntry(-1)) { text = "▲" },
-                new Button(() => s.MoveOrderEntry(1)) { text = "▼" }));
+                new Button(s.Insert) { text = "+", tooltip = "現在のパターンを順序表に挿入" },
+                new Button(s.RemoveSelected) { text = "−", tooltip = "削除" },
+                new Button(() => s.MoveSelected(-1)) { text = "▲" },
+                new Button(() => s.MoveSelected(1)) { text = "▼" }));
             Add(ComposerContext.ButtonRow(
-                new Button(() => s.ShiftOrderPattern(-1)) { text = "Pat −" },
-                new Button(() => s.ShiftOrderPattern(1)) { text = "Pat +" }));
+                new Button(() => s.ShiftSelectedPattern(-1)) { text = "Pat −" },
+                new Button(() => s.ShiftSelectedPattern(1)) { text = "Pat +" }));
             Add(ComposerContext.ButtonRow(
-                new Button(() => s.TransposeOrderEntry(-1)) { text = "Tr −", tooltip = "このエントリだけ半音下げて再生（パターンは共有のまま。ノイズは対象外）" },
-                new Button(() => s.TransposeOrderEntry(1)) { text = "Tr +", tooltip = "このエントリだけ半音上げて再生" },
-                new Button(() => s.TransposeOrderEntry(12)) { text = "+12", tooltip = "1 オクターブ上げ" },
-                new Button(() => s.TransposeOrderEntry(null)) { text = "Tr 0", tooltip = "移調なしに戻す" }));
+                new Button(() => s.TransposeSelected(-1)) { text = "Tr −", tooltip = "このエントリだけ半音下げて再生（パターンは共有のまま。ノイズは対象外）" },
+                new Button(() => s.TransposeSelected(1)) { text = "Tr +", tooltip = "このエントリだけ半音上げて再生" },
+                new Button(() => s.TransposeSelected(12)) { text = "+12", tooltip = "1 オクターブ上げ" },
+                new Button(() => s.TransposeSelected(null)) { text = "Tr 0", tooltip = "移調なしに戻す" }));
         }
 
         static string TransposeLabel(int t) => t == 0 ? "" : t > 0 ? $"  +{t}" : $"  {t}";

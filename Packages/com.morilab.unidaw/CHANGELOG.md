@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.7.0] - 2026-11-25
+- Claude 提案をローカルの Claude Code（`claude -p`）でも使えるように。API キー不要でログイン済みアカウントを使う。
+  Assist タブの「接続」で 自動 / Claude Code / API を切り替え（自動は API キー優先、なければ Claude Code）
+- 修正：選択が古くなって中のノートが消えていると Claude 提案が例外になっていたのを、カーソル範囲へ戻すように
+- 修正：スクリプト再読み込み時に実行中の Claude Code プロセスを止める
+- 順序表の Move は範囲外を丸め、最後の 1 つは削除しない
+- 内部整理：順序表の編集を `OrderCommands` に、メトロノーム音を `ClickVoice` に、返答の読み取りを `ClaudeReply` に分離。
+  下ゾーンを `LowerZone`、ピアノロールの描画を partial（`PianoRollView.Draw.cs`）に分け、Painter2D の描画ヘルパー `PaintUtil` を共通化
+
 ## [0.6.0] - 2026-11-25
 - メトロノーム（CLICK / Alt+C）と録音時の 1 小節プリカウント（PRE）。`ChipEngine.Metronome` / `CountingIn`、`Play` / `PlayPattern` の `countInBeats`
 - アレンジ表示（下ゾーンの Arrange タブ）：順序表をブロックで表示し、ドラッグで並べ替え、複製・削除・固有化・移調、ここから再生
