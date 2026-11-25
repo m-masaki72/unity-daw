@@ -6,7 +6,7 @@ using System.Text;
 namespace UniDAW.Editor
 {
     /// <summary>Claude に頼む内容。</summary>
-    public enum AiTarget { Melody = 0, Chords = 1, MelodyAndChords = 2 }
+    public enum AiTarget { Melody = 0, Chords = 1, MelodyAndChords = 2, Structure = 3 }
 
     /// <summary>
     /// Claude への依頼文：曲の文脈の文章化と、返答の形（スキーマ）・システムプロンプト。返答の読み取りは <see cref="ClaudeReply"/>。
@@ -14,7 +14,7 @@ namespace UniDAW.Editor
     /// </summary>
     public static class ClaudePrompt
     {
-        public static readonly string[] TargetNames = { "メロディ", "コード進行", "メロディ＋コード" };
+        public static readonly string[] TargetNames = { "メロディ", "コード進行", "メロディ＋コード", "曲構成" };
         /// <summary>チャンネルごとの役割（Assist の表示用）。</summary>
         public static readonly string[] PartNames = { "メロディ", "ハーモニー", "ベース", "ドラム" };
 
@@ -28,7 +28,8 @@ namespace UniDAW.Editor
             return t == AiTarget.Melody ? part : t == AiTarget.MelodyAndChords ? part + "＋コード" : TargetNames[(int)t];
         }
 
-        public static string[] TargetLabels(int ch) => new[] { TargetLabel(AiTarget.Melody, ch), TargetLabel(AiTarget.Chords, ch), TargetLabel(AiTarget.MelodyAndChords, ch) };
+        public static string[] TargetLabels(int ch) =>
+            ((AiTarget[])Enum.GetValues(typeof(AiTarget))).Select(t => TargetLabel(t, ch)).ToArray();
         public static readonly string[] ModelIds = { "claude-opus-5-5", "claude-sonnet-5-5" };
         public static readonly string[] ModelNames = { "Opus 5.5（高品質）", "Sonnet 5.5（速い）" };
 

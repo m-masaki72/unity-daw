@@ -17,12 +17,22 @@ namespace UniDAW.Editor
             public int start, length, pitch;
         }
 
+        /// <summary>曲構成の 1 セクション（<see cref="ClaudeStructure"/>）。</summary>
+        [Serializable]
+        public sealed class Section
+        {
+            public string name, chords;
+            public int source = -1, bars, transpose;
+        }
+
         [Serializable]
         public sealed class Suggestion
         {
             public string comment;
             public string chords;
             public SuggestedNote[] notes;
+            /// <summary>曲構成の依頼のときだけ入る。</summary>
+            public Section[] sections;
         }
 
         /// <summary>返答の本体：候補の配列（candidates）か、以前の 1 案だけの形（comment / chords / notes）のどちらも読む。</summary>
@@ -44,6 +54,7 @@ namespace UniDAW.Editor
                 foreach (var sg in list)
                 {
                     sg.notes ??= Array.Empty<SuggestedNote>();
+                    sg.sections ??= Array.Empty<Section>();
                     sg.chords ??= "";
                     sg.comment ??= "";
                 }

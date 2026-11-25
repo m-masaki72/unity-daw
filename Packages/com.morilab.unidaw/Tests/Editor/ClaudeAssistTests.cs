@@ -150,6 +150,82 @@ namespace UniDAW.Tests
             }
         }
 
+        static string Sec(string name, int source, int bars, string chords, int transpose = 0) =>
+            $"{{\"name\":\"{name}\",\"source\":{source},\"bars\":{bars},\"chords\":\"{chords}\",\"transpose\":{transpose}}}";
+
+        [Test]
+        public void ClaudeStructure_BuildsSectionsAndOrder()
+        {
+            var song = Song.CreateDefault(16);
+            try
+            {
+                song.patterns[0].chords = "C G";
+                song.patterns[0].tracks[0].cells[0] = Cell.NoteCell(60);
+                var secs = new[]
+                {
+                    new ClaudeReply.Section { name = "Intro", source = -1, bars = 2 },
+                    new ClaudeReply.Section { name = "A", source = 0, bars = 2, chords = "Am F" }, // 既存の名前 → そのまま使う
+                    new ClaudeReply.Section { name = "サビ", source = 0, bars = 2, chords = "F G C C" },
+                    new ClaudeReply.Section { name = "A" },
+                    new ClaudeReply.Section { name = "サビ", transpose = 1 },
+                };
+                string order = ClaudeStructure.Build(song, secs, song.patterns.Count);
+                Assert.AreEqual("Intro → A → サビ → A → サビ(+1)", order);
+                Assert.AreEqual(3, song.patterns.Count);
+                CollectionAssert.AreEqual(new[] { 1, 0, 2, 0, 2 }, song.order);
+                CollectionAssert.AreEqual(new[] { 0, 0, 0, 0, 1 }, song.orderTranspose);
+                Assert.AreEqual("C G", song.patterns[0].chords, "既存のパターンは変えない");
+                var intro = song.patterns[1];
+                Assert.AreEqual((32, "Intro", false), (intro.length, intro.name, intro.tracks[0].cells[0].HasNote));
+                var sabi = song.patterns[2];
+                Assert.AreEqual((32, "F G C C", 60), (sabi.length, sabi.chords, sabi.tracks[0].cells[0].note), "元パターンを複製して伸ばす");
+                Assert.IsNull(ClaudeStructure.Build(song, new ClaudeReply.Section[0], 1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(song);
+            }
+        }
+
+        [Test]
+        public void ClaudeAssist_ProposesStructureAndRestoresIt()
+        {
+            var song = Song.CreateDefault(16);
+            var w = ScriptableObject.CreateInstance<UniDAWWindow>();
+            try
+            {
+                w.SetSong(song);
+                string sent = null;
+                Action<string, string> pending = null;
+                var c = new ClaudeAssist(w.Session, w.Roll, (model, msg, done) => { sent = msg; pending = done; return () => { }; });
+                w.State.aiTarget = AiTarget.Structure;
+                Assert.AreEqual("曲構成", ClaudePrompt.TargetLabel(AiTarget.Structure, 2));
+                Assert.IsTrue(c.Request());
+                StringAssert.Contains("## Existing patterns", sent);
+                StringAssert.Contains("0: A, 16 rows", sent);
+                pending(Reply("{\"candidates\":[" +
+                              "{\"comment\":\"a\",\"sections\":[" + Sec("Intro", -1, 1, "") + "," + Sec("A", 0, 1, "") + "," + Sec("サビ", 0, 2, "F G") + "]}," +
+                              "{\"comment\":\"b\",\"sections\":[" + Sec("A", 0, 1, "") + "," + Sec("A", 0, 1, "", 2) + "]}]}"), null);
+                Assert.AreEqual(2, c.CandidateCount);
+                CollectionAssert.AreEqual(new[] { 1, 0, 2 }, song.order);
+                Assert.AreEqual(3, song.patterns.Count);
+
+                Assert.IsTrue(c.Choose(1));
+                Assert.AreEqual(1, song.patterns.Count, "前の案で足したパターンは外す");
+                CollectionAssert.AreEqual(new[] { 0, 0 }, song.order);
+                CollectionAssert.AreEqual(new[] { 0, 2 }, song.orderTranspose);
+
+                Assert.IsTrue(c.Choose(-1));
+                CollectionAssert.AreEqual(new[] { 0 }, song.order);
+                CollectionAssert.AreEqual(new[] { 0 }, song.orderTranspose);
+            }
+            finally
+            {
+                Object.DestroyImmediate(w);
+                Object.DestroyImmediate(song);
+            }
+        }
+
         [Test]
         public void ClaudeAssist_ChoosesBetweenCandidates()
         {

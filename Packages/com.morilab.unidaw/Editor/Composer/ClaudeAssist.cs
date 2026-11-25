@@ -32,6 +32,11 @@ namespace UniDAW.Editor
         int lastPattern;
         List<RollNote> originalNotes;
         string originalChords;
+        // 曲構成の依頼前の状態（パターン数・順序表）
+        int originalPatternCount;
+        List<int> originalOrder, originalTranspose;
+        /// <summary>送る依頼が曲構成か（既定の送信関数がシステムプロンプトとスキーマを選ぶ）。</summary>
+        bool sendingStructure;
 
         /// <summary>候補の数（0 なら切り替えるものがない）。</summary>
         public int CandidateCount => candidates.Count;
@@ -45,7 +50,9 @@ namespace UniDAW.Editor
         {
             s = session;
             this.roll = roll;
-            send = sender ?? ((model, msg, done) => ClaudeClient.Send(model, ClaudePrompt.SystemPrompt, ClaudePrompt.Schema, msg, done));
+            send = sender ?? ((model, msg, done) => sendingStructure
+                ? ClaudeClient.Send(model, ClaudeStructure.SystemPrompt, ClaudeStructure.Schema, msg, done)
+                : ClaudeClient.Send(model, ClaudePrompt.SystemPrompt, ClaudePrompt.Schema, msg, done));
         }
 
         ComposerState State => s.State;
@@ -77,6 +84,7 @@ namespace UniDAW.Editor
             var target = State.aiTarget;
             int ch = State.cursorCh;
             if (!s.CanEdit()) return false;
+            if (target == AiTarget.Structure) return RequestStructure(song);
 
             int tl = p.TrackLength(ch), from, to;
             var sel = roll.Selection;
@@ -102,13 +110,42 @@ namespace UniDAW.Editor
                 ? (ClaudePrompt.DrumMinKey, ClaudePrompt.DrumMaxKey, 0)
                 : AssistCommands.PitchRange(ch);
             var req = new ClaudePrompt.Request { target = target, channel = ch, from = from, to = to, minPitch = min, maxPitch = max, text = State.aiPrompt };
-            string model = ClaudePrompt.ModelIds[Math.Max(0, Math.Min(ClaudePrompt.ModelIds.Length - 1, State.aiModel))];
-            string message = ClaudePrompt.BuildUserMessage(song, State.patternIndex, State.orderIndex, req);
-
-            int id = ++requestId;
             int pi = State.patternIndex;
+            return Send(false, ClaudePrompt.BuildUserMessage(song, pi, State.orderIndex, req),
+                $"{ClaudePrompt.TargetLabel(target, ch)}、行 {from}〜{to - 1}",
+                () => s.Song == song && State.patternIndex == pi && (target == AiTarget.Chords || State.cursorCh == ch)
+                    ? null : "返答の間にパターンかチャンネルが変わったので、提案は書き込みませんでしたわ",
+                () =>
+                {
+                    lastReq = req;
+                    lastSong = song;
+                    lastPattern = pi;
+                    originalNotes = target != AiTarget.Chords ? roll.Notes().Where(n => n.start >= req.from && n.start < req.to).ToList() : null;
+                    originalChords = s.CurrentPattern.chords ?? "";
+                });
+        }
+
+        bool RequestStructure(Song song) =>
+            Send(true, ClaudeStructure.BuildUserMessage(song, State.aiPrompt), "曲構成",
+                () => s.Song == song ? null : "返答の間に曲が変わったので、提案は書き込みませんでしたわ",
+                () =>
+                {
+                    lastReq = new ClaudePrompt.Request { target = AiTarget.Structure };
+                    lastSong = song;
+                    lastPattern = -1;
+                    originalPatternCount = song.patterns.Count;
+                    originalOrder = new List<int>(song.order);
+                    originalTranspose = new List<int>(song.orderTranspose);
+                });
+
+        /// <summary>送って、返答を読み、まだ書き込める状態なら（stale が null を返せば）記録して候補 1 を書き込む。</summary>
+        bool Send(bool structure, string message, string what, Func<string> stale, Action remember)
+        {
+            string model = ClaudePrompt.ModelIds[Math.Max(0, Math.Min(ClaudePrompt.ModelIds.Length - 1, State.aiModel))];
+            int id = ++requestId;
             Busy = true;
-            SetStatus($"Claude が考えています…（{ClaudePrompt.TargetLabel(target, ch)}、行 {from}〜{to - 1}）", false);
+            SetStatus($"Claude が考えています…（{what}）", false);
+            sendingStructure = structure;
             cancel = send(model, message, (json, netError) =>
             {
                 if (id != requestId) return;
@@ -125,17 +162,14 @@ namespace UniDAW.Editor
                     SetStatus(error, true);
                     return;
                 }
-                if (s.Song != song || State.patternIndex != pi || (target != AiTarget.Chords && State.cursorCh != ch))
+                string why = stale();
+                if (why != null)
                 {
-                    SetStatus("返答の間にパターンかチャンネルが変わったので、提案は書き込みませんでしたわ", true);
+                    SetStatus(why, true);
                     return;
                 }
                 candidates = list;
-                lastReq = req;
-                lastSong = song;
-                lastPattern = pi;
-                originalNotes = target != AiTarget.Chords ? roll.Notes().Where(n => n.start >= req.from && n.start < req.to).ToList() : null;
-                originalChords = s.CurrentPattern.chords ?? "";
+                remember();
                 Chosen = -1;
                 Choose(0);
             });
@@ -158,13 +192,20 @@ namespace UniDAW.Editor
         {
             if (Busy || candidates.Count == 0 || i < -1 || i >= candidates.Count || i == Chosen) return false;
             var req = lastReq;
-            if (s.Song != lastSong || State.patternIndex != lastPattern || (req.target != AiTarget.Chords && State.cursorCh != req.channel))
+            bool structure = req.target == AiTarget.Structure;
+            if (s.Song != lastSong || !structure && (State.patternIndex != lastPattern || req.target != AiTarget.Chords && State.cursorCh != req.channel)
+                || structure && s.Song.patterns.Count < originalPatternCount)
             {
                 SetStatus("パターンかチャンネルが変わったので、候補は切り替えられませんわ", true);
                 return false;
             }
             if (!s.CanEdit()) return false;
             Chosen = i;
+            if (structure)
+            {
+                ChooseStructure(i);
+                return true;
+            }
             if (i < 0)
             {
                 if (req.target != AiTarget.Melody && s.CurrentPattern.chords != originalChords)
@@ -175,6 +216,26 @@ namespace UniDAW.Editor
             }
             Apply(candidates[i], req, $"案{i + 1}/{candidates.Count}: ");
             return true;
+        }
+
+        /// <summary>曲構成の候補 i（-1 は依頼前）にする：足したパターンを外し順序表を戻してから組み立てる（1 回の Undo）。</summary>
+        void ChooseStructure(int i)
+        {
+            string order = null;
+            s.ModifySong(i < 0 ? "AI Original" : "AI Structure", song =>
+            {
+                song.patterns.RemoveRange(originalPatternCount, song.patterns.Count - originalPatternCount);
+                song.order = new List<int>(originalOrder);
+                song.orderTranspose = new List<int>(originalTranspose);
+                if (i >= 0) order = ClaudeStructure.Build(song, candidates[i].sections, originalPatternCount);
+            });
+            if (i < 0) SetStatus("依頼前の構成に戻しましたわ", false);
+            else if (order == null) SetStatus($"案{i + 1}/{candidates.Count}: 構成が空でしたわ", true);
+            else
+            {
+                var c = candidates[i].comment;
+                SetStatus($"案{i + 1}/{candidates.Count}: " + (c.Length > 0 ? c + "  " : "") + $"[{order}]", false);
+            }
         }
 
         /// <summary>GM ドラム番号 → ノイズのピッチと楽器。音は次の打点まで伸ばす（減衰を切らない）。</summary>
