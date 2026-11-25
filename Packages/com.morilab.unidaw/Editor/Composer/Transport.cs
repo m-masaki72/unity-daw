@@ -166,6 +166,15 @@ namespace UniDAW.Editor
             previewOff[ch] = EditorApplication.timeSinceStartup + seconds;
         }
 
+        /// <summary>曲に入っていない楽器（プリセット）を一定時間だけ鳴らす。</summary>
+        public void PreviewInstrument(int ch, int note, Instrument inst, double seconds)
+        {
+            var e = Engine;
+            if (e == null || inst == null) return;
+            e.PreviewInstrument = inst;
+            PreviewNote(ch, note, ChipEngine.PreviewSlot, seconds);
+        }
+
         /// <summary>鍵盤を離したとき：試聴音をすぐ止める。</summary>
         public void ReleasePreview(int ch)
         {

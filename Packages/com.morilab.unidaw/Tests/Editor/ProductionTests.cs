@@ -71,6 +71,61 @@ namespace UniDAW.Tests
         }
 
         [Test]
+        public void InstrumentPresets_SaveLoadAndDelete()
+        {
+            string old = InstrumentPresets.FilePath;
+            string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "unidaw-preset-test-" + System.Guid.NewGuid().ToString("N"));
+            InstrumentPresets.FilePath = System.IO.Path.Combine(dir, "p.json");
+            try
+            {
+                int builtIn = InstrumentLibrary.BuiltIn.Count;
+                Assert.Greater(builtIn, 10);
+                Assert.AreEqual(builtIn, InstrumentPresets.All().Count);
+
+                var inst = new Instrument("Mine", "15 10 | 8", "| 0 12", "1", "1 -1");
+                InstrumentPresets.Save(inst);
+                inst.volume = Sequence.Parse("3");
+                InstrumentPresets.Save(inst); // 同じ名前は上書き
+                var user = InstrumentPresets.LoadUser();
+                Assert.AreEqual(1, user.Count);
+                Assert.IsTrue(user[0].user);
+                Assert.AreEqual("3", user[0].instrument.volume.ToString());
+                Assert.AreEqual("| 0 12", user[0].instrument.arpeggio.ToString());
+                Assert.AreEqual(builtIn + 1, InstrumentPresets.All().Count);
+
+                InstrumentPresets.Delete("Mine");
+                Assert.AreEqual(0, InstrumentPresets.LoadUser().Count);
+            }
+            finally
+            {
+                InstrumentPresets.FilePath = old;
+                if (System.IO.Directory.Exists(dir)) System.IO.Directory.Delete(dir, true);
+            }
+        }
+
+        [Test]
+        public void PreviewSlot_PlaysAnInstrumentOutsideTheSong()
+        {
+            var s = Song.CreateDefault(16);
+            try
+            {
+                s.instruments.Clear(); // 曲には楽器が無い
+                var e = Engine(s);
+                e.PreviewInstrument = new Instrument("P", "15", "", "2");
+                e.NoteOn(0, 60, 15, ChipEngine.PreviewSlot);
+                var buf = new float[4800 * 2];
+                e.Render(buf, 0, 4800, 2);
+                float peak = 0;
+                foreach (var v in buf) peak = Mathf.Max(peak, Mathf.Abs(v));
+                Assert.Greater(peak, 0.01f);
+            }
+            finally
+            {
+                Object.DestroyImmediate(s);
+            }
+        }
+
+        [Test]
         public void BeatEvents_CountBeatsBarsAndSections()
         {
             var s = Song.CreateDefault(16); // 4 拍 = 1 小節

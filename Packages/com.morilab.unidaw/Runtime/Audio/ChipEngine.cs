@@ -72,6 +72,10 @@ namespace UniDAW
         /// <summary>拍の頭の通知。メインスレッドで取り出す（溜まりすぎたら捨てる）。</summary>
         public readonly ConcurrentQueue<BeatEvent> BeatEvents = new ConcurrentQueue<BeatEvent>();
         public bool EmitBeatEvents = true;
+
+        /// <summary>曲に入っていない楽器を試聴するための番号（NoteOn の instrument にこれを渡すと <see cref="PreviewInstrument"/> で鳴る）。</summary>
+        public const int PreviewSlot = -2;
+        public volatile Instrument PreviewInstrument;
         public const int BeatsPerBar = 4;
         /// <summary>予約中の移動先（曲再生なら順序表の位置、パターンループならパターン番号。なければ -1）。</summary>
         public volatile int Queued = -1;
@@ -245,7 +249,7 @@ namespace UniDAW
                     case CmdType.NoteOn:
                         if (cmd.a >= 0 && cmd.a < Channels)
                         {
-                            if (cmd.d >= 0) channels[cmd.a].Instrument = cmd.d;
+                            if (cmd.d >= 0 || cmd.d == PreviewSlot) channels[cmd.a].Instrument = cmd.d;
                             Trigger(cmd.a, cmd.b, cmd.c, true, -1);
                             UpdateChannel(cmd.a, song); // 即時に発音させてレイテンシを減らす
                         }
@@ -406,6 +410,8 @@ namespace UniDAW
             if (EmitBeatEvents && BeatEvents.Count < MaxQueuedNoteEvents) BeatEvents.Enqueue(ev);
         }
 
+        Instrument InstrumentOf(Song s, int index) => index == PreviewSlot ? PreviewInstrument : s?.GetInstrument(index);
+
         void FireDelayed(Song s)
         {
             for (int c = 0; c < Channels; c++)
@@ -532,13 +538,13 @@ namespace UniDAW
         void Release(int c, Song s)
         {
             var ch = channels[c];
-            ch.Release(s?.GetInstrument(ch.Instrument));
+            ch.Release(InstrumentOf(s, ch.Instrument));
         }
 
         void UpdateChannel(int c, Song s)
         {
             var ch = channels[c];
-            ch.Update(s?.GetInstrument(ch.Instrument), playing ? tickInRow : -1);
+            ch.Update(InstrumentOf(s, ch.Instrument), playing ? tickInRow : -1);
         }
     }
 }

@@ -449,7 +449,8 @@
 .cd-fader.horizontal { height: 14px; flex-shrink: 0; margin: 2px 0; }
 
 .cd-insted { flex-direction: row; flex-grow: 1; min-height: 0; padding: 4px; }
-.cd-insted-left { width: 150px; flex-shrink: 0; margin-right: 6px; }
+.cd-insted-left { width: 170px; flex-shrink: 0; margin-right: 6px; }
+.cd-insted-left > .cd-roll-tools { margin: 0 0 3px 0; }
 .cd-insted-list { flex-grow: 1; background-color: rgb(18, 18, 24); border-radius: 3px; }
 .cd-insted-item { padding: 1px 6px; font-size: 11px; }
 .cd-insted-item:hover { background-color: rgb(40, 40, 52); }

@@ -325,11 +325,34 @@ namespace UniDAW.Editor
         }
 
         /// <summary>カーソルのチャンネルの楽器を試聴する。</summary>
-        public void Audition()
+        public void Audition() => Transport.PreviewNote(State.cursorCh, AuditionNote, ChannelInstrument(State.cursorCh), 0.4);
+
+        /// <summary>プリセットを曲に入れずにカーソルのチャンネルで試聴する。</summary>
+        public void AuditionPreset(Instrument inst) => Transport.PreviewInstrument(State.cursorCh, AuditionNote, inst, 0.6);
+
+        int AuditionNote => Song.Kinds[State.cursorCh] == ChannelKind.Noise ? 9 : (State.octave + 1) * 12;
+
+        /// <summary>入力に使う楽器の中身をプリセットで置き換える（Undo 可）。</summary>
+        public void LoadPreset(Instrument preset)
         {
-            int ch = State.cursorCh;
-            int note = Song.Kinds[ch] == ChannelKind.Noise ? 9 : (State.octave + 1) * 12;
-            Transport.PreviewNote(ch, note, ChannelInstrument(ch), 0.4);
+            if (preset == null) return;
+            ModifyInstrument("Load Preset", i =>
+            {
+                var p = preset.Clone();
+                i.name = p.name;
+                foreach (MacroKind k in Enum.GetValues(typeof(MacroKind))) i.SetMacro(k, p.GetMacro(k));
+            });
+        }
+
+        /// <summary>プリセットを新しい楽器として曲に足し、カーソルのチャンネルで使う。</summary>
+        public void AddPreset(Instrument preset)
+        {
+            if (preset == null) return;
+            ModifySong("Add Preset", s =>
+            {
+                s.instruments.Add(preset.Clone());
+                UniDAWMidiBridge.ChannelInstrument[State.cursorCh] = s.instruments.Count - 1;
+            });
         }
 
         // ---- 表示用の問い合わせ ----------------------------------------------------

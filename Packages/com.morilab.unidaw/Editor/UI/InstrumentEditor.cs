@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -24,7 +25,13 @@ namespace UniDAW.Editor
         };
 
         readonly ComposerContext ctx;
-        readonly ScrollView list;
+        readonly ScrollView list, presetList;
+        readonly SegmentedControl sourceSeg;
+        readonly VisualElement songButtons, presetButtons;
+        readonly Button deleteButton;
+        bool showPresets;
+        List<InstrumentPreset> presets;
+        int presetSel = -1;
         readonly TextField nameField, seqField;
         readonly SegmentedControl macroSeg;
         readonly MacroGraph graph;
@@ -40,12 +47,26 @@ namespace UniDAW.Editor
             // ---- 左：楽器一覧
             var left = new VisualElement();
             left.AddToClassList("cd-insted-left");
+            sourceSeg = new SegmentedControl(new[] { "Song", "Presets" }, i => { showPresets = i == 1; Refresh(); });
+            sourceSeg.AddToClassList("cd-roll-tools");
+            left.Add(sourceSeg);
             list = new ScrollView();
             list.AddToClassList("cd-insted-list");
             left.Add(list);
-            left.Add(ComposerContext.ButtonRow(
+            presetList = new ScrollView();
+            presetList.AddToClassList("cd-insted-list");
+            left.Add(presetList);
+            songButtons = ComposerContext.ButtonRow(
                 new Button(() => s.AddInstrument(false)) { text = "New", tooltip = "新しい楽器を追加" },
-                new Button(() => s.AddInstrument(true)) { text = "Dup", tooltip = "選択中の楽器を複製" }));
+                new Button(() => s.AddInstrument(true)) { text = "Dup", tooltip = "選択中の楽器を複製" },
+                new Button(SaveCurrent) { text = "Save", tooltip = "選択中の楽器をプリセットに保存（同じ名前は上書き）" });
+            left.Add(songButtons);
+            deleteButton = new Button(DeletePreset) { text = "Del", tooltip = "保存したプリセットを消す（内蔵は消せない）" };
+            presetButtons = ComposerContext.ButtonRow(
+                new Button(() => s.LoadPreset(SelectedPreset?.instrument)) { text = "Load", tooltip = "選択中の楽器をこのプリセットで置き換える（ダブルクリックでも）" },
+                new Button(() => s.AddPreset(SelectedPreset?.instrument)) { text = "Add", tooltip = "新しい楽器として曲に足す" },
+                deleteButton);
+            left.Add(presetButtons);
             Add(left);
 
             // ---- 右：マクロ編集
@@ -85,7 +106,13 @@ namespace UniDAW.Editor
             var song = ctx.State.song;
             if (song == null) return;
             int sel = ctx.Session.ChannelInstrument(ctx.State.cursorCh);
-            RebuildList(song, sel);
+            sourceSeg.SetIndex(showPresets ? 1 : 0);
+            Show(list, !showPresets);
+            Show(songButtons, !showPresets);
+            Show(presetList, showPresets);
+            Show(presetButtons, showPresets);
+            if (showPresets) RebuildPresets();
+            else RebuildList(song, sel);
 
             var inst = song.GetInstrument(sel);
             var kind = ctx.State.macro;
@@ -96,6 +123,56 @@ namespace UniDAW.Editor
             graph.SetData(seq, min, max, MacroColors[(int)kind]);
             seqField.SetValueWithoutNotify(seq.ToString());
             info.text = $"{Song.ChannelNames[ctx.State.cursorCh]} の入力楽器 {sel:X2} ・ 長さ {seq.values.Length}\n{MacroHelp[(int)kind]}";
+        }
+
+        static void Show(VisualElement e, bool on) => e.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
+
+        InstrumentPreset SelectedPreset => presets != null && presetSel >= 0 && presetSel < presets.Count ? presets[presetSel] : null;
+
+        void SaveCurrent()
+        {
+            var inst = ctx.Session.CursorInstrument;
+            if (inst == null) return;
+            InstrumentPresets.Save(inst);
+            presets = null;
+            ctx.Session.Notify($"プリセット「{inst.name}」を保存しましたわ");
+        }
+
+        void DeletePreset()
+        {
+            var p = SelectedPreset;
+            if (p == null || !p.user) return;
+            InstrumentPresets.Delete(p.Name);
+            presets = null;
+            presetSel = -1;
+            Refresh();
+        }
+
+        /// <summary>プリセット一覧。クリックで試聴、ダブルクリックで読み込み。</summary>
+        void RebuildPresets()
+        {
+            if (presets == null)
+            {
+                presets = InstrumentPresets.All();
+                presetList.Clear();
+                for (int i = 0; i < presets.Count; i++)
+                {
+                    int idx = i;
+                    var row = new Label((presets[i].user ? "★ " : "") + presets[i].Label);
+                    row.AddToClassList("cd-insted-item");
+                    row.RegisterCallback<PointerDownEvent>(e =>
+                    {
+                        if (e.button != 0) return;
+                        presetSel = idx;
+                        if (e.clickCount >= 2) ctx.Session.LoadPreset(presets[idx].instrument);
+                        else ctx.Session.AuditionPreset(presets[idx].instrument);
+                        Refresh();
+                    });
+                    presetList.Add(row);
+                }
+            }
+            for (int i = 0; i < presetList.childCount; i++) presetList[i].EnableInClassList("on", i == presetSel);
+            deleteButton.SetEnabled(SelectedPreset?.user == true);
         }
 
         void RebuildList(Song song, int sel)
