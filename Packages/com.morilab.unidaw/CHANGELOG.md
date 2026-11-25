@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.15.0] - 2026-11-26
+
+### Added
+- チャンネル EQ：ミキサーの各ストリップに LO / MID / HI（±12 dB、RBJ 双二次のシェルフ・ピーキング）。パン前のモノラル信号に掛け、0 dB のバンドは処理しない
+- サイドチェイン・ダッキング：トリガー元チャンネル（`SongEffects.sidechainSource`、既定 Noise）のフェーダー前の音をローパス＋エンベロープで検出し、
+  各チャンネルの DUCK（`ChannelMix.duck`）の深さで下げる。リリースは Send FX の REL（30〜600 ms）。試聴・ゲーム内再生・WAV 書き出しに効く
+- `MixParam`（EQ 3 バンド・DUCK）と `MixerCommands.PreviewParam` / `CommitParam` / `SetSidechainSource`（ドラッグ 1 回で Undo 1 回）
+
 ## [0.14.0] - 2026-11-26
 
 ### Added

@@ -7,6 +7,9 @@ namespace UniDAW
     /// エンジン側の上書き（ゲームからのミュート/ソロ）、DC ブロッカー、マスター音量、クリップ、レベル計測。
     /// パンは中央で左右とも 1 倍（バランス型）なので、モノラルに畳むと従来と同じ音量になる。
     /// ディレイ / リバーブへの送りはフェーダー・パン後。エフェクトは送りが初めて使われたときに用意する。
+    /// EQ（<see cref="ChipEq"/>）とサイドチェインのダッキングはフェーダーの前のモノラル信号に掛ける。
+    /// サイドチェインの検出はトリガー元チャンネルのフェーダー前の音をローパスに通して整流したもの
+    /// （ノイズのキックは低域が多くハイハットは少ないので、キックに強く反応する）。
     /// </summary>
     internal sealed class ChipMixer
     {
@@ -19,7 +22,20 @@ namespace UniDAW
         readonly float[] peak = new float[ChipEngine.Channels];
         readonly float[] sendD = new float[ChipEngine.Channels];
         readonly float[] sendR = new float[ChipEngine.Channels];
+        readonly float[] duck = new float[ChipEngine.Channels];
+        readonly float[] samples = new float[ChipEngine.Channels];
+        readonly ChipEq[] eq = new ChipEq[ChipEngine.Channels];
+        readonly bool[] eqOn = new bool[ChipEngine.Channels];
         readonly double sampleRate;
+        // サイドチェイン：検出用ローパス・エンベロープ・係数
+        const double DetectorHz = 180.0;
+        /// <summary>ローパス後の振幅をエンベロープ（1 で最大の深さ）に直す倍率。</summary>
+        public const float DetectorGain = 3f;
+        const double AttackMs = 4.0;
+        readonly float detectCoef, attackCoef;
+        float releaseCoef, detectLp, envelope;
+        int scSource;
+        bool anyDuck;
         ChipEffects fx;
         bool fxOn;
         float peakL, peakR;
@@ -27,7 +43,15 @@ namespace UniDAW
         float master;
 
         /// <summary>ブロックの始めに呼ぶ：ミキサー設定を確定し、ピークをリセットする。</summary>
-        public ChipMixer(double sampleRate) => this.sampleRate = sampleRate;
+        public ChipMixer(double sampleRate)
+        {
+            this.sampleRate = sampleRate;
+            detectCoef = (float)(1.0 - Math.Exp(-2.0 * Math.PI * DetectorHz / sampleRate));
+            attackCoef = (float)(1.0 - Math.Exp(-1000.0 / (AttackMs * sampleRate)));
+        }
+
+        /// <summary>今のサイドチェインのエンベロープ（テスト・表示用）。</summary>
+        public float Envelope => envelope;
 
         public void BeginBlock(Song song, bool[] mute, bool[] solo, float masterVolume, float bpm, int frames)
         {
@@ -50,7 +74,22 @@ namespace UniDAW
                 sendR[c] = g > 0f ? (m?.reverbSend ?? 0f) : 0f;
                 anySend |= sendD[c] > 0f || sendR[c] > 0f;
                 peak[c] = 0f;
+
+                if (m != null && (m.eqLowDb != 0f || m.eqMidDb != 0f || m.eqHighDb != 0f || eq[c] != null))
+                {
+                    eq[c] ??= new ChipEq();
+                    eq[c].Set(m.eqLowDb, m.eqMidDb, m.eqHighDb, sampleRate);
+                }
+                eqOn[c] = eq[c] != null && eq[c].Active;
+                duck[c] = m != null ? SongEffects.Clamp01(m.duck) : 0f;
             }
+            var e = song?.effects;
+            scSource = Math.Max(0, Math.Min(gainL.Length - 1, e?.sidechainSource ?? 3));
+            duck[scSource] = 0f;
+            anyDuck = false;
+            for (int c = 0; c < duck.Length; c++) anyDuck |= duck[c] > 0f;
+            float relMs = SongEffects.ReleaseMs(e?.duckRelease ?? 0.3f);
+            releaseCoef = (float)Math.Exp(-1000.0 / (relMs * sampleRate));
             if (anySend && fx == null) fx = new ChipEffects(sampleRate);
             fx?.Begin(song?.effects, bpm, anySend, frames);
             fxOn = fx != null && fx.Active;
@@ -62,12 +101,23 @@ namespace UniDAW
         public void Mix(ChipChannel[] channels, double sampleRate, out float left, out float right)
         {
             float l = 0f, r = 0f, dl = 0f, dr = 0f, rl = 0f, rr = 0f;
+            // 無音のチャンネルもボイスは進める（位相を保つ）
+            for (int c = 0; c < channels.Length; c++) samples[c] = channels[c].NextSample(sampleRate);
+            if (anyDuck)
+            {
+                detectLp += (samples[scSource] - detectLp) * detectCoef;
+                float x = Math.Min(1f, Math.Abs(detectLp) * DetectorGain);
+                envelope = x > envelope ? envelope + (x - envelope) * attackCoef : envelope * releaseCoef;
+            }
+            else envelope = detectLp = 0f;
+
             for (int c = 0; c < channels.Length; c++)
             {
-                // 無音のチャンネルもボイスは進める（位相を保つ）
-                float v = channels[c].NextSample(sampleRate);
+                float v = samples[c];
                 float gl = gainL[c], gr = gainR[c];
                 if (gl == 0f && gr == 0f) continue;
+                if (eqOn[c]) v = eq[c].Process(v);
+                if (duck[c] > 0f) v *= 1f - duck[c] * envelope;
                 float vl = v * gl, vr = v * gr;
                 l += vl;
                 r += vr;

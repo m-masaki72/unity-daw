@@ -6,10 +6,10 @@ namespace UniDAW
     public enum SendKind { Delay = 0, Reverb = 1 }
 
     /// <summary>エフェクトの数値パラメータ（ミキサーのつまみ 1 本ずつ）。</summary>
-    public enum FxParam { DelayFeedback = 0, DelayReturn = 1, ReverbSize = 2, ReverbDamp = 3, ReverbReturn = 4 }
+    public enum FxParam { DelayFeedback = 0, DelayReturn = 1, ReverbSize = 2, ReverbDamp = 3, ReverbReturn = 4, DuckRelease = 5 }
 
     /// <summary>
-    /// 曲全体のセンドエフェクト（テンポ同期ディレイとリバーブ）。各チャンネルの送り量は <see cref="ChannelMix"/> に持つ。
+    /// 曲全体のセンドエフェクト（テンポ同期ディレイとリバーブ）とサイドチェインのトリガー設定。各チャンネルの送り量は <see cref="ChannelMix"/> に持つ。
     /// 試聴・ゲーム内再生・WAV 書き出しのすべてに効く。
     /// </summary>
     [Serializable]
@@ -34,6 +34,13 @@ namespace UniDAW
         /// <summary>高域の減衰（0..1）。</summary>
         public float reverbDamp = 0.4f;
         public float reverbReturnDb;
+        /// <summary>サイドチェインのトリガー元チャンネル（既定 Noise）。フェーダー前の音で検出するので、ミュートしても効く。</summary>
+        public int sidechainSource = 3;
+        /// <summary>ダッキングから戻る速さ（0..1 → <see cref="ReleaseMs"/>）。</summary>
+        public float duckRelease = 0.3f;
+
+        /// <summary>リリース（0..1）をミリ秒に。</summary>
+        public static float ReleaseMs(float v) => 30f + 570f * Clamp01(v);
 
         public SongEffects Clone() => (SongEffects)MemberwiseClone();
 
@@ -46,6 +53,7 @@ namespace UniDAW
                 case FxParam.DelayFeedback: return (0f, MaxFeedback, 0.35f);
                 case FxParam.ReverbSize: return (0f, 1f, 0.6f);
                 case FxParam.ReverbDamp: return (0f, 1f, 0.4f);
+                case FxParam.DuckRelease: return (0f, 1f, 0.3f);
                 default: return (ChannelMix.MinDb, ChannelMix.MaxDb, 0f);
             }
         }
@@ -58,6 +66,7 @@ namespace UniDAW
                 case FxParam.DelayReturn: return delayReturnDb;
                 case FxParam.ReverbSize: return reverbSize;
                 case FxParam.ReverbDamp: return reverbDamp;
+                case FxParam.DuckRelease: return duckRelease;
                 default: return reverbReturnDb;
             }
         }
@@ -72,6 +81,7 @@ namespace UniDAW
                 case FxParam.DelayReturn: delayReturnDb = v; break;
                 case FxParam.ReverbSize: reverbSize = v; break;
                 case FxParam.ReverbDamp: reverbDamp = v; break;
+                case FxParam.DuckRelease: duckRelease = v; break;
                 default: reverbReturnDb = v; break;
             }
         }
@@ -93,6 +103,7 @@ namespace UniDAW
         {
             delayBeats = float.IsNaN(delayBeats) ? 0.75f : Math.Max(1f / 16f, Math.Min(MaxDelayBeats, delayBeats));
             foreach (FxParam p in Enum.GetValues(typeof(FxParam))) Set(p, Get(p));
+            sidechainSource = Math.Max(0, Math.Min(Song.ChannelCount - 1, sidechainSource));
         }
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using NUnit.Framework;
 using UniDAW.Editor;
+using UniDAW.Midi;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -44,6 +45,84 @@ namespace UniDAW.Tests
         {
             for (int c = 0; c < Song.ChannelCount; c++)
                 if (c != ch) s.patterns[0].tracks[c].cells[0] = Cell.Blank;
+        }
+
+        [Test]
+        public void Eq_CutsAndBoostsBands()
+        {
+            var s = MakeSong();
+            Only(s, 2); // Triangle C3（約 131 Hz）
+            var (flat, _) = RenderLR(s);
+            s.mixer[2].eqLowDb = -12f;
+            var (cut, _) = RenderLR(s);
+            Assert.Less(cut / flat, 0.6, "ロー -12 dB でベースが下がる");
+            s.mixer[2].eqLowDb = 0f;
+            s.mixer[2].eqHighDb = -12f;
+            var (hiCut, _) = RenderLR(s);
+            Assert.Greater(hiCut / flat, 0.85, "ハイを削ってもベースの基音は残る");
+            s.mixer[2].eqHighDb = 0f;
+            var (back, _) = RenderLR(s);
+            Assert.AreEqual(flat, back, 1e-4, "0 dB に戻すと素通し");
+
+            s.mixer[2].eqMidDb = 99f;
+            s.Validate();
+            Assert.AreEqual(ChannelMix.MaxEqDb, s.mixer[2].eqMidDb, "範囲外は丸める");
+            Object.DestroyImmediate(s);
+        }
+
+        /// <summary>Pulse 1 の伸ばした音を、Noise の 4 行ごとのドラム（ミュート＝ゴーストトリガー）で下げる。</summary>
+        static double DuckedRms(int gmDrum, float duck)
+        {
+            var s = MakeSong();
+            Only(s, 0);
+            var hit = DrumMap.Map(gmDrum);
+            for (int r = 0; r < 16; r += 4) s.patterns[0].tracks[3].cells[r] = Cell.NoteCell(hit.pitch, hit.instrument);
+            s.mixer[3].mute = true;
+            s.mixer[0].duck = duck;
+            var (l, _) = RenderLR(s);
+            Object.DestroyImmediate(s);
+            return l;
+        }
+
+        [Test]
+        public void Sidechain_DucksOnKicksMoreThanHats()
+        {
+            double dry = DuckedRms(36, 0f);
+            double kick = DuckedRms(36, 1f) / dry, hat = DuckedRms(42, 1f) / dry;
+            TestContext.WriteLine($"SC kick={kick:F3} hat={hat:F3}");
+            Assert.Less(kick, 0.75, "キックで下がる");
+            Assert.Greater(hat, kick + 0.1, "ハイハットにはあまり反応しない");
+            Assert.AreEqual(1.0, DuckedRms(36, 0.5f) / dry, 0.5);
+
+            var e = new SongEffects { sidechainSource = 9 };
+            e.Validate();
+            Assert.AreEqual(Song.ChannelCount - 1, e.sidechainSource);
+        }
+
+        [Test]
+        public void MixerCommands_EqAndSidechainUndo()
+        {
+            var s = MakeSong();
+            var w = ScriptableObject.CreateInstance<UniDAWWindow>();
+            try
+            {
+                w.SetSong(s);
+                var m = new MixerCommands(w.Session);
+                m.PreviewParam(1, MixParam.EqHigh, 4f);
+                m.CommitParam(1, MixParam.EqHigh, 0f, 6f);
+                m.CommitParam(0, MixParam.Duck, 0f, 2f);
+                m.SetSidechainSource(2);
+                Assert.AreEqual((6f, 1f, 2), (s.mixer[1].eqHighDb, s.mixer[0].duck, s.effects.sidechainSource));
+                UnityEditor.Undo.PerformUndo();
+                UnityEditor.Undo.PerformUndo();
+                UnityEditor.Undo.PerformUndo();
+                Assert.AreEqual((0f, 0f, 3), (s.mixer[1].eqHighDb, s.mixer[0].duck, s.effects.sidechainSource));
+            }
+            finally
+            {
+                Object.DestroyImmediate(w);
+                Object.DestroyImmediate(s);
+            }
         }
 
         [Test]

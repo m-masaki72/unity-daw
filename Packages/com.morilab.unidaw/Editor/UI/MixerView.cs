@@ -13,6 +13,8 @@ namespace UniDAW.Editor
         {
             public VisualElement root;
             public Fader volume, pan, delay, reverb;
+            public readonly Fader[] param = new Fader[4];
+            public readonly Label[] paramLabel = new Label[4];
             public Label db, panLabel;
             public Button mute, solo;
             public LevelMeter meter;
@@ -24,9 +26,9 @@ namespace UniDAW.Editor
         readonly Label masterDb;
         readonly LevelMeter masterMeter;
         readonly float[] one = new float[1];
-        readonly Fader[] fxFaders = new Fader[5];
-        readonly Label[] fxLabels = new Label[5];
-        readonly MenuChip delayTime;
+        readonly Fader[] fxFaders = new Fader[6];
+        readonly Label[] fxLabels = new Label[6];
+        readonly MenuChip delayTime, scSource;
         readonly ToggleChip pingPong;
 
         public MixerView(ComposerContext ctx)
@@ -63,6 +65,10 @@ namespace UniDAW.Editor
 
                 s.delay = SendFader(s.root, "DLY", ch, SendKind.Delay);
                 s.reverb = SendFader(s.root, "REV", ch, SendKind.Reverb);
+                ParamFader(s, "LO", ch, MixParam.EqLow, "EQ ロー（120 Hz シェルフ、±12 dB）\nダブルクリックで 0 dB");
+                ParamFader(s, "MID", ch, MixParam.EqMid, "EQ ミッド（1 kHz、±12 dB）\nダブルクリックで 0 dB");
+                ParamFader(s, "HI", ch, MixParam.EqHigh, "EQ ハイ（6 kHz シェルフ、±12 dB）\nダブルクリックで 0 dB");
+                ParamFader(s, "DUCK", ch, MixParam.Duck, "サイドチェイン：トリガー元（Send FX の Sidechain）が鳴ったときに下げる深さ");
 
                 var faderRow = new VisualElement();
                 faderRow.AddToClassList("cd-strip-faderrow");
@@ -99,6 +105,13 @@ namespace UniDAW.Editor
             FxFader(fx, "SIZE", FxParam.ReverbSize);
             FxFader(fx, "DAMP", FxParam.ReverbDamp);
             FxFader(fx, "RET", FxParam.ReverbReturn);
+            fx.Add(Caption("Sidechain"));
+            var scRow = new VisualElement();
+            scRow.AddToClassList("cd-btnrow");
+            scSource = new MenuChip(ShowSourceMenu, "サイドチェインのトリガー元（フェーダー前の音で検出、ミュートしても効く）\n各チャンネルの DUCK で下げる深さを決める");
+            scRow.Add(scSource);
+            fx.Add(scRow);
+            FxFader(fx, "REL", FxParam.DuckRelease);
             Add(fx);
 
             var mr = new VisualElement();
@@ -151,6 +164,44 @@ namespace UniDAW.Editor
             return f;
         }
 
+        void ParamFader(Strip s, string caption, int ch, MixParam p, string tip)
+        {
+            var m = ctx.Mixer;
+            var (min, max, def) = ChannelMix.Range(p);
+            var row = new VisualElement();
+            row.AddToClassList("cd-send");
+            row.AddToClassList("narrow");
+            var cap = new Label(caption);
+            cap.AddToClassList("cd-send-cap");
+            row.Add(cap);
+            var f = new Fader(false, min, max, def, p == MixParam.Duck ? 1f / 32f : 0.5f, bipolar: p != MixParam.Duck);
+            f.tooltip = tip + "\n" + f.tooltip;
+            f.Dragged += v => m.PreviewParam(ch, p, v);
+            f.Committed += (a, b) => m.CommitParam(ch, p, a, b);
+            row.Add(f);
+            var val = new Label();
+            val.AddToClassList("cd-send-val");
+            row.Add(val);
+            s.root.Add(row);
+            s.param[(int)p] = f;
+            s.paramLabel[(int)p] = val;
+        }
+
+        static string ParamText(MixParam p, float v) =>
+            p == MixParam.Duck ? Mathf.RoundToInt(v * 100) + "%" : v.ToString("+0.#;-0.#;0", System.Globalization.CultureInfo.InvariantCulture);
+
+        void ShowSourceMenu(VisualElement anchor)
+        {
+            var m = ctx.Mixer;
+            var menu = new UnityEditor.GenericMenu();
+            for (int c = 0; c < Song.ChannelCount; c++)
+            {
+                int ch = c;
+                menu.AddItem(new GUIContent(Song.ChannelNames[c]), m.SidechainSource == c, () => m.SetSidechainSource(ch));
+            }
+            menu.DropDown(anchor.worldBound);
+        }
+
         void FxFader(VisualElement parent, string caption, FxParam p)
         {
             var m = ctx.Mixer;
@@ -185,7 +236,9 @@ namespace UniDAW.Editor
         }
 
         static string FxText(FxParam p, float v) =>
-            p == FxParam.DelayReturn || p == FxParam.ReverbReturn ? ChannelMix.FormatDb(v) : Mathf.RoundToInt(v * 100) + "%";
+            p == FxParam.DelayReturn || p == FxParam.ReverbReturn ? ChannelMix.FormatDb(v)
+            : p == FxParam.DuckRelease ? Mathf.RoundToInt(SongEffects.ReleaseMs(v)) + "ms"
+            : Mathf.RoundToInt(v * 100) + "%";
 
         static Label SmallLabel(VisualElement parent, string cls)
         {
@@ -220,6 +273,10 @@ namespace UniDAW.Editor
                 if (!s.pan.IsDragging) s.pan.SetValueWithoutNotify(m.Pan(c));
                 s.delay.SetValueWithoutNotify(m.SendLevel(c, SendKind.Delay));
                 s.reverb.SetValueWithoutNotify(m.SendLevel(c, SendKind.Reverb));
+                for (int i = 0; i < s.param.Length; i++)
+                    if (!s.param[i].IsDragging) s.param[i].SetValueWithoutNotify(m.Param(c, (MixParam)i));
+                // トリガー元自身は下げない
+                s.param[(int)MixParam.Duck].SetEnabled(c != m.SidechainSource);
                 s.mute.EnableInClassList("on", m.IsMuted(c));
                 s.solo.EnableInClassList("on", m.IsSoloed(c));
                 s.root.EnableInClassList("silenced", m.IsSilenced(c));
@@ -228,6 +285,7 @@ namespace UniDAW.Editor
             for (int i = 0; i < fxFaders.Length; i++) fxFaders[i].SetValueWithoutNotify(m.Fx((FxParam)i));
             delayTime.Text = SongEffects.DelayBeatNames[m.DelayChoice];
             pingPong.Value = m.PingPong;
+            scSource.Text = "← " + Song.ChannelNames[m.SidechainSource];
             UpdateLabels();
         }
 
@@ -251,6 +309,7 @@ namespace UniDAW.Editor
                 var s = strips[c];
                 SetText(s.db, ChannelMix.FormatDb(s.volume.Value));
                 SetText(s.panLabel, ChannelMix.FormatPan(s.pan.Value));
+                for (int i = 0; i < s.param.Length; i++) SetText(s.paramLabel[i], ParamText((MixParam)i, s.param[i].Value));
             }
             SetText(masterDb, ChannelMix.FormatDb(master.Value));
             for (int i = 0; i < fxFaders.Length; i++) SetText(fxLabels[i], FxText((FxParam)i, fxFaders[i].Value));

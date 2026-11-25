@@ -2,6 +2,9 @@ using System;
 
 namespace UniDAW
 {
+    /// <summary>チャンネルストリップの数値パラメータ（EQ の 3 バンドとサイドチェインの深さ）。</summary>
+    public enum MixParam { EqLow = 0, EqMid = 1, EqHigh = 2, Duck = 3 }
+
     /// <summary>
     /// 1 チャンネルのミキサー設定（音量・パン・ミュート・ソロ）。曲と一緒に保存され、
     /// エディタの試聴・ゲーム内再生・WAV 書き出しのすべてに効く。
@@ -22,6 +25,39 @@ namespace UniDAW
         /// <summary>ディレイ / リバーブへの送り量（0..1、フェーダー・パン後）。</summary>
         public float delaySend;
         public float reverbSend;
+        /// <summary>3 バンド EQ（dB、±<see cref="MaxEqDb"/>）：ロー 120 Hz シェルフ・ミッド 1 kHz・ハイ 6 kHz シェルフ。</summary>
+        public float eqLowDb, eqMidDb, eqHighDb;
+        /// <summary>サイドチェイン：トリガー元（<see cref="SongEffects.sidechainSource"/>）が鳴ると下げる深さ（0..1）。</summary>
+        public float duck;
+
+        public const float MaxEqDb = 12f;
+
+        public static (float min, float max, float def) Range(MixParam p) =>
+            p == MixParam.Duck ? (0f, 1f, 0f) : (-MaxEqDb, MaxEqDb, 0f);
+
+        public float Get(MixParam p)
+        {
+            switch (p)
+            {
+                case MixParam.EqLow: return eqLowDb;
+                case MixParam.EqMid: return eqMidDb;
+                case MixParam.EqHigh: return eqHighDb;
+                default: return duck;
+            }
+        }
+
+        public void Set(MixParam p, float v)
+        {
+            var (min, max, def) = Range(p);
+            v = float.IsNaN(v) ? def : Math.Max(min, Math.Min(max, v));
+            switch (p)
+            {
+                case MixParam.EqLow: eqLowDb = v; break;
+                case MixParam.EqMid: eqMidDb = v; break;
+                case MixParam.EqHigh: eqHighDb = v; break;
+                default: duck = v; break;
+            }
+        }
 
         public float Send(SendKind kind) => kind == SendKind.Delay ? delaySend : reverbSend;
 

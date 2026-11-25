@@ -113,6 +113,19 @@ namespace UniDAW.Editor
 
         public void SetPingPong(bool on) => session.ModifySong("Delay Ping-Pong", s => s.effects.delayPingPong = on);
 
+        // ---- EQ / サイドチェイン -------------------------------------------------------
+
+        public float Param(int ch, MixParam p) => Mix(ch)?.Get(p) ?? 0f;
+        public int SidechainSource => Song?.effects?.sidechainSource ?? 3;
+
+        public void PreviewParam(int ch, MixParam p, float v) => Live(() => Mix(ch).Set(p, v));
+
+        public void CommitParam(int ch, MixParam p, float start, float end) =>
+            Commit(p == MixParam.Duck ? "Sidechain Duck" : "Channel EQ", () => Mix(ch).Set(p, start), s => s.Mix(ch).Set(p, end));
+
+        public void SetSidechainSource(int ch) => session.ModifySong("Sidechain Source", s =>
+            s.effects.sidechainSource = Math.Max(0, Math.Min(Song.ChannelCount - 1, ch)));
+
         /// <summary>ミキサー設定を初期値（0 dB・センター・ミュート/ソロなし・送りなし）へ。エフェクトの設定も既定に戻す。</summary>
         public void ResetMixer() => session.ModifySong("Reset Mixer", s =>
         {

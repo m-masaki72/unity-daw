@@ -157,6 +157,7 @@ namespace UniDAW
                 mixer[c].pan = ChannelMix.ClampPan(mixer[c].pan);
                 mixer[c].SetSend(SendKind.Delay, mixer[c].delaySend);
                 mixer[c].SetSend(SendKind.Reverb, mixer[c].reverbSend);
+                foreach (MixParam p in Enum.GetValues(typeof(MixParam))) mixer[c].Set(p, mixer[c].Get(p));
             }
             if (effects == null) effects = new SongEffects();
             effects.Validate();
