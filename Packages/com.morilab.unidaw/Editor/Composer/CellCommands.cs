@@ -130,6 +130,38 @@ namespace UniDAW.Editor
             }
         }
 
+        /// <summary>
+        /// カーソル列の補間（Ctrl+I）：音量列か Fx 列で、上下に書いた値の間を直線で埋める（フェード・テンポ変化など）。
+        /// Fx はカーソルのセル、無ければ上にある同じ列の種類を使う。
+        /// </summary>
+        public void Ramp(int col)
+        {
+            var p = s.CurrentPattern;
+            if (p == null) return;
+            int ch = State.cursorCh;
+            var kind = col >= 3 ? LaneKind.Effect : LaneKind.Volume;
+            bool second = col >= 5;
+            var fx = FxType.None;
+            if (kind == LaneKind.Effect)
+            {
+                for (int r = p.CellIndex(ch, State.cursorRow); r >= 0 && fx == FxType.None; r--)
+                    fx = (second ? p.tracks[ch].cells[r].fx2 : p.tracks[ch].cells[r].fx1).type;
+                if (fx == FxType.None)
+                {
+                    s.Notify("補間するエフェクトが見つかりませんわ（この列の上と下に同じエフェクトを書いてくださいまし）");
+                    return;
+                }
+            }
+            var values = CellLane.Ramp(p, ch, kind, fx, State.cursorRow);
+            if (values == null)
+            {
+                s.Notify("補間するには、カーソルの上と下（またはカーソルと下）に値を書いてくださいまし");
+                return;
+            }
+            CellLane.Apply(s, ch, kind, fx, values, second, "Interpolate");
+            s.Notify($"{values.Count} 行を補間しましたわ");
+        }
+
         /// <summary>カーソルのノートを移調（ノイズは周期を 1 段ずつ）して試聴する。</summary>
         public void Transpose(int semis)
         {

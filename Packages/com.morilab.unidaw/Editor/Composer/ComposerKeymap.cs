@@ -41,6 +41,7 @@ namespace UniDAW.Editor
                 "[ ] : オクターブ   Tab : 次ch\n" +
                 "Ctrl+↑↓ : 半音移調 (+Shift 1oct)\n" +
                 "Ctrl+C / Ctrl+V : トラックコピー\n" +
+                "Ctrl+I : 補間（音量列・Fx列の上下の値の間を直線で）\n" +
                 "\nピアノロール\n" +
                 "ダブルクリック : 作成 / 削除\n" +
                 "ドラッグ : 移動（Alt で複製）・右端で長さ\n" +
@@ -215,6 +216,7 @@ namespace UniDAW.Editor
                 case KeyCode.DownArrow: cells.Transpose(shift ? -12 : -1); return true;
                 case KeyCode.C: cells.CopyTrack(); return true;
                 case KeyCode.V: cells.PasteTrack(); return true;
+                case KeyCode.I: cells.Ramp(s.State.CellMode ? 2 : s.State.cursorCol); return true;
             }
             return false;
         }

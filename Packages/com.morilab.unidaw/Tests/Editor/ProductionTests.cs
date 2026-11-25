@@ -71,6 +71,47 @@ namespace UniDAW.Tests
         }
 
         [Test]
+        public void Interpolate_FillsVolumeAndEffectColumns()
+        {
+            var song = Song.CreateDefault(16);
+            var w = ScriptableObject.CreateInstance<UniDAWWindow>();
+            try
+            {
+                w.SetSong(song);
+                var p = song.patterns[0];
+                var t = p.tracks[0].cells;
+                for (int r = 0; r < p.length; r++) t[r] = Cell.Blank;
+                t[0].volume = 15;
+                t[8].volume = 7;
+                t[4].fx2 = new Fx(FxType.Speed, 100);
+                t[8].fx2 = new Fx(FxType.Speed, 140);
+                var cells = new CellCommands(w.Session);
+                w.State.cursorCh = 0;
+
+                w.State.cursorRow = 3;
+                cells.Ramp(2);
+                for (int r = 1; r < 8; r++) Assert.AreEqual(15 - r, t[r].volume, $"row {r}");
+
+                w.State.cursorRow = 4; // 値のあるセルから次の値まで
+                cells.Ramp(6);
+                Assert.AreEqual(new[] { 110, 120, 130 }, new[] { (int)t[5].fx2.param, (int)t[6].fx2.param, (int)t[7].fx2.param });
+                Assert.IsTrue(t[5].fx1.IsEmpty && t[5].fx2.type == FxType.Speed, "同じ列（Fx2）に書く");
+
+                UnityEditor.Undo.PerformUndo();
+                Assert.IsTrue(t[5].fx2.IsEmpty, "1 回の Undo で戻る");
+
+                w.State.cursorRow = 12;
+                cells.Ramp(2); // 下に値が無い → 何もしない
+                Assert.AreEqual(-1, t[12].volume);
+            }
+            finally
+            {
+                Object.DestroyImmediate(w);
+                Object.DestroyImmediate(song);
+            }
+        }
+
+        [Test]
         public void InstrumentPresets_SaveLoadAndDelete()
         {
             string old = InstrumentPresets.FilePath;

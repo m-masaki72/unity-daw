@@ -29,6 +29,9 @@ namespace UniDAW.Editor
 
         // ドラッグ中の描き込み（離したときにまとめて書く）
         Dictionary<int, int> pending;
+        /// <summary>Shift ドラッグ：押した点から今の点までの直線（ランプ）だけを描く。</summary>
+        bool line;
+        int anchorRow, anchorValue;
         int lastRow = -1, lastValue, pointer;
         bool erasing;
 
@@ -46,7 +49,7 @@ namespace UniDAW.Editor
             fxField.RegisterValueChangedCallback(e => { fx = ParseLabel(e.newValue); Refresh(); });
             fxField.AddToClassList("cd-lane-fx");
             head.Add(fxField);
-            hint = new Label("ドラッグ: 描く   右ドラッグ / Alt: 消す");
+            hint = new Label("ドラッグ: 描く   Shift: 直線   右ドラッグ / Alt: 消す");
             hint.AddToClassList("cd-chinfo");
             head.Add(hint);
             Add(head);
@@ -103,11 +106,14 @@ namespace UniDAW.Editor
             e.StopPropagation();
             if (ctx.State.CurrentPattern == null || (e.button != 0 && e.button != 1)) return;
             erasing = e.button == 1 || e.altKey;
+            line = e.shiftKey;
             pending = new Dictionary<int, int>();
             pointer = e.pointerId;
             canvas.CapturePointer(pointer);
             lastRow = -1;
             Paint(e.localPosition);
+            anchorRow = lastRow;
+            anchorValue = lastValue;
         }
 
         void OnMove(PointerMoveEvent e)
@@ -136,6 +142,12 @@ namespace UniDAW.Editor
             int len = ctx.State.CurrentPattern?.length ?? 0;
             int row = Mathf.Clamp(RowAt(pos.x), 0, Math.Max(0, len - 1));
             int value = erasing ? -1 : ValueAt(pos.y);
+            if (line && lastRow >= 0)
+            {
+                pending.Clear();
+                lastRow = anchorRow;
+                lastValue = anchorValue;
+            }
             if (lastRow < 0) pending[row] = value;
             else
             {
