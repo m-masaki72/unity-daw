@@ -38,5 +38,82 @@ namespace UniDAW.Tests
                 Object.DestroyImmediate(s);
             }
         }
+
+        static ChipEngine Engine(Song s) => new ChipEngine(Rate) { Song = s, EmitNoteEvents = false };
+
+        /// <summary>行を 1 つずつ進める（speed tick ぶんのサンプル）。</summary>
+        static void Rows(ChipEngine e, Song s, int rows)
+        {
+            int frames = (int)System.Math.Ceiling(Rate * 60.0 / (s.bpm * s.rowsPerBeat)) * rows;
+            var buf = new float[frames * 2];
+            e.Render(buf, 0, frames, 2);
+        }
+
+        [Test]
+        public void BeatEvents_CountBeatsBarsAndSections()
+        {
+            var s = Song.CreateDefault(16); // 4 拍 = 1 小節
+            try
+            {
+                s.rowsPerBeat = 4;
+                s.order.Add(0);
+                var e = Engine(s);
+                e.Play();
+                Rows(e, s, 33);
+                var list = new System.Collections.Generic.List<BeatEvent>();
+                while (e.BeatEvents.TryDequeue(out var b)) list.Add(b);
+                Assert.GreaterOrEqual(list.Count, 8);
+                Assert.AreEqual((0, 0, 0, true), (list[0].beat, list[0].bar, list[0].beatInBar, list[0].patternStart));
+                Assert.AreEqual((1, 0, 1, false), (list[1].beat, list[1].bar, list[1].beatInBar, list[1].patternStart));
+                Assert.AreEqual((4, 1, 0, true, 1), (list[4].beat, list[4].bar, list[4].beatInBar, list[4].patternStart, list[4].order));
+                Assert.IsTrue(list[4].BarStart);
+            }
+            finally
+            {
+                Object.DestroyImmediate(s);
+            }
+        }
+
+        [Test]
+        public void Queue_JumpsAtNextBarOrPatternEnd()
+        {
+            var s = Song.CreateDefault(32); // 2 小節のパターン
+            try
+            {
+                s.rowsPerBeat = 4;
+                s.patterns.Add(s.patterns[0].Clone());
+                s.order.Clear();
+                s.order.Add(0);
+                s.order.Add(0);
+                s.order.Add(1);
+                var e = Engine(s);
+                e.Play();
+                Rows(e, s, 3);
+                e.Queue(2);
+                Rows(e, s, 15); // 行 16（次の小節の頭）を越える
+                Assert.AreEqual(2, e.PlayingOrder, "次の小節の頭で移る");
+                Assert.AreEqual(-1, e.Queued);
+                Assert.Less(e.PlayingRow, 4, "移った先は頭から");
+
+                e.Play();
+                Rows(e, s, 3);
+                e.Queue(2, atNextBar: false);
+                Rows(e, s, 15);
+                Assert.AreEqual(0, e.PlayingOrder, "パターンの終わりまでは移らない");
+                Rows(e, s, 16);
+                Assert.AreEqual(2, e.PlayingOrder);
+
+                e.Play();
+                Rows(e, s, 2);
+                e.Queue(2);
+                e.Queue(-1);
+                Rows(e, s, 32);
+                Assert.AreEqual(1, e.PlayingOrder, "取り消せば順序表どおり");
+            }
+            finally
+            {
+                Object.DestroyImmediate(s);
+            }
+        }
     }
 }

@@ -12,6 +12,19 @@ namespace UniDAW
         public int row;
     }
 
+    /// <summary>拍の頭の通知（ゲーム側で音楽に合わせた演出をするため）。拍子は 4/4 として数える。</summary>
+    public struct BeatEvent
+    {
+        /// <summary>再生開始からの拍・小節の通し番号（0 始まり）。</summary>
+        public int beat, bar;
+        /// <summary>小節の中の拍（0..3）。0 なら小節頭。</summary>
+        public int beatInBar;
+        public int order, pattern, row;
+        /// <summary>パターンの頭（区間の変わり目）か。</summary>
+        public bool patternStart;
+        public bool BarStart => beatInBar == 0;
+    }
+
     /// <summary>
     /// シーケンサー＋4ch チップ音源。UnityEngine API に依存しないので
     /// オーディオスレッド・オフラインレンダリング・テストのどこからでも使える。
@@ -39,7 +52,7 @@ namespace UniDAW
             public RowCell cell;
         }
 
-        enum CmdType { Play, PlayPattern, Stop, NoteOn, NoteOff, AllNotesOff }
+        enum CmdType { Play, PlayPattern, Stop, NoteOn, NoteOff, AllNotesOff, Queue }
 
         struct Command
         {
@@ -55,6 +68,13 @@ namespace UniDAW
         /// <summary>ノート発音イベント（映像連携用）。メインスレッドで取り出す。</summary>
         public readonly ConcurrentQueue<NoteEvent> NoteEvents = new ConcurrentQueue<NoteEvent>();
         public bool EmitNoteEvents = true;
+
+        /// <summary>拍の頭の通知。メインスレッドで取り出す（溜まりすぎたら捨てる）。</summary>
+        public readonly ConcurrentQueue<BeatEvent> BeatEvents = new ConcurrentQueue<BeatEvent>();
+        public bool EmitBeatEvents = true;
+        public const int BeatsPerBar = 4;
+        /// <summary>予約中の移動先（曲再生なら順序表の位置、パターンループならパターン番号。なければ -1）。</summary>
+        public volatile int Queued = -1;
 
         /// <summary>ゲーム側からの一時的なミュート/ソロ（曲のミキサー設定 <see cref="Song.mixer"/> に重ねて効く）。</summary>
         public readonly bool[] Mute = new bool[Channels];
@@ -91,6 +111,8 @@ namespace UniDAW
         int speedOverride = -1;
         float bpmOverride = -1;
         uint rngSeed = 0x9E3779B9u;
+        int beatCount, barCount;
+        bool queuedAtBar;
 
         public volatile int PlayingOrder;
         public volatile int PlayingRow;
@@ -139,6 +161,13 @@ namespace UniDAW
         public void NoteOff(int channel) => commands.Enqueue(new Command { type = CmdType.NoteOff, a = channel });
 
         public void AllNotesOff() => commands.Enqueue(new Command { type = CmdType.AllNotesOff });
+
+        /// <summary>
+        /// 再生位置の移動を予約する。曲再生なら順序表の位置、パターンループならパターン番号へ、
+        /// <paramref name="atNextBar"/> なら次の小節の頭で、でなければ今のパターンの終わりで移る（ゲームの場面転換向け）。-1 で取り消し。
+        /// </summary>
+        public void Queue(int target, bool atNextBar = true) =>
+            commands.Enqueue(new Command { type = CmdType.Queue, a = target, b = atNextBar ? 1 : 0 });
 
         /// <summary>デバッグ・テスト用：チャンネルの最終ピッチ（半音、小数あり）。</summary>
         public float GetChannelPitch(int ch) => channels[ch].OutPitch;
@@ -209,6 +238,7 @@ namespace UniDAW
                         IsPlaying = false;
                         PlayingPattern = -1;
                         countInRows = 0;
+                        Queued = -1;
                         click.Silence();
                         CutAll();
                         break;
@@ -225,6 +255,10 @@ namespace UniDAW
                         break;
                     case CmdType.AllNotesOff:
                         CutAll();
+                        break;
+                    case CmdType.Queue:
+                        Queued = playing ? Math.Max(-1, cmd.a) : -1;
+                        queuedAtBar = cmd.b != 0;
                         break;
                 }
             }
@@ -246,6 +280,9 @@ namespace UniDAW
             SongLoopCount = 0;
             speedOverride = -1;
             bpmOverride = -1;
+            beatCount = 0;
+            barCount = 0;
+            Queued = -1;
             countInTotal = Math.Max(0, Math.Min(16, countInBeats)) * RowsPerBeat(song);
             countInRows = countInTotal;
             if (countInRows > 0) PlayingPattern = -1;
@@ -331,6 +368,7 @@ namespace UniDAW
                 PlayingRow = row;
                 PlayingOrder = orderPos;
                 PlayingPattern = pi;
+                EmitBeat(s, pi);
                 int cycle = loopPattern ? patternLoop : SongCycle(s, pi);
                 PlayingLoop = loopPattern ? patternLoop : 0;
                 int transpose = loopPattern ? 0 : s.TransposeAtOrder(orderPos);
@@ -358,6 +396,16 @@ namespace UniDAW
             }
         }
 
+        void EmitBeat(Song s, int pi)
+        {
+            int rpb = RowsPerBeat(s);
+            if (row % rpb != 0) return;
+            int inBar = row / rpb % BeatsPerBar;
+            if (inBar == 0 && beatCount > 0) barCount++;
+            var ev = new BeatEvent { beat = beatCount++, bar = barCount, beatInBar = inBar, order = orderPos, pattern = pi, row = row, patternStart = row == 0 };
+            if (EmitBeatEvents && BeatEvents.Count < MaxQueuedNoteEvents) BeatEvents.Enqueue(ev);
+        }
+
         void FireDelayed(Song s)
         {
             for (int c = 0; c < Channels; c++)
@@ -374,6 +422,23 @@ namespace UniDAW
             row++;
             var p = s?.GetPattern(CurrentPatternIndex(s));
             int len = p != null ? p.length : 1;
+            int target = Queued;
+            if (target >= 0 && s != null && (row >= len || queuedAtBar && row % (RowsPerBeat(s) * BeatsPerBar) == 0))
+            {
+                Queued = -1;
+                row = 0;
+                if (loopPattern)
+                {
+                    loopPatternIndex = Math.Min(target, s.patterns.Count - 1);
+                    patternLoop = 0;
+                    PatternLoopCount = 0;
+                }
+                else
+                {
+                    orderPos = Math.Min(target, Math.Max(0, s.order.Count - 1));
+                }
+                return;
+            }
             if (row < len) return;
             row = 0;
             if (loopPattern)

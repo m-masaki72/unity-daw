@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.9.0] - 2026-11-26
+- ゲーム連携：`UniDAWPlayer` に拍・小節・区間の頭の通知（`onBeat` / `onBar` / `onSection` / `BeatTriggered`）、
+  次の小節の頭（またはパターンの終わり）で区間を切り替える予約 `QueueSection`、パートの抜き差し `SetLayer` を追加。
+  エンジン側は `ChipEngine.BeatEvents` / `ChipEngine.Queue`
+
 ## [0.8.0] - 2026-11-26
 - ステム書き出し（File > Export Stems）：チャンネルごとの WAV。フェーダー・パン・センドは乗り、曲のソロ設定に関係なく各チャンネルを書き出す。
   `OfflineRenderer.RenderChannelStereo` / `UniDAWAssets.ExportStems`

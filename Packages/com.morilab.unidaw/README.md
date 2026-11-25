@@ -112,6 +112,17 @@ Ctrl+A / C / X / V、Del で削除、右クリックでメニュー。
 - 送るのは曲の音符・コード・テンポ・頼みごとの文章だけです。料金は API なら Anthropic の API 利用料、Claude Code ならそのアカウントの利用枠として扱われます
 - 断られたとき・途中で切れたとき・通信エラーはステータスに表示し、曲は変更しません
 
+## ゲームへの組み込み（UniDAWPlayer）
+- `onBeat(bar, beatInBar)` / `onBar(bar)` / `onSection(order)`（UnityEvent）と `BeatTriggered`（C# event）で拍・小節・区間の頭を受け取れる（4/4 として数える）
+- `QueueSection(order)` / `QueueSection("B")`：次の小節の頭で別の区間へ移る。`atNextBar: false` なら今のパターンの終わりで移る。`-1` で取り消し
+- `SetLayer(channel, on)`：パートの抜き差し（曲のミキサー設定はそのまま）
+
+```csharp
+player.onBar.AddListener(bar => Debug.Log($"bar {bar}"));
+player.QueueSection("Boss");   // 戦闘に入ったら次の小節から Boss 区間へ
+player.SetLayer(3, false);     // ノイズを抜く
+```
+
 ## デモ
 File > Create Demo Assets、または次のコマンド：
 
