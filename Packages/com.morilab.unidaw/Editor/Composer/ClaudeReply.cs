@@ -39,6 +39,26 @@ namespace UniDAW.Editor
             public float duckRelease = -1f;
             /// <summary>マスタリングの依頼のときだけ使う。</summary>
             public MasterSetting master;
+            /// <summary>音色の依頼のときだけ入る（<see cref="ClaudeInstrument"/>）。</summary>
+            public InstrumentSetting instrument;
+            /// <summary>講評のときだけ入る：指摘と、次にやること（<see cref="ClaudeCritique"/>）。</summary>
+            public string[] points;
+            public NextAction[] next;
+        }
+
+        /// <summary>音色の提案：マクロを UniDAW の表記（"15 12 | 10 / 6 0"）で。</summary>
+        [Serializable]
+        public sealed class InstrumentSetting
+        {
+            public string name, volume, arpeggio, duty, pitch;
+        }
+
+        /// <summary>講評が勧める次の依頼（ボタン 1 つで頼める）。target は melody / chords / melodyAndChords / structure / mix / master / instrument。</summary>
+        [Serializable]
+        public sealed class NextAction
+        {
+            public string label, target, request;
+            public int channel, pattern = -1;
         }
 
         /// <summary>マスタリングの提案（マスターチェーンの設定）。gain は返答には含まれず、ラウドネス合わせで決める。</summary>
@@ -79,6 +99,8 @@ namespace UniDAW.Editor
                     sg.sections ??= Array.Empty<Section>();
                     sg.chords ??= "";
                     sg.comment ??= "";
+                    sg.points ??= Array.Empty<string>();
+                    sg.next ??= Array.Empty<NextAction>();
                 }
                 return list;
             }

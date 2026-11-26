@@ -587,6 +587,8 @@
 .cd-assist-prompt { margin: 0 0 4px 0; min-height: 40px; }
 .cd-assist-prompt TextInput, .cd-assist-prompt .unity-text-field__input { white-space: normal; }
 .cd-assist-key { flex-grow: 1; min-width: 120px; margin: 0; }
+.cd-assist-bars { width: 70px; margin: 0; }
+.cd-assist-next { white-space: normal; }
 
 /* ---- センドエフェクト（ミキサー） */
 .cd-send { flex-direction: row; align-items: center; flex-shrink: 0; height: 16px; }

@@ -460,5 +460,197 @@ namespace UniDAW.Tests
                 Object.DestroyImmediate(song);
             }
         }
+
+        static string Note(int start, int length, int pitch) => $"{{\"start\":{start},\"length\":{length},\"pitch\":{pitch}}}";
+
+        static string Cands(string chords, params string[] notes) =>
+            "{\"candidates\":[{\"comment\":\"x\",\"chords\":\"" + chords + "\",\"notes\":[" + string.Join(",", notes) + "]}]}";
+
+        [Test]
+        public void ClaudeAssist_DraftsSongStepByStep()
+        {
+            var song = Song.CreateDefault(16);
+            var w = ScriptableObject.CreateInstance<UniDAWWindow>();
+            try
+            {
+                w.SetSong(song);
+                var sent = new System.Collections.Generic.List<string>();
+                Action<string, string> pending = null;
+                var c = new ClaudeAssist(w.Session, w.Roll, (model, msg, done) => { sent.Add(msg); pending = done; return () => { }; });
+                w.State.aiTarget = AiTarget.Draft;
+                w.State.aiPrompt = "";
+                Assert.IsFalse(c.Request(), "概要が空なら始めない");
+                w.State.aiPrompt = "明るいフィールド曲";
+                w.State.aiDraftAuto = false;
+                c.SetChannelLock(3, true);
+                Assert.IsTrue(c.Request());
+                Assert.IsTrue(c.Drafting);
+                StringAssert.Contains("## Existing patterns", sent[0]);
+                pending(Reply("{\"candidates\":[{\"comment\":\"a\",\"sections\":[" + Sec("Intro", -1, 1, "") + "," + Sec("A", 0, 1, "") + "]}]}"), null);
+                CollectionAssert.AreEqual(new[] { 1, 0 }, song.order);
+                Assert.AreEqual(1, sent.Count, "選んで進めるモードでは次へを待つ");
+
+                Assert.IsTrue(c.DraftNext());
+                w.State.aiDraftAuto = true;
+                // おまかせ：残りは書き込むたびに自動で次を頼む
+                for (int guard = 0; guard < 20 && pending != null; guard++)
+                {
+                    var p = pending;
+                    pending = null;
+                    p(Reply(Cands("C", Note(0, 4, 64))), null);
+                }
+                Assert.IsFalse(c.Drafting);
+                StringAssert.Contains("下書きができました", c.Status);
+                Assert.AreEqual(1 + 6, sent.Count, "2 セクション × 3 チャンネル（ノイズは固定）");
+                StringAssert.Contains("Write a chord progression", sent[1], "コードの無い Intro はメロディ＋コード");
+                StringAssert.Contains("明るいフィールド曲", sent[1]);
+                StringAssert.Contains("section \"Intro\"", sent[1]);
+                StringAssert.Contains("Earlier lead melody (section \"Intro\")", sent[4], "A のメロディは Intro のモチーフを引き継ぐ");
+                Assert.AreEqual("C", song.patterns[1].chords);
+                for (int ch = 0; ch < 3; ch++)
+                {
+                    Assert.IsTrue(song.patterns[1].tracks[ch].cells[0].HasNote, $"Intro ch{ch}");
+                    Assert.IsTrue(song.patterns[0].tracks[ch].cells[0].HasNote, $"A ch{ch}");
+                }
+                Assert.IsFalse(song.patterns[1].tracks[3].cells.Any(x => x.HasNote), "固定したノイズは書かない");
+            }
+            finally
+            {
+                Object.DestroyImmediate(w);
+                Object.DestroyImmediate(song);
+            }
+        }
+
+        [Test]
+        public void ClaudeAssist_KeepsLockedBarsAndRefines()
+        {
+            var song = Song.CreateDefault(32);
+            var w = ScriptableObject.CreateInstance<UniDAWWindow>();
+            try
+            {
+                w.SetSong(song);
+                var p = song.patterns[0];
+                p.tracks[0].cells[20] = Cell.NoteCell(60, 0);
+                string sent = null;
+                Action<string, string> pending = null;
+                var c = new ClaudeAssist(w.Session, w.Roll, (model, msg, done) => { sent = msg; pending = done; return () => { }; });
+                w.State.cursorRow = 0;
+                w.State.assistRows = 32;
+                w.State.aiTarget = AiTarget.Melody;
+                c.SetLockBars("2");
+                Assert.IsTrue(c.Request());
+                StringAssert.Contains("bar 2 = rows 16-31", sent);
+                pending(Reply(Cands("", Note(0, 2, 72), Note(14, 8, 74), Note(20, 2, 76))), null);
+                var notes = w.Roll.Notes();
+                Assert.AreEqual(72, p.tracks[0].cells[0].note);
+                Assert.AreEqual(2, notes.First(n => n.start == 14).length, "固定小節の手前で切る");
+                Assert.AreEqual(60, p.tracks[0].cells[20].note, "固定小節の音は残す");
+
+                Assert.IsTrue(c.CanRefine);
+                w.State.aiPrompt = "";
+                Assert.IsFalse(c.Refine(), "直す内容が空");
+                w.State.aiPrompt = "もっと高く";
+                Assert.IsTrue(c.Refine());
+                StringAssert.Contains("## Revision", sent);
+                StringAssert.Contains("もっと高く", sent);
+                StringAssert.Contains("Locked bars", sent);
+                pending(Reply(Cands("", Note(0, 2, 79))), null);
+                Assert.AreEqual(79, p.tracks[0].cells[0].note);
+                Assert.IsFalse(p.tracks[0].cells[14].HasNote);
+
+                Assert.IsTrue(c.Choose(-1));
+                Assert.IsFalse(p.tracks[0].cells[0].HasNote, "元は最初の依頼の前");
+                Assert.AreEqual(60, p.tracks[0].cells[20].note);
+
+                c.SetChannelLock(0, true);
+                w.State.aiPrompt = "";
+                Assert.IsFalse(c.Request(), "固定したチャンネルには頼まない");
+                Assert.IsTrue(c.StatusIsError);
+            }
+            finally
+            {
+                Object.DestroyImmediate(w);
+                Object.DestroyImmediate(song);
+            }
+        }
+
+        [Test]
+        public void ClaudeAssist_ProposesInstrumentAndRestoresIt()
+        {
+            var song = Song.CreateDefault(16);
+            var w = ScriptableObject.CreateInstance<UniDAWWindow>();
+            try
+            {
+                w.SetSong(song);
+                string sent = null;
+                Action<string, string> pending = null;
+                var c = new ClaudeAssist(w.Session, w.Roll, (model, msg, done) => { sent = msg; pending = done; return () => { }; });
+                int idx = w.Session.ChannelInstrument(0);
+                string oldName = song.instruments[idx].name;
+                w.State.aiTarget = AiTarget.Instrument;
+                w.State.aiPrompt = "柔らかく";
+                Assert.IsTrue(c.Request());
+                StringAssert.Contains("## Current instrument", sent);
+                StringAssert.Contains("ticks per second", sent);
+                pending(Reply("{\"candidates\":[" +
+                              "{\"comment\":\"a\",\"instrument\":{\"name\":\"Soft Lead\",\"volume\":\"15 99 | 10 / 6 0\",\"arpeggio\":\"\",\"duty\":\"2\",\"pitch\":\"\"}}," +
+                              "{\"comment\":\"b\",\"instrument\":{\"name\":\"\",\"volume\":\"8\",\"arpeggio\":\"0 12\",\"duty\":\"9\",\"pitch\":\"\"}}]}"), null);
+                var inst = song.instruments[idx];
+                Assert.AreEqual("Soft Lead", inst.name);
+                CollectionAssert.AreEqual(new[] { 15, 15, 10, 6, 0 }, inst.volume.values, "範囲に収める");
+                Assert.AreEqual(2, inst.volume.loop);
+                Assert.AreEqual(3, inst.volume.release);
+
+                Assert.IsTrue(c.Choose(1));
+                Assert.AreEqual(oldName, song.instruments[idx].name, "名前が空なら元の名前");
+                CollectionAssert.AreEqual(new[] { 3 }, song.instruments[idx].duty.values);
+
+                Assert.IsTrue(c.CanRefine);
+                Assert.IsTrue(c.Choose(-1));
+                Assert.AreEqual(oldName, song.instruments[idx].name);
+            }
+            finally
+            {
+                Object.DestroyImmediate(w);
+                Object.DestroyImmediate(song);
+            }
+        }
+
+        [Test]
+        public void ClaudeAssist_CritiqueRunsNextAction()
+        {
+            var song = Song.CreateDefault(16);
+            var w = ScriptableObject.CreateInstance<UniDAWWindow>();
+            try
+            {
+                w.SetSong(song);
+                string sent = null;
+                Action<string, string> pending = null;
+                var c = new ClaudeAssist(w.Session, w.Roll, (model, msg, done) => { sent = msg; pending = done; return () => { }; });
+                w.State.aiTarget = AiTarget.Critique;
+                Assert.IsTrue(c.Request());
+                StringAssert.Contains("## Patterns in the order", sent);
+                pending(Reply("{\"candidates\":[{\"comment\":\"素朴\",\"points\":[\"良い: x\",\"改善: y\"],\"next\":[" +
+                              "{\"label\":\"ハモり\",\"target\":\"melody\",\"channel\":1,\"pattern\":0,\"request\":\"3度上でハモって\"}," +
+                              "{\"label\":\"?\",\"target\":\"zzz\",\"channel\":0,\"pattern\":-1,\"request\":\"\"}]}]}"), null);
+                Assert.IsNotNull(c.Critique);
+                Assert.AreEqual(2, c.Critique.points.Length);
+                Assert.AreEqual(1, c.Critique.next.Length, "知らない種類は外す");
+                Assert.AreEqual(0, c.CandidateCount, "講評は曲を書き換えない");
+
+                Assert.IsTrue(c.RunNext(0));
+                Assert.AreEqual(1, w.State.cursorCh);
+                Assert.AreEqual(AiTarget.Melody, w.State.aiTarget);
+                StringAssert.Contains("3度上でハモって", sent);
+                StringAssert.Contains("Write notes for ch1", sent);
+                pending(Reply(Cands("", Note(0, 4, 67))), null);
+                Assert.AreEqual(67, song.patterns[0].tracks[1].cells[0].note);
+            }
+            finally
+            {
+                Object.DestroyImmediate(w);
+                Object.DestroyImmediate(song);
+            }
+        }
     }
 }

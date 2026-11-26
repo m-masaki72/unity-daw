@@ -25,6 +25,13 @@ namespace UniDAW.Editor
         readonly Button[] candButtons = new Button[ClaudePrompt.CandidateCount + 1];
         readonly VisualElement candRow;
         readonly VisualElement keyRow;
+        readonly Button refineButton, draftNextButton;
+        readonly ToggleChip draftAutoChip;
+        readonly ToggleChip[] lockChips = new ToggleChip[Song.ChannelCount];
+        readonly TextField lockBars;
+        readonly VisualElement draftRow, critiqueBox, nextRow;
+        readonly Label draftInfo, critiqueText;
+        ClaudeReply.Suggestion shownCritique;
 
         AssistCommands A => ctx.Assist;
 
@@ -85,7 +92,8 @@ namespace UniDAW.Editor
             aiPrompt.RegisterValueChangedCallback(e => C.SetPrompt(e.newValue));
             ai.Add(aiPrompt);
             var aiRow = Row(ai);
-            aiTargetChip = new MenuChip(a => ShowMenu(a, ClaudePrompt.TargetLabels(ctx.State.cursorCh), (int)ctx.State.aiTarget, i => C.SetTarget((AiTarget)i)), "頼む内容（メロディ／ベース／ドラムはカーソルのチャンネルで決まる。選択があればその範囲・なければカーソルから Rows 行。曲構成は曲全体のセクションと順序表。ミックスは全チャンネルの音量・パン・EQ・DUCK・送り。マスタリングは曲を解析してマスターチェーンを 3 案、それぞれ目標ラウドネスにそろえて）");
+            aiTargetChip = new MenuChip(a => ShowMenu(a, ClaudePrompt.TargetLabels(ctx.State.cursorCh), (int)ctx.State.aiTarget, i => C.SetTarget((AiTarget)i)), "頼む内容（メロディ／ベース／ドラムはカーソルのチャンネルで決まる。選択があればその範囲・なければカーソルから Rows 行。曲構成は曲全体のセクションと順序表。ミックスは全チャンネルの音量・パン・EQ・DUCK・送り。マスタリングは曲を解析してマスターチェーンを 3 案、それぞれ目標ラウドネスにそろえて。" +
+                "曲の下書きは依頼欄の概要から 曲構成 → セクションごとに各チャンネル の順に作る。音色はカーソルのチャンネルの楽器のマクロを 3 案。講評は曲全体を見て指摘と次の一手）");
             aiModelChip = new MenuChip(a => ShowMenu(a, ClaudePrompt.ModelNames, ctx.State.aiModel, C.SetModel), "使うモデル");
             aiRow.Add(aiTargetChip);
             aiRow.Add(aiModelChip);
@@ -121,6 +129,46 @@ namespace UniDAW.Editor
                 candRow.Add(b);
             }
             candRow.Add(new Button(() => { ctx.Transport.PlayPatternFrom(C.AuditionRow); ctx.FocusMain(); }) { text = "▶ 試聴", tooltip = "提案した範囲の頭からパターンを鳴らす" });
+            refineButton = new Button(() => { C.Refine(); ctx.FocusMain(); })
+            {
+                text = "この案を直す",
+                tooltip = "いま書き込まれている案を、依頼欄の言葉（例：後半をもっと跳ねて / 最後は主音で終わって）で直した 3 案をもらう。「元」は最初の依頼の前に戻る",
+            };
+            candRow.Add(refineButton);
+
+            // 書き換えさせないチャンネル・小節
+            var lockRow = Row(ai);
+            var lockLabel = new Label("固定");
+            lockLabel.AddToClassList("cd-assist-info");
+            lockRow.Add(lockLabel);
+            for (int ch = 0; ch < lockChips.Length; ch++)
+            {
+                int c = ch;
+                lockChips[ch] = new ToggleChip(Song.ChannelNames[ch], on => C.SetChannelLock(c, on), $"ch{ch} {Song.ChannelNames[ch]} を Claude に書き換えさせない（下書きでも飛ばす）");
+                lockRow.Add(lockChips[ch]);
+            }
+            lockBars = new TextField { isDelayed = true, tooltip = "書き換えさせない小節（パターン内の 1 始まり）。例: 1, 3-4。そこにある音は残し、提案はつながるように書かせます" };
+            lockBars.AddToClassList("cd-assist-bars");
+            lockBars.RegisterValueChangedCallback(e => C.SetLockBars(e.newValue));
+            lockRow.Add(lockBars);
+
+            // 曲の下書きの進行
+            draftRow = Row(ai);
+            draftNextButton = new Button(() => { C.DraftNext(); ctx.FocusMain(); }) { text = "次へ ▶", tooltip = "いまの案で決めて、下書きの次の段を頼む" };
+            draftAutoChip = new ToggleChip("おまかせ", C.SetDraftAuto, "オン：最後まで自動で進める / オフ：段ごとに 3 案から選んで「次へ」");
+            draftRow.Add(draftNextButton);
+            draftRow.Add(draftAutoChip);
+            draftInfo = new Label();
+            draftInfo.AddToClassList("cd-assist-info");
+            ai.Add(draftInfo);
+
+            // 講評と次の一手
+            critiqueBox = new VisualElement();
+            ai.Add(critiqueBox);
+            critiqueText = new Label();
+            critiqueText.AddToClassList("cd-assist-info");
+            critiqueBox.Add(critiqueText);
+            nextRow = Row(critiqueBox);
             keyInfo = new Label();
             keyInfo.AddToClassList("cd-assist-info");
             ai.Add(keyInfo);
@@ -156,6 +204,27 @@ namespace UniDAW.Editor
             m.DropDown(anchor.worldBound);
         }
 
+        /// <summary>講評を表示し、次の一手をボタンにする（講評が変わったときだけ作り直す）。</summary>
+        void RefreshCritique()
+        {
+            var cr = C.Critique;
+            critiqueBox.style.display = cr != null ? DisplayStyle.Flex : DisplayStyle.None;
+            nextRow.SetEnabled(!C.Busy);
+            if (cr == shownCritique) return;
+            shownCritique = cr;
+            nextRow.Clear();
+            if (cr == null) return;
+            critiqueText.text = "講評: " + cr.comment + (cr.points.Length > 0 ? "\n・" + string.Join("\n・", cr.points) : "");
+            for (int i = 0; i < cr.next.Length; i++)
+            {
+                int k = i;
+                var n = cr.next[i];
+                var b = new Button(() => { C.RunNext(k); ctx.FocusMain(); }) { text = n.label, tooltip = $"{n.target}: {n.request}" };
+                b.AddToClassList("cd-assist-next");
+                nextRow.Add(b);
+            }
+        }
+
         public void Refresh()
         {
             var st = ctx.State;
@@ -176,7 +245,17 @@ namespace UniDAW.Editor
             aiModelChip.Text = ClaudePrompt.ModelNames[System.Math.Max(0, System.Math.Min(ClaudePrompt.ModelNames.Length - 1, st.aiModel))];
             if (aiPrompt.focusController?.focusedElement != aiPrompt) aiPrompt.SetValueWithoutNotify(st.aiPrompt ?? "");
             aiSend.SetEnabled(!C.Busy);
-            aiCancel.SetEnabled(C.Busy);
+            aiCancel.SetEnabled(C.Busy || C.Drafting);
+            refineButton.SetEnabled(C.CanRefine);
+            for (int ch = 0; ch < lockChips.Length; ch++) lockChips[ch].Value = C.IsChannelLocked(ch);
+            if (lockBars.focusController?.focusedElement != lockBars) lockBars.SetValueWithoutNotify(st.aiLockBars ?? "");
+            bool draftUi = C.Drafting || st.aiTarget == AiTarget.Draft;
+            draftRow.style.display = draftUi ? DisplayStyle.Flex : DisplayStyle.None;
+            draftNextButton.SetEnabled(C.Drafting && !C.Busy);
+            draftAutoChip.Value = st.aiDraftAuto;
+            draftInfo.text = C.DraftProgress;
+            draftInfo.style.display = C.Drafting ? DisplayStyle.Flex : DisplayStyle.None;
+            RefreshCritique();
             aiStatus.text = C.Status;
             candRow.style.display = C.CandidateCount > 0 ? DisplayStyle.Flex : DisplayStyle.None;
             for (int i = 0; i < candButtons.Length; i++)

@@ -75,6 +75,11 @@ namespace UniDAW.Editor
         public AiTarget aiTarget;
         public int aiModel;
         public string aiPrompt = "";
+        /// <summary>Claude に書き換えさせないチャンネル（ビット）と小節（"1, 3-4"、パターン内の 1 始まり）。</summary>
+        public int aiLockChannels;
+        public string aiLockBars = "";
+        /// <summary>曲の下書きを最後まで自動で進める（false なら 1 段ずつ案を選んで「次へ」）。</summary>
+        public bool aiDraftAuto = true;
 
         public Pattern CurrentPattern => song != null ? song.GetPattern(patternIndex) : null;
 

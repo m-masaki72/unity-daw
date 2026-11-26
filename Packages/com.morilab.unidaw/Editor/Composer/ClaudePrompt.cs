@@ -6,7 +6,7 @@ using System.Text;
 namespace UniDAW.Editor
 {
     /// <summary>Claude に頼む内容。</summary>
-    public enum AiTarget { Melody = 0, Chords = 1, MelodyAndChords = 2, Structure = 3, Mix = 4, Master = 5 }
+    public enum AiTarget { Melody = 0, Chords = 1, MelodyAndChords = 2, Structure = 3, Mix = 4, Master = 5, Draft = 6, Instrument = 7, Critique = 8 }
 
     /// <summary>
     /// Claude への依頼文：曲の文脈の文章化と、返答の形（スキーマ）・システムプロンプト。返答の読み取りは <see cref="ClaudeReply"/>。
@@ -14,7 +14,26 @@ namespace UniDAW.Editor
     /// </summary>
     public static class ClaudePrompt
     {
-        public static readonly string[] TargetNames = { "メロディ", "コード進行", "メロディ＋コード", "曲構成", "ミックス", "マスタリング" };
+        public static readonly string[] TargetNames = { "メロディ", "コード進行", "メロディ＋コード", "曲構成", "ミックス", "マスタリング", "曲の下書き", "音色", "講評と次の一手" };
+
+        /// <summary>ノートかコードを書く依頼か（範囲・チャンネルを持つ）。</summary>
+        public static bool IsNoteTarget(AiTarget t) => t == AiTarget.Melody || t == AiTarget.Chords || t == AiTarget.MelodyAndChords;
+
+        /// <summary>"1, 3-4" のような小節の指定（1 始まり）を 0 始まりの集合にする。読めない語は飛ばす。</summary>
+        public static HashSet<int> ParseBars(string text)
+        {
+            var set = new HashSet<int>();
+            if (string.IsNullOrWhiteSpace(text)) return set;
+            foreach (var tok in text.Split(new[] { ',', ' ', '、', '，' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var ab = tok.Split('-', '〜', '~');
+                if (!int.TryParse(ab[0], out int a)) continue;
+                int b = a;
+                if (ab.Length > 1 && !int.TryParse(ab[ab.Length - 1], out b)) b = a;
+                for (int i = Math.Max(1, Math.Min(a, b)); i <= Math.Min(Math.Max(a, b), Pattern.MaxRows); i++) set.Add(i - 1);
+            }
+            return set;
+        }
         /// <summary>チャンネルごとの役割（Assist の表示用）。</summary>
         public static readonly string[] PartNames = { "メロディ", "ハーモニー", "ベース", "ドラム" };
 
@@ -40,6 +59,8 @@ namespace UniDAW.Editor
             public AiTarget target;
             public int channel, from, to, minPitch, maxPitch;
             public string text;
+            /// <summary>依頼の前に添える文脈（下書きの曲の概要・固定した小節など）。</summary>
+            public string extra;
         }
 
         /// <summary>頼む候補の数。</summary>
@@ -101,7 +122,7 @@ namespace UniDAW.Editor
             return parts.Count == 0 ? "(empty)" : string.Join(", ", parts);
         }
 
-        static string Part(Song song, Pattern p, int ch) =>
+        internal static string Part(Song song, Pattern p, int ch) =>
             Song.Kinds[ch] == ChannelKind.Noise ? DrumHits(song, p, ch) : Notes(MelodyModel.Extract(p, ch), false);
 
         /// <summary>チャンネルの役割に応じた書き方の注文。</summary>
@@ -124,7 +145,7 @@ namespace UniDAW.Editor
             }
         }
 
-        static string Chords(Pattern p, Scale key)
+        internal static string Chords(Pattern p, Scale key)
         {
             var list = ChordProgression.Parse(p.chords ?? "", key, out _);
             if (list.Count == 0) return "(none)";
@@ -132,6 +153,32 @@ namespace UniDAW.Editor
             for (int i = 0; i < list.Count; i++)
                 sb.Append(i == 0 ? "" : ", ").Append(list[i].Name).Append(" @").Append(ChordProgression.StartRow(i, list.Count, p.length));
             return sb.ToString();
+        }
+
+        /// <summary>選んだ案を言葉で直す依頼（依頼文の後ろに足す）。案はすでに曲に書き込まれているので、文脈に載っている。</summary>
+        public static string RefineSection(string comment, string feedback)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine();
+            sb.AppendLine("## Revision");
+            sb.AppendLine("The song context above already contains the proposal being revised" +
+                          (string.IsNullOrWhiteSpace(comment) ? "." : $" (its idea: \"{comment.Trim()}\")."));
+            sb.AppendLine("Revise that proposal following the feedback below: change what the feedback asks for and keep everything it does not mention. " +
+                          "The 3 candidates are 3 variations of the revision, not new ideas.");
+            sb.AppendLine();
+            sb.AppendLine("## Feedback");
+            sb.AppendLine(feedback.Trim());
+            return sb.ToString();
+        }
+
+        /// <summary>固定した小節の注意書き（無ければ null）。</summary>
+        public static string LockNote(HashSet<int> bars, int rowsPerBar, int from, int to)
+        {
+            var hit = bars.Where(b => b * rowsPerBar < to && (b + 1) * rowsPerBar > from).OrderBy(b => b).ToList();
+            if (hit.Count == 0) return null;
+            return "Locked bars (their current notes are kept and anything you write there is discarded): " +
+                   string.Join(", ", hit.Select(b => $"bar {b + 1} = rows {b * rowsPerBar}-{(b + 1) * rowsPerBar - 1}")) +
+                   ". Write the other rows so that they connect smoothly with the locked material.";
         }
 
         /// <summary>曲と頼みごとを Claude 向けの文章にする。</summary>
@@ -176,6 +223,11 @@ namespace UniDAW.Editor
                 sb.AppendLine($"Write a chord progression for the whole pattern ({p.length} rows).");
             if (req.target == AiTarget.MelodyAndChords)
                 sb.AppendLine("The melody must fit the new chords.");
+            if (!string.IsNullOrWhiteSpace(req.extra))
+            {
+                sb.AppendLine();
+                sb.AppendLine(req.extra.Trim());
+            }
             sb.AppendLine();
             sb.AppendLine("## Request");
             sb.AppendLine(string.IsNullOrWhiteSpace(req.text) ? "(no specific request: continue naturally)" : req.text.Trim());
