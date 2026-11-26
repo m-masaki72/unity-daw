@@ -365,6 +365,30 @@ namespace UniDAW.Tests
             Assert.LessOrEqual(mono.Max(Math.Abs), 1f);
             UnityEngine.Object.DestroyImmediate(s);
         }
+
+        [Test]
+        public void MoreDemoSongs_RenderAndReachTarget()
+        {
+            foreach (var s in new[] { DemoSongs.BuildLofiSong(), DemoSongs.BuildFortressSong() })
+            {
+                var mono = ChipEngine.RenderSong(s, Rate);
+                Assert.Greater(mono.Length, Rate * 30, s.title);
+                double sum = 0;
+                foreach (var v in mono) sum += v * v;
+                Assert.Greater(Math.Sqrt(sum / mono.Length), 0.01, s.title);
+                Assert.LessOrEqual(mono.Max(Math.Abs), 1f, s.title);
+
+                var matched = MasterAnalysis.MatchLoudness(s, s.master, out var st);
+                Assert.IsNotNull(matched, s.title);
+                float lufs = MasterAnalysis.Measure(s, matched).integratedLufs;
+                Assert.Less(Math.Abs(lufs - s.master.targetLufs), 1f, $"{s.title}: {lufs} LUFS");
+                UnityEngine.Object.DestroyImmediate(s);
+            }
+            var boss = DemoSongs.BuildFortressSong();
+            Assert.AreEqual(56, boss.patterns[0].length, "7/8 × 4 小節");
+            Assert.AreEqual(10, boss.patterns[3].tracks[1].length, "ブレイクのポリメーター");
+            UnityEngine.Object.DestroyImmediate(boss);
+        }
     }
 
     public class NotationTests

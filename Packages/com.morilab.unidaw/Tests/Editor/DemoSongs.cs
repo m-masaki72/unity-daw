@@ -11,7 +11,7 @@ namespace UniDAW
     /// ミキサーのオートメーション（EQ・ダッキング）、テンポ / スピード（シャッフル・リタルダンド）、
     /// 確率・条件トリガー、トラック長の違うポリメーター、順序表の移調（転調）。
     /// </summary>
-    public static class DemoSongs
+    public static partial class DemoSongs
     {
         const int P1 = 0, P2 = 1, Tri = 2, Nz = 3;
 

@@ -187,6 +187,8 @@ player.SetLayer(3, false);     // ノイズを抜く
 デモはパッケージ本体に含めず、UPM のサンプルとして同梱しています。Package Manager で UniDAW を選び、Samples の **Demo** を Import すると `Assets/Samples/UniDAW/<version>/Demo/` に入ります（File > Demo Samples… / 開始画面の Demo Samples… からも開けます）。
 
 - `DemoSong.asset`：機能紹介用のデモ曲（楽器マクロ・エフェクト・確率／条件トリガー・トラック長・ミキサーのオートメーション・転調を一通り使う）
+- `SunsetLoFi.asset`：84 BPM のゆったりした曲（セブンスの分散和音、Gxx のスウィング、確率で鳴るレコードのノイズ、Fxx でテンポを落とすエンディング、こもらせたミックスと -16 LUFS のマスター）
+- `IronFortress.asset`：168 BPM・7/8 拍子（14 行で 1 小節）のボス戦（2+2+3 のベースとドラム、0xy の和音、10 行で回るポリメーターのブレイク、順序表の半音転調、密度を上げた -11 LUFS のマスター）
 - `Demo.mid` / `DemoFromMidi.asset`：デモ MIDI と、それを読み込んだ Song
 - `UniDAWDemo.unity`：`UniDAWPlayer` + `UniDAWVisualizer` で再生と映像連携をするシーン
 
