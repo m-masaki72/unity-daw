@@ -55,6 +55,39 @@ namespace UniDAW.Editor
             s.master = m;
         });
 
+        // ---- 再生中のメーターと A/B ---------------------------------------------------
+
+        /// <summary>再生中のラウドネス（マスターチェーンの前と後）。エンジンが無ければ null。</summary>
+        public LiveLoudness Live => session.Transport?.Engine?.Loudness;
+        /// <summary>A/B：マスターチェーンを外して聴く（チェーンで変わった音量は補正する）。曲には保存しない。</summary>
+        public bool Audition { get; private set; }
+        /// <summary>A/B で外した音に掛けている補正（dB）。</summary>
+        public float AuditionGainDb { get; private set; }
+        /// <summary>補正量をいまの再生で測れているか（false の間は直前の値）。</summary>
+        public bool AuditionMeasured { get; private set; }
+
+        public void SetAudition(bool on)
+        {
+            Audition = on;
+            TickLive();
+            session.NotifyChanged();
+        }
+
+        /// <summary>毎フレーム：メーターを集計し、A/B の補正をエンジンに渡す。</summary>
+        void TickLive()
+        {
+            var e = session.Transport?.Engine;
+            if (e == null) return;
+            var live = e.Loudness;
+            if (live == null) e.Loudness = live = new LiveLoudness(e.SampleRate);
+            live.Poll();
+            var d = live.ChainGainDb;
+            AuditionMeasured = d.HasValue;
+            if (d.HasValue) AuditionGainDb = Math.Max(-24f, Math.Min(24f, d.Value));
+            e.AuditionBypass = Audition && Enabled;
+            e.AuditionGainDb = AuditionGainDb;
+        }
+
         // ---- 解析 ---------------------------------------------------------------------
 
         public void Analyze()
@@ -85,6 +118,7 @@ namespace UniDAW.Editor
         /// <summary>毎フレーム：終わった解析を取り込む。</summary>
         public void Tick()
         {
+            TickLive();
             if (Report != null && reportSong != Song)
             {
                 Report = null;

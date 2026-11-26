@@ -46,6 +46,18 @@ namespace UniDAW
         float master;
         readonly ChipMaster chain;
         bool chainOn;
+        bool audition;
+        float auditionGain = 1f;
+
+        /// <summary>出力のラウドネスを測る（null なら測らない）。ブロックの始めに設定する。</summary>
+        public LiveLoudness Meter;
+
+        /// <summary>A/B 試聴：チェーンの後の音の代わりに、前の音を gainDb だけ変えて出す（チェーンが無効なら何もしない）。</summary>
+        public void SetAudition(bool on, float gainDb)
+        {
+            audition = on;
+            auditionGain = ChannelMix.DbToGain(Math.Max(-24f, Math.Min(24f, gainDb)));
+        }
 
         /// <summary>ブロックの始めに呼ぶ：ミキサー設定を確定し、ピークをリセットする。</summary>
         public ChipMixer(double sampleRate)
@@ -190,9 +202,16 @@ namespace UniDAW
             dcInR = r;
             dcOutR = yr;
             float ol = yl * Headroom * master, or = yr * Headroom * master;
+            float pl = ol, pr = or;
             if (chainOn) chain.Process(ref ol, ref or);
             left = Clip(ol);
             right = Clip(or);
+            Meter?.Feed(pl, pr, left, right);
+            if (audition && chainOn)
+            {
+                left = Clip(pl * auditionGain);
+                right = Clip(pr * auditionGain);
+            }
             float al = Math.Abs(left), ar = Math.Abs(right);
             if (al > peakL) peakL = al;
             if (ar > peakR) peakR = ar;

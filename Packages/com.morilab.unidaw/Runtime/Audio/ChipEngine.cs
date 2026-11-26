@@ -94,6 +94,14 @@ namespace UniDAW
         public volatile SongMaster MasterOverride;
         /// <summary>直前のブロックでマスターチェーンが下げた最大量（dB、0 以下）。</summary>
         public float MasterReductionDb;
+        /// <summary>再生中のラウドネスメーター（マスターチェーンの前と後）。null なら測らない。</summary>
+        public volatile LiveLoudness Loudness;
+        /// <summary>
+        /// A/B 試聴：マスターチェーンを通した音の代わりに、通す前の音を <see cref="AuditionGainDb"/> だけ上げ下げして鳴らす。
+        /// チェーンは裏で動き続けるので、メーターとゲインリダクションはそのまま測れる。
+        /// </summary>
+        public volatile bool AuditionBypass;
+        public float AuditionGainDb;
 
         /// <summary>メトロノーム（拍ごとにクリック、小節頭は高い音）。エディタの試聴用で、書き出しには入らない。</summary>
         public volatile bool Metronome;
@@ -203,6 +211,8 @@ namespace UniDAW
             DrainCommands();
             var s = song;
             mixer.BeginBlock(s, Mute, Solo, MasterVolume, CurrentBpm(s), frames, BypassMaster ? null : (MasterOverride ?? s?.master));
+            mixer.Meter = playing ? Loudness : null;
+            mixer.SetAudition(AuditionBypass, AuditionGainDb);
 
             int idx = offset;
             for (int i = 0; i < frames; i++)
@@ -280,6 +290,7 @@ namespace UniDAW
         {
             CutAll();
             mixer.ResetAutomation();
+            Loudness?.Restart();
             playing = true;
             IsPlaying = true;
             loopPattern = patternMode;

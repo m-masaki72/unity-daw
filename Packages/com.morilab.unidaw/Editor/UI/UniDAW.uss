@@ -571,6 +571,10 @@
 .cd-master-analysis .cd-btnrow { justify-content: flex-start; }
 .cd-master-analysis .cd-btnrow > Button { height: 18px; padding: 0 6px; font-size: 11px; }
 .cd-master-status { font-size: 10px; color: rgb(140, 200, 230); margin: 3px 0; }
+.cd-loud-row { flex-direction: row; align-items: center; flex-wrap: wrap; margin: 2px 0; }
+.cd-loud-text { font-size: 11px; color: rgb(140, 210, 250); margin-right: 8px; }
+.cd-loud-ab { font-size: 10px; color: rgb(230, 190, 120); margin-left: 4px; }
+.cd-loud-graph { height: 56px; margin: 2px 0 4px 0; border-radius: 3px; }
 .cd-master-report { white-space: normal; font-size: 11px; color: rgb(200, 204, 214); margin-top: 4px; }
 
 /* ---- アレンジ（下ゾーン） */

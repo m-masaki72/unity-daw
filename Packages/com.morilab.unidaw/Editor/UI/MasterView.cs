@@ -25,7 +25,9 @@ namespace UniDAW.Editor
         readonly ToggleChip onChip, limitChip;
         readonly Fader[] faders = new Fader[SongMaster.ParamCount];
         readonly Label[] values = new Label[SongMaster.ParamCount];
-        readonly Label reduction, status, report;
+        readonly Label reduction, status, report, liveText, abText;
+        readonly ToggleChip abChip;
+        readonly LoudnessGraph graph;
         readonly MenuChip target;
         readonly Button analyze, match, ai;
         float grHold;
@@ -70,6 +72,27 @@ namespace UniDAW.Editor
             // ---- 解析
             var an = new VisualElement();
             an.AddToClassList("cd-master-analysis");
+
+            // 再生中のメーターと A/B
+            var lrow = new VisualElement();
+            lrow.AddToClassList("cd-loud-row");
+            liveText = new Label
+            {
+                tooltip = "再生中のラウドネス（マスターの後）。M = モーメンタリー 0.4 秒、S = ショートターム 3 秒、" +
+                          "I = 再生を始めてからの統合（ゲート付き）、PEAK = サンプルピークの最大。再生し直すと測り直す"
+            };
+            liveText.AddToClassList("cd-loud-text");
+            lrow.Add(liveText);
+            abChip = new ToggleChip("A/B", v => M.SetAudition(v),
+                "A/B：マスターチェーンを外して聴く。チェーンで変わった音量（直近 8 秒）は自動で補正するので、" +
+                "音量差でなく音色・ダイナミクスの違いで比べられる（曲には保存しない）");
+            lrow.Add(abChip);
+            abText = new Label();
+            abText.AddToClassList("cd-loud-ab");
+            lrow.Add(abText);
+            an.Add(lrow);
+            graph = new LoudnessGraph();
+            an.Add(graph);
             var at = new Label("Analysis");
             at.AddToClassList("cd-strip-name");
             an.Add(at);
@@ -159,6 +182,8 @@ namespace UniDAW.Editor
             status.style.display = string.IsNullOrEmpty(st) ? DisplayStyle.None : DisplayStyle.Flex;
             report.text = m.Report != null ? m.Report.Text() : "「解析」で曲のラウドネス・ピーク・帯域のバランスを測ります。";
             EnableInClassList("off", !m.Enabled);
+            abChip.Value = m.Audition;
+            abChip.SetEnabled(has && m.Enabled);
             UpdateLabels();
         }
 
@@ -176,7 +201,27 @@ namespace UniDAW.Editor
             float gr = e != null && ctx.Transport.IsPlaying && M.Enabled ? e.MasterReductionDb : 0f;
             grHold = gr < grHold ? gr : grHold * 0.92f;
             UpdateLabels();
+            UpdateLive();
         }
+
+        void UpdateLive()
+        {
+            var live = M.Live;
+            var post = live?.Post;
+            string t = post == null || post.Seconds <= 0f
+                ? "再生するとラウドネスを測ります"
+                : $"M {Db(post.MomentaryLufs)}  S {Db(post.ShortTermLufs)}  I {Db(post.IntegratedLufs)} LUFS   PEAK {Db(post.PeakDb)} dBFS";
+            if (liveText.text != t) liveText.text = t;
+            string ab = "";
+            if (M.Audition && M.Enabled)
+                ab = M.AuditionMeasured || Mathf.Abs(M.AuditionGainDb) > 0.01f
+                    ? $"マスターなし（{M.AuditionGainDb:+0.0;-0.0;0.0} dB で補正）"
+                    : "マスターなし（補正量は再生中に測ります）";
+            if (abText.text != ab) abText.text = ab;
+            graph.SetData(post?.History, live?.Pre.History, M.TargetLufs);
+        }
+
+        static string Db(float v) => LoudnessMeter.Format(v);
 
         void UpdateLabels()
         {
