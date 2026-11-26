@@ -41,11 +41,15 @@ namespace UniDAW.Editor
             Add(spacer);
 
             var pat = Group();
-            pat.Add(new Button(() => { s.SelectPattern(ctx.State.patternIndex - 1); ctx.FocusMain(); }) { text = "◀", tooltip = "前のパターン" });
+            var prev = new Button(() => { s.SelectPattern(ctx.State.patternIndex - 1); ctx.FocusMain(); }) { text = "◀", tooltip = "前のパターン" };
+            prev.AddToClassList("cd-patnav");
+            pat.Add(prev);
             label = new Label();
             label.AddToClassList("cd-patlabel");
             pat.Add(label);
-            pat.Add(new Button(() => { s.SelectPattern(ctx.State.patternIndex + 1); ctx.FocusMain(); }) { text = "▶", tooltip = "次のパターン" });
+            var next = new Button(() => { s.SelectPattern(ctx.State.patternIndex + 1); ctx.FocusMain(); }) { text = "▶", tooltip = "次のパターン" };
+            next.AddToClassList("cd-patnav");
+            pat.Add(next);
             nameField = new TextField { isDelayed = true, tooltip = "パターン名" };
             nameField.AddToClassList("cd-patname");
             nameField.RegisterValueChangedCallback(e => s.RenamePattern(e.newValue));
