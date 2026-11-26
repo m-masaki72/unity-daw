@@ -24,7 +24,8 @@ namespace UniDAW
         readonly float[] sendR = new float[ChipEngine.Channels];
         readonly float[] duck = new float[ChipEngine.Channels];
         readonly float[] samples = new float[ChipEngine.Channels];
-        readonly ChipEq[] eq = new ChipEq[ChipEngine.Channels];
+        /// <summary>音声スレッドで new しないよう最初に作っておく。</summary>
+        readonly ChipEq[] eq = { new ChipEq(), new ChipEq(), new ChipEq(), new ChipEq() };
         readonly bool[] eqOn = new bool[ChipEngine.Channels];
         readonly ChannelMix[] mixRef = new ChannelMix[ChipEngine.Channels];
         /// <summary>エフェクト列（L / M / H / D）で上書きした値。NaN はミキサーの値。</summary>
@@ -100,12 +101,8 @@ namespace UniDAW
         void Resolve(int c)
         {
             float lo = Value(c, MixParam.EqLow), md = Value(c, MixParam.EqMid), hi = Value(c, MixParam.EqHigh);
-            if (lo != 0f || md != 0f || hi != 0f || eq[c] != null)
-            {
-                eq[c] ??= new ChipEq();
-                eq[c].Set(lo, md, hi, sampleRate);
-            }
-            eqOn[c] = eq[c] != null && eq[c].Active;
+            eq[c].Set(lo, md, hi, sampleRate);
+            eqOn[c] = eq[c].Active;
             duck[c] = c == scSource ? 0f : SongEffects.Clamp01(Value(c, MixParam.Duck));
             anyDuck = false;
             for (int i = 0; i < duck.Length; i++) anyDuck |= duck[i] > 0f;

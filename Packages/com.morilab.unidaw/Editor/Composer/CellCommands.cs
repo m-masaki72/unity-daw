@@ -77,6 +77,7 @@ namespace UniDAW.Editor
         /// <summary>トラッカー列（0 = ノート…6 = Fx2 パラメータ）の内容を消す。ノート列なら進む。</summary>
         public void Delete(int col)
         {
+            if (!s.CanEdit()) return;
             s.ModifyCell("Delete", (ref Cell c) =>
             {
                 switch (col)
@@ -94,6 +95,7 @@ namespace UniDAW.Editor
         /// <summary>エフェクト種別列（3 または 5）へ種別を入力し、パラメータ列へ移る。</summary>
         public void SetFxType(int col, FxType t)
         {
+            if (!s.CanEdit()) return;
             bool first = col == 3;
             s.ModifyCell("Edit Fx", (ref Cell c) =>
             {
@@ -106,6 +108,7 @@ namespace UniDAW.Editor
         /// <summary>数値列（1 楽器 / 2 音量 / 4・6 Fx パラメータ）へ 16 進 1 桁を入力する。</summary>
         public void TypeHex(int col, int d)
         {
+            if (!s.CanEdit()) return;
             switch (col)
             {
                 case 1:
@@ -195,6 +198,7 @@ namespace UniDAW.Editor
             s.ModifyPattern("Paste Track", pat =>
             {
                 var dst = pat.tracks[ch].cells;
+                for (int i = 0; i < dst.Length; i++) dst[i] = Cell.Blank; // クリップボードより長い分は空に
                 for (int i = 0; i < dst.Length && i < clipboard.Length; i++) dst[i] = clipboard[i];
                 pat.tracks[ch].length = clipboardLength < pat.length ? clipboardLength : 0;
             });

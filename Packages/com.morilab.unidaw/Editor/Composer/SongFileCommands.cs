@@ -130,7 +130,7 @@ namespace UniDAW.Editor
             try
             {
                 var name = Path.GetFileNameWithoutExtension(path);
-                var song = FamiTrackerImport.Import(File.ReadAllText(path), name, out var report);
+                var song = FamiTrackerImport.Import(FamiTrackerImport.Decode(File.ReadAllBytes(path)), name, out var report);
                 var dst = EditorUtility.SaveFilePanelInProject("Save Imported Song", name, "asset", "変換した Song の保存先");
                 if (string.IsNullOrEmpty(dst))
                 {

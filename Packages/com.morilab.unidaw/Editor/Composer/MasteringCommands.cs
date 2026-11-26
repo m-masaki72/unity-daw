@@ -13,6 +13,8 @@ namespace UniDAW.Editor
         Task<MasterReport> analyzeTask;
         Task<SongMaster> matchTask;
         Song taskSong, reportSong;
+        /// <summary>解析スレッドに渡す曲の複製（編集中の曲をバックグラウンドで読まないため）。</summary>
+        Song snapshot;
 
         public MasteringCommands(ComposerSession session) => this.session = session;
 
@@ -94,9 +96,9 @@ namespace UniDAW.Editor
         {
             var song = Song;
             if (song == null || Busy) return;
-            song.Validate();
-            var master = song.master.Clone();
             taskSong = song;
+            song = snapshot = Snapshot(song);
+            var master = song.master.Clone();
             Status = "解析中…（曲をレンダリングしています）";
             analyzeTask = Task.Run(() => MasterAnalysis.Analyze(song, master));
             session.NotifyChanged();
@@ -107,12 +109,27 @@ namespace UniDAW.Editor
         {
             var song = Song;
             if (song == null || Busy || session.IsReadOnly) return;
-            song.Validate();
-            var master = song.master.Clone();
             taskSong = song;
+            song = snapshot = Snapshot(song);
+            var master = song.master.Clone();
             Status = $"ラウドネスを {master.targetLufs:0.#} LUFS に合わせています…";
             matchTask = Task.Run(() => MasterAnalysis.MatchLoudness(song, master, out _));
             session.NotifyChanged();
+        }
+
+        static Song Snapshot(Song song)
+        {
+            var copy = UnityEngine.Object.Instantiate(song);
+            copy.hideFlags = UnityEngine.HideFlags.HideAndDontSave;
+            copy.Validate();
+            return copy;
+        }
+
+        /// <summary>複製を捨てる。中身は C# のフィールドだけなので、走り終わっていないスレッドが読んでいても壊れない。</summary>
+        void DropSnapshot()
+        {
+            if (snapshot != null) UnityEngine.Object.DestroyImmediate(snapshot);
+            snapshot = null;
         }
 
         /// <summary>毎フレーム：終わった解析を取り込む。</summary>
@@ -130,6 +147,7 @@ namespace UniDAW.Editor
                 analyzeTask = null;
                 matchTask = null;
                 taskSong = null;
+                DropSnapshot();
                 Report = null;
                 Status = "";
                 session.NotifyChanged();
@@ -140,6 +158,7 @@ namespace UniDAW.Editor
                 var t = analyzeTask;
                 analyzeTask = null;
                 taskSong = null;
+                DropSnapshot();
                 if (t.IsFaulted)
                 {
                     Status = "解析に失敗しました：" + t.Exception?.GetBaseException().Message;
@@ -158,6 +177,7 @@ namespace UniDAW.Editor
                 var t = matchTask;
                 matchTask = null;
                 taskSong = null;
+                DropSnapshot();
                 if (t.IsFaulted) Status = "ラウドネス合わせに失敗しました：" + t.Exception?.GetBaseException().Message;
                 else if (t.Result == null) Status = "音が出ていないので合わせられません";
                 else

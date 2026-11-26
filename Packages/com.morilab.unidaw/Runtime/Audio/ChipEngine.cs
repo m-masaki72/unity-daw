@@ -346,6 +346,18 @@ namespace UniDAW
 
         void Tick(Song s)
         {
+            try
+            {
+                TickCore(s);
+            }
+            catch (Exception)
+            {
+                // 編集中の構造変更（パターン数・長さ）と競合しても音声スレッドは止めない。次のティックで読み直す
+            }
+        }
+
+        void TickCore(Song s)
+        {
             if (playing && countInRows > 0)
             {
                 if (tickInRow == 0) click.OnRow(countInTotal - countInRows, RowsPerBeat(s));

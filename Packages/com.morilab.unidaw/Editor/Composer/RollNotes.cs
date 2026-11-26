@@ -91,10 +91,12 @@ namespace UniDAW.Editor
                 var n = list[i];
                 var c = n.cell;
                 c.note = n.pitch;
-                // 置き先にエフェクトだけのセルがあれば、ノート側が空の列は引き継ぐ
+                // 置き先にエフェクト・音量だけのセルがあれば、ノート側が空の列は引き継ぐ
                 var under = cells[n.start];
                 if (c.fx1.IsEmpty) c.fx1 = under.fx1;
                 if (c.fx2.IsEmpty) c.fx2 = under.fx2;
+                if (c.volume < 0) c.volume = under.volume;
+                if (c.instrument < 0) c.instrument = under.instrument;
                 cells[n.start] = c;
                 int end = n.End;
                 bool nextStartsHere = i + 1 < list.Count && list[i + 1].start == end;

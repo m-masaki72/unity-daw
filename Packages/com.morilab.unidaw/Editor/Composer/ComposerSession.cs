@@ -53,6 +53,9 @@ namespace UniDAW.Editor
             if (Song == null) return;
             Song.Validate();
             State.Clamp();
+            // Undo で楽器が消えたら、チャンネルの選択楽器を範囲内に戻す
+            for (int c = 0; c < Song.ChannelCount; c++)
+                UniDAWMidiBridge.ChannelInstrument[c] = Mathf.Clamp(UniDAWMidiBridge.ChannelInstrument[c], 0, Mathf.Max(0, Song.instruments.Count - 1));
             Changed?.Invoke();
         }
 

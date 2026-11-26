@@ -75,7 +75,7 @@ namespace UniDAW.Midi
             song.name = title;
             song.bpm = (float)Math.Round(Math.Max(20, Math.Min(400, data.InitialBpm)), 2);
             song.rowsPerBeat = rowsPerBeat;
-            song.speed = opt.speed;
+            song.speed = Math.Max(1, Math.Min(31, opt.speed));
 
             double ticksPerRow = data.division / (double)rowsPerBeat;
             RowNote ToRow(MidiNote n, int instrument)
