@@ -52,8 +52,8 @@ namespace UniDAW.Editor
                 var name = new Label(Song.ChannelNames[c]);
                 name.AddToClassList("cd-chname");
                 head.Add(name);
-                ui.mute = new Button(() => ctx.Mixer.ToggleMute(ch)) { text = "M" };
-                ui.solo = new Button(() => ctx.Mixer.ToggleSolo(ch)) { text = "S" };
+                ui.mute = new Button(() => ctx.Mixer.ToggleMute(ch)) { text = "M", tooltip = "ミュート" };
+                ui.solo = new Button(() => ctx.Mixer.ToggleSolo(ch)) { text = "S", tooltip = "ソロ" };
                 ui.mute.AddToClassList("cd-ms");
                 ui.solo.AddToClassList("cd-ms");
                 head.Add(ui.mute);

@@ -58,8 +58,8 @@ namespace UniDAW.Editor
             Add(trackLenField);
 
             Add(ComposerContext.ButtonRow(
-                new Button(ctx.Cells.ClearCell) { text = "Clear Cell" },
-                new Button(ctx.Cells.ClearLocks) { text = "Clear Locks" }));
+                new Button(ctx.Cells.ClearCell) { text = "Clear Cell", tooltip = "カーソル位置のセルを空にする" },
+                new Button(ctx.Cells.ClearLocks) { text = "Clear Locks", tooltip = "ノートは残し、音量・エフェクト・確率・条件を消す" }));
 
             fxHelp = new Label();
             fxHelp.AddToClassList("cd-help");

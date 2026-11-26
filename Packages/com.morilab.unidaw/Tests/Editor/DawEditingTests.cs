@@ -242,4 +242,24 @@ namespace UniDAW.Tests
             Assert.IsTrue(ComposerKeymap.IsWindowCommand(KeyCode.L, true, false, true));
         }
     }
+
+    public class CellDescriptionTests
+    {
+        [Test]
+        public void DescribesNoteInstrumentAndFx()
+        {
+            var song = Song.CreateDefault();
+            var cell = Cell.Blank;
+            Assert.IsNull(CellDescription.Describe(song, 0, cell), "空のセルは説明なし");
+            cell.note = 48;
+            cell.instrument = 0;
+            cell.fx1 = new Fx { type = FxType.Arpeggio, param = 0x37 };
+            cell.probability = 50;
+            string t = CellDescription.Describe(song, 0, cell, 4);
+            StringAssert.Contains("長さ 4 行", t);
+            StringAssert.Contains("楽器 00 " + song.GetInstrument(0).name, t);
+            StringAssert.Contains(FxText.Format(cell.fx1) + " = ", t);
+            StringAssert.Contains("50%", t);
+        }
+    }
 }

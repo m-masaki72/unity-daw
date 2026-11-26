@@ -581,4 +581,10 @@
 .cd-arrange-drop { position: absolute; top: 18px; bottom: 0; width: 2px; background-color: rgb(255, 210, 90); }
 
 .cd-assist-cand { min-width: 34px; }
+
+.cd-tooltip {
+    position: absolute; max-width: 360px; padding: 4px 7px;
+    background-color: rgb(28, 30, 36); border-width: 1px; border-color: rgb(78, 84, 100); border-radius: 3px;
+}
+.cd-tooltip > Label { white-space: normal; color: rgb(220, 224, 232); font-size: 11px; }
 .cd-assist-cand.on { background-color: rgb(62, 86, 150); border-color: rgb(90, 124, 210); color: rgb(255, 255, 255); }

@@ -79,6 +79,7 @@ namespace UniDAW.Editor
         internal void RunWindowCommand(KeyCode k, bool ctrl, bool alt) => keymap.HandleKey(k, ctrl, false, alt);
 
         UniDAWShortcuts.Context shortcutContext;
+        TooltipOverlay tooltips;
 
         [MenuItem("Window/UniDAW/Composer")]
         public static UniDAWWindow Open()
@@ -167,7 +168,7 @@ namespace UniDAW.Editor
             readOnlyBanner = new VisualElement();
             readOnlyBanner.AddToClassList("cd-banner");
             readOnlyBanner.Add(new Label("MIDI からインポートされた Song は読み取り専用ですわ。編集するには複製してくださいませ。"));
-            readOnlyBanner.Add(new Button(files.MakeEditableCopy) { text = "編集用に複製" });
+            readOnlyBanner.Add(new Button(files.MakeEditableCopy) { text = "編集用に複製", tooltip = "この Song を編集できるアセットとして複製して開く" });
             root.Add(readOnlyBanner);
 
             body = new VisualElement();
@@ -206,6 +207,7 @@ namespace UniDAW.Editor
             }
             root.RegisterCallback<DragUpdatedEvent>(OnDragUpdated);
             root.RegisterCallback<DragPerformEvent>(OnDragPerform);
+            tooltips = new TooltipOverlay(root);
 
             SetSong(state.song);
         }
@@ -342,6 +344,7 @@ namespace UniDAW.Editor
 
         void OnEditorUpdate()
         {
+            tooltips?.Tick();
             statusBar?.Tick();
             bool moved = transport.Poll(out bool patternChanged);
             var e = transport.Engine;

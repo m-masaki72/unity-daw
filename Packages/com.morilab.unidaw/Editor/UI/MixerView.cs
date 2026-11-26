@@ -50,6 +50,7 @@ namespace UniDAW.Editor
                 s.root.Add(name);
 
                 s.pan = new Fader(false, -1f, 1f, 0f, 1f / 16f, bipolar: true);
+                s.pan.tooltip = "パン（左右の定位）\n" + s.pan.tooltip;
                 s.pan.Dragged += v => m.PreviewPan(ch, v);
                 s.pan.Committed += (a, b) => m.CommitPan(ch, a, b);
                 s.root.Add(s.pan);
@@ -73,6 +74,7 @@ namespace UniDAW.Editor
                 var faderRow = new VisualElement();
                 faderRow.AddToClassList("cd-strip-faderrow");
                 s.volume = new Fader(true, ChannelMix.MinDb, ChannelMix.MaxDb, 0f, 1f);
+                s.volume.tooltip = "音量（dB）\n" + s.volume.tooltip;
                 s.volume.Dragged += v => m.PreviewVolume(ch, v);
                 s.volume.Committed += (a, b) => m.CommitVolume(ch, a, b);
                 faderRow.Add(s.volume);
@@ -129,6 +131,7 @@ namespace UniDAW.Editor
             var row = new VisualElement();
             row.AddToClassList("cd-strip-faderrow");
             master = new Fader(true, ChannelMix.MinDb, ChannelMix.MaxDb, 0f, 1f);
+            master.tooltip = "マスター音量（dB）\n" + master.tooltip;
             master.Dragged += m.PreviewMaster;
             master.Committed += m.CommitMaster;
             row.Add(master);
@@ -212,6 +215,7 @@ namespace UniDAW.Editor
             cap.AddToClassList("cd-send-cap");
             row.Add(cap);
             var f = new Fader(false, min, max, def, (max - min) / 48f);
+            f.tooltip = FxTip(p) + "\n" + f.tooltip;
             f.Dragged += v => m.PreviewFx(p, v);
             f.Committed += (a, b) => m.CommitFx(p, a, b);
             row.Add(f);
@@ -239,6 +243,15 @@ namespace UniDAW.Editor
             p == FxParam.DelayReturn || p == FxParam.ReverbReturn ? ChannelMix.FormatDb(v)
             : p == FxParam.DuckRelease ? Mathf.RoundToInt(SongEffects.ReleaseMs(v)) + "ms"
             : Mathf.RoundToInt(v * 100) + "%";
+
+        static string FxTip(FxParam p) =>
+            p == FxParam.DelayFeedback ? "ディレイのフィードバック（繰り返しの量）"
+            : p == FxParam.DelayReturn ? "ディレイの戻り音量"
+            : p == FxParam.ReverbSize ? "リバーブの広さ（残響の長さ）"
+            : p == FxParam.ReverbDamp ? "リバーブの高域の減衰（大きいほどこもる）"
+            : p == FxParam.ReverbReturn ? "リバーブの戻り音量"
+            : p == FxParam.DuckRelease ? "サイドチェインで下げた音量が戻るまでの時間"
+            : p.ToString();
 
         static Label SmallLabel(VisualElement parent, string cls)
         {

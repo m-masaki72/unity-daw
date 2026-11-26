@@ -23,8 +23,8 @@ namespace UniDAW.Editor
 
             Add(ComposerContext.ButtonRow(
                 new Button(() => s.ShowLowerTab(LowerTab.Instrument)) { text = "Edit…", tooltip = "楽器エディタを開く" },
-                new Button(() => s.AddInstrument(false)) { text = "New" },
-                new Button(s.Audition) { text = "▶" }));
+                new Button(() => s.AddInstrument(false)) { text = "New", tooltip = "楽器を追加" },
+                new Button(s.Audition) { text = "▶", tooltip = "選択中の楽器を試聴" }));
         }
 
         public void Refresh()

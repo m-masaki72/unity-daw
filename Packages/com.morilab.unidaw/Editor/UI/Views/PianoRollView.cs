@@ -11,7 +11,7 @@ namespace UniDAW.Editor
     /// カーソルのあるチャンネルを 1 本ずつ表示し、Cubase / Studio One のキーエディタと同じ要領で編集する。
     /// 編集そのものは <see cref="RollEditor"/> が行い、ここはマウス操作の解釈を、描画は PianoRollView.Draw.cs が受け持つ。
     /// </summary>
-    public partial class PianoRollView : VisualElement, IPatternView
+    public partial class PianoRollView : VisualElement, IPatternView, ITooltipSource
     {
         public const float CellW = 18f, RowH = 12f;
         const int DefaultLo = 36, DefaultHi = 84, NoiseHi = 15;
@@ -62,7 +62,7 @@ namespace UniDAW.Editor
             for (int c = 0; c < Song.ChannelCount; c++)
             {
                 int ch = c;
-                var b = new Button(() => { ctx.Session.SetCursor(ctx.State.cursorRow, ch, 0); ctx.FocusMain(); }) { text = Song.ChannelNames[c] };
+                var b = new Button(() => { ctx.Session.SetCursor(ctx.State.cursorRow, ch, 0); ctx.FocusMain(); }) { text = Song.ChannelNames[c], tooltip = "編集するチャンネルを切り替え" };
                 b.AddToClassList("cd-ms");
                 chButtons[c] = b;
                 HeaderTools.Add(b);
@@ -119,6 +119,12 @@ namespace UniDAW.Editor
         }
 
         bool IsNoise => Song.Kinds[ctx.State.cursorCh] == ChannelKind.Noise;
+
+        public string TooltipAt(VisualElement picked, Vector2 worldPos)
+        {
+            if (picked != canvas || ctx.State.song == null || !NoteAt(canvas.WorldToLocal(worldPos), out var note, out _)) return null;
+            return CellDescription.Describe(ctx.State.song, ctx.State.cursorCh, note.cell, note.length);
+        }
 
         /// <summary>座標 → (表示上の行, ピッチ)。行はトラック長で折り返す前の値。</summary>
         public bool HitTest(Vector2 local, out int row, out int pitch)

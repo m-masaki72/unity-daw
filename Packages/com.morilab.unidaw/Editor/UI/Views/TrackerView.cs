@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace UniDAW.Editor
@@ -7,7 +8,7 @@ namespace UniDAW.Editor
     /// トラッカー表示。行 × (Note Ins Vol FxT FxP FxT FxP Flag)。
     /// ポリメーターでトラック長を超えた行はループ内容を薄く表示（ゴースト）。
     /// </summary>
-    public class TrackerView : VisualElement, IPatternView
+    public class TrackerView : VisualElement, IPatternView, ITooltipSource
     {
         public const int Cols = ComposerState.TrackerColumns; // カーソルが乗る列数
         static readonly string[] ColClass = { "cd-note", "cd-inst", "cd-vol", "cd-fxt", "cd-fxp", "cd-fxt", "cd-fxp" };
@@ -46,11 +47,11 @@ namespace UniDAW.Editor
                 var box = new VisualElement();
                 box.AddToClassList("cd-chhead-t");
                 box.AddToClassList("ch" + c);
-                var name = new Label(Song.ChannelNames[c]);
+                var name = new Label(Song.ChannelNames[c]) { tooltip = "列：ノート / 楽器 / 音量 / エフェクト 1 / エフェクト 2" };
                 name.AddToClassList("cd-chname");
                 box.Add(name);
-                mute[c] = new Button(() => ctx.Mixer.ToggleMute(ch)) { text = "M" };
-                solo[c] = new Button(() => ctx.Mixer.ToggleSolo(ch)) { text = "S" };
+                mute[c] = new Button(() => ctx.Mixer.ToggleMute(ch)) { text = "M", tooltip = "ミュート" };
+                solo[c] = new Button(() => ctx.Mixer.ToggleSolo(ch)) { text = "S", tooltip = "ソロ" };
                 mute[c].AddToClassList("cd-ms");
                 solo[c].AddToClassList("cd-ms");
                 box.Add(mute[c]);
@@ -82,7 +83,7 @@ namespace UniDAW.Editor
                     group.AddToClassList("cd-tgroup");
                     for (int k = 0; k <= Cols; k++)
                     {
-                        var l = new Label();
+                        var l = new Label { userData = new Vector3Int(r, c, k) };
                         l.AddToClassList("cd-cell");
                         l.AddToClassList(k < Cols ? ColClass[k] : "cd-flag");
                         int ch = c, col = k < Cols ? k : 0, row = r;
@@ -166,6 +167,25 @@ namespace UniDAW.Editor
         }
 
         public VisualElement HeaderTools => null;
+
+        public string TooltipAt(VisualElement picked, Vector2 worldPos)
+        {
+            var p = ctx.State.CurrentPattern;
+            if (!(picked?.userData is Vector3Int v) || p == null || v.x >= p.length) return null;
+            int tl = p.TrackLength(v.y);
+            if (tl <= 0) return null;
+            bool ghost = v.x >= tl;
+            var cell = p.tracks[v.y].cells[v.x % tl];
+            string text = CellDescription.Describe(ctx.State.song, v.y, cell);
+            if (v.z == 3 || v.z == 5)
+            {
+                var fx = v.z == 3 ? cell.fx1 : cell.fx2;
+                string help = FxText.Help(fx.type);
+                text = text == null ? help : text + "\n\n" + help;
+            }
+            if (text != null && ghost) text += $"\n（ポリメーター：行 {v.x % tl:X2} の繰り返し）";
+            return text;
+        }
 
         public void UpdatePlayhead() => UpdatePlayhead(ctx.Transport.PlayheadRow);
 

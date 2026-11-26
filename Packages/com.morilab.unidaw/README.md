@@ -76,6 +76,8 @@ Unity をエディタとして使う音楽制作向けの DAW です。ステッ
 | Ctrl+Alt+L / Ctrl+Alt+R | 左ゾーン（パターン一覧）／右ゾーン（Inspector / Assist）の開閉 |
 
 > 再生・テンキー・F1 / F3・Alt+C・Ctrl+Alt+E / A / L / R は Unity の Shortcut Manager に登録しており、Edit > Shortcuts の「UniDAW」で割り当てを変えられます（Enter は Unity の制約で変更不可）。
+>
+> ボタンやフェーダーにマウスを乗せると説明が出ます。トラッカーのセルとピアノロールのノートでは、そのセルの中身（楽器名・エフェクトの意味など）を表示します。
 
 ### 順序表（どのビューでも共通）
 | キー | 動作 |
