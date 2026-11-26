@@ -31,7 +31,7 @@ namespace UniDAW.Editor
                 "Num0 / Esc : 停止   Num. : 先頭へ\n" +
                 "Num/ : サイクル   Num* : 録音\n" +
                 "Alt+C : メトロノーム\n" +
-                "F3 : ミキサー   Ctrl+Alt+E : 下ゾーン\n" +
+                "F3 : ミキサー   Ctrl+Alt+E : 下ゾーン   Ctrl+Alt+A : アレンジ帯\n" +
                 "Ctrl+Alt+L / R : 左 / 右ゾーン\n" +
                 "Num- / Num+ : 前/次の順序\n" +
                 "\n順序表（どのビューでも）\n" +
@@ -127,6 +127,7 @@ namespace UniDAW.Editor
                 switch (k)
                 {
                     case KeyCode.E: s.ToggleLowerZone(); return true;
+                    case KeyCode.A: s.ToggleBandZone(); return true;
                     case KeyCode.L: s.ToggleLeftZone(); return true;
                     case KeyCode.R: s.ToggleRightZone(); return true;
                 }

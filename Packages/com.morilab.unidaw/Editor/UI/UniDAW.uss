@@ -504,14 +504,15 @@
 .cd-fxstrip .cd-btnrow { justify-content: flex-start; }
 
 /* ---- アレンジ（下ゾーン） */
-.cd-arrange { flex-grow: 1; min-height: 0; padding: 2px 4px; }
+.cd-arrange { flex-grow: 0; flex-shrink: 0; min-height: 0; padding: 2px 4px; background-color: rgb(28, 28, 36); }
 .cd-arrange-bar { flex-direction: row; align-items: center; flex-shrink: 0; margin-bottom: 2px; }
+.cd-arrange-name { font-size: 10px; -unity-font-style: bold; color: rgb(170, 170, 190); margin-right: 6px; }
 .cd-arrange-btn { height: 18px; padding: 0 6px; margin: 0 2px 0 0; font-size: 11px; }
 .cd-arrange-info { margin-left: 8px; font-size: 10px; color: rgb(150, 150, 165); }
 .cd-arrange-scroll { flex-grow: 1; min-height: 0; background-color: rgb(20, 20, 26); border-radius: 3px; }
-.cd-arrange-canvas { height: 120px; flex-shrink: 0; }
+.cd-arrange-canvas { height: 80px; flex-shrink: 0; }
 .cd-arrange-ruler { position: absolute; left: 0; right: 0; top: 0; height: 18px; border-bottom-width: 1px; border-color: rgb(50, 50, 62); }
-.cd-arrange-block { position: absolute; border-radius: 3px; border-width: 1px; border-color: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.cd-arrange-block { position: absolute; bottom: 2px; border-radius: 3px; border-width: 1px; border-color: rgba(255, 255, 255, 0.12); overflow: hidden; }
 .cd-arrange-block:hover { border-color: rgba(255, 255, 255, 0.4); }
 .cd-arrange-block.sel { border-color: rgb(255, 210, 90); border-width: 2px; }
 .cd-arrange-block.drag { opacity: 0.7; }

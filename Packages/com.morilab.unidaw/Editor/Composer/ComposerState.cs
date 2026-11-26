@@ -9,7 +9,7 @@ namespace UniDAW.Editor
     /// <summary>ピアノロールのツール（int としてシリアライズされるので値は固定）。</summary>
     public enum RollTool { Select = 0, Draw = 1, Erase = 2 }
 
-    /// <summary>下ゾーン（Cubase の Lower Zone）のタブ（int としてシリアライズされるので値は固定）。</summary>
+    /// <summary>下ゾーン（Cubase の Lower Zone）のタブ（int としてシリアライズされるので値は固定）。Arrange は上部の帯に移った（読み込み時は Mixer に読み替え）。</summary>
     public enum LowerTab { Mixer = 0, Instrument = 1, Assist = 2, Arrange = 3 }
 
     /// <summary>
@@ -51,6 +51,10 @@ namespace UniDAW.Editor
         public bool leftOpen = true, rightOpen = true;
         public float leftWidth = 150f, rightWidth = 270f, lowerHeight = 230f;
         public const float MinSideWidth = 120f, MaxSideWidth = 480f, MinLowerHeight = 90f, MaxLowerHeight = 600f;
+        /// <summary>上部のアレンジ帯の開閉と高さ。</summary>
+        public bool bandOpen = true;
+        public float bandHeight = 120f;
+        public const float MinBandHeight = 60f, MaxBandHeight = 360f;
         /// <summary>楽器エディタで編集中のマクロ。</summary>
         public MacroKind macro;
         /// <summary>入力支援：伴奏の型・メロディ提案の長さ / ばらつき / 乱数の種。</summary>
@@ -91,6 +95,7 @@ namespace UniDAW.Editor
             cursorCol = Mathf.Clamp(cursorCol, 0, TrackerColumns - 1);
             octave = Mathf.Clamp(octave, 0, MaxOctave);
             editStep = Mathf.Clamp(editStep, 0, MaxEditStep);
+            if (lowerTab == LowerTab.Arrange) lowerTab = LowerTab.Mixer;
         }
     }
 }

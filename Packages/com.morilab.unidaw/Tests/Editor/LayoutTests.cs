@@ -109,6 +109,27 @@ namespace UniDAW.Tests
         }
 
         [Test]
+        public void ArrangeBand_TogglesAndOldLowerTabMapsToMixer()
+        {
+            WithWindow((w, song) =>
+            {
+                Assert.IsTrue(w.State.bandOpen);
+                Assert.IsTrue(w.HandleKey(KeyCode.A, true, false, true));
+                Assert.IsFalse(w.State.bandOpen, "Ctrl+Alt+A でアレンジ帯");
+                w.Session.ShowLowerTab(LowerTab.Arrange);
+                Assert.IsTrue(w.State.bandOpen, "旧 Arrange タブを開く操作は帯を開く");
+                Assert.AreEqual(LowerTab.Mixer, w.State.lowerTab);
+
+                w.State.lowerTab = LowerTab.Arrange; // 以前の版で保存された状態
+                w.State.Clamp();
+                Assert.AreEqual(LowerTab.Mixer, w.State.lowerTab);
+
+                w.Session.SetPanelSize(PanelEdge.Band, 1000);
+                Assert.AreEqual(ComposerState.MaxBandHeight, w.State.bandHeight);
+            });
+        }
+
+        [Test]
         public void PlainKeys_StillEditCells()
         {
             WithWindow((w, song) =>

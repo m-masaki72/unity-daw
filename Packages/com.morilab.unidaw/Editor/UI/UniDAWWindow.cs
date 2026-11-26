@@ -39,6 +39,8 @@ namespace UniDAW.Editor
         VisualElement readOnlyBanner, mainArea;
         OrderPanel orderPanel;
         EditorHeader editorHeader;
+        ArrangeView arrangeBand;
+        Splitter bandSplit;
         SongPanel songPanel;
         CellInspector inspector;
         InstrumentPanel instrumentPanel;
@@ -204,6 +206,13 @@ namespace UniDAW.Editor
         {
             center = new VisualElement();
             center.AddToClassList("cd-center");
+            // 上：アレンジ帯（曲全体の並び）→ 見出し → パターン編集 → 下ゾーン
+            arrangeBand = new ArrangeView(ctx);
+            center.Add(arrangeBand);
+            bandSplit = new Splitter(arrangeBand, PanelEdge.Band, () => ComposerState.MinBandHeight,
+                () => Mathf.Min(ComposerState.MaxBandHeight, mainArea.resolvedStyle.height + arrangeBand.resolvedStyle.height - PanelLayout.EditorMinHeight),
+                h => session.SetPanelSize(PanelEdge.Band, h), session.ToggleBandZone, "ドラッグで高さを変更・ダブルクリックで閉じる（Ctrl+Alt+A）");
+            center.Add(bandSplit);
             editorHeader = new EditorHeader(ctx);
             center.Add(editorHeader);
             mainArea = new VisualElement { focusable = true };
@@ -240,16 +249,20 @@ namespace UniDAW.Editor
         {
             if (body == null) return;
             float h = center.resolvedStyle.height - editorHeader.resolvedStyle.height;
-            visible = PanelLayout.Fit(body.resolvedStyle.width, h, new PanelVisibility(state.leftOpen, state.rightOpen, false, state.lowerOpen),
-                state.leftWidth + SplitterSize, state.rightWidth + SplitterSize, 0, state.lowerHeight + SplitterSize, state.view);
+            visible = PanelLayout.Fit(body.resolvedStyle.width, h, new PanelVisibility(state.leftOpen, state.rightOpen, state.bandOpen, state.lowerOpen),
+                state.leftWidth + SplitterSize, state.rightWidth + SplitterSize, state.bandHeight + SplitterSize, state.lowerHeight + SplitterSize, state.view);
             orderPanel.style.width = state.leftWidth;
             rightPanel.style.width = state.rightWidth;
             lowerZone.style.height = state.lowerHeight;
+            arrangeBand.style.height = state.bandHeight;
             Show(orderPanel, leftSplit, visible.left);
             Show(rightPanel, rightSplit, visible.right);
             bool lowerWas = lowerZone.style.display != DisplayStyle.None;
             Show(lowerZone, lowerSplit, visible.lower);
             if (visible.lower && !lowerWas && state.song != null) lowerZone.Refresh();
+            bool bandWas = arrangeBand.style.display != DisplayStyle.None;
+            Show(arrangeBand, bandSplit, visible.band);
+            if (visible.band && !bandWas && state.song != null) arrangeBand.Refresh();
         }
 
         static void Show(VisualElement panel, VisualElement splitter, bool on)
@@ -293,6 +306,7 @@ namespace UniDAW.Editor
             ApplyLayout();
             if (!has) return;
             if (visible.lower) lowerZone.Refresh();
+            if (visible.band) arrangeBand.Refresh();
             if (visible.left) orderPanel.Refresh();
             cur.Refresh();
             if (visible.right)
@@ -311,6 +325,7 @@ namespace UniDAW.Editor
             recorder.Drain(e);
             toolbar?.UpdatePlayhead();
             lowerZone?.UpdatePlayback();
+            if (visible.band) arrangeBand?.UpdatePlayhead();
             if (!moved || toolbar == null || state.song == null) return;
 
             int pp = e.IsPlaying ? e.PlayingPattern : -1;

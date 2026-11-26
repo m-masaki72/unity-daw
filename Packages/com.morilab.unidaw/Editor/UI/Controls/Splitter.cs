@@ -18,7 +18,7 @@ namespace UniDAW.Editor
         bool dragging;
         float startPointer, startSize, size;
 
-        bool Vertical => edge == PanelEdge.Lower;
+        bool Vertical => edge == PanelEdge.Lower || edge == PanelEdge.Band;
 
         public Splitter(VisualElement target, PanelEdge edge, Func<float> min, Func<float> max, Action<float> commit, Action toggle, string tooltip)
         {
@@ -40,7 +40,7 @@ namespace UniDAW.Editor
         float Coord(Vector3 p) => Vertical ? p.y : p.x;
 
         /// <summary>ポインタが動いた向きと、対象が大きくなる向きの対応（右・下のパネルは逆向き）。</summary>
-        float Sign => edge == PanelEdge.Left ? 1f : -1f;
+        float Sign => edge == PanelEdge.Left || edge == PanelEdge.Band ? 1f : -1f;
 
         float Current => Vertical ? target.resolvedStyle.height : target.resolvedStyle.width;
 

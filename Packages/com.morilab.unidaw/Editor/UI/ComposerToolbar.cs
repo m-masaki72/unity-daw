@@ -18,7 +18,7 @@ namespace UniDAW.Editor
         readonly IconButton playButton, recButton, loopButton;
         readonly Label lcdState, lcdOrder, lcdPattern, lcdRow, lcdBpm, lcdKey;
         readonly VisualElement lcd;
-        readonly ToggleChip clickChip, preChip, leftChip, lowerChip, rightChip;
+        readonly ToggleChip clickChip, preChip, leftChip, bandChip, lowerChip, rightChip;
         readonly LevelMeter meter;
 
         public ComposerToolbar(ComposerContext ctx)
@@ -100,9 +100,11 @@ namespace UniDAW.Editor
             // ---- ゾーンの開閉（Cubase の Left / Lower / Right Zone）----
             var zones = Group();
             leftChip = new ToggleChip("LEFT", _ => s.ToggleLeftZone(), "左ゾーン：順序表（Ctrl+Alt+L）");
+            bandChip = new ToggleChip("ARRANGE", _ => s.ToggleBandZone(), "上部のアレンジ帯（Ctrl+Alt+A）");
             lowerChip = new ToggleChip("LOWER", _ => s.ToggleLowerZone(), "下ゾーン：ミキサーなど（Ctrl+Alt+E）");
             rightChip = new ToggleChip("RIGHT", _ => s.ToggleRightZone(), "右ゾーン：インスペクター（Ctrl+Alt+R）");
             zones.Add(leftChip);
+            zones.Add(bandChip);
             zones.Add(lowerChip);
             zones.Add(rightChip);
             Add(zones);
@@ -226,6 +228,7 @@ namespace UniDAW.Editor
             clickChip.Value = st.metronome;
             preChip.Value = st.countIn;
             leftChip.Value = st.leftOpen;
+            bandChip.Value = st.bandOpen;
             lowerChip.Value = st.lowerOpen;
             rightChip.Value = st.rightOpen;
             midiChip.Text = MidiInput.IsOpen ? "MIDI  " + MidiInput.OpenDeviceName : "MIDI  —";

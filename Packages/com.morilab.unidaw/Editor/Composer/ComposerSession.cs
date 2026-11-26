@@ -172,6 +172,13 @@ namespace UniDAW.Editor
             Changed?.Invoke();
         }
 
+        /// <summary>上部のアレンジ帯の開閉（Ctrl+Alt+A）。</summary>
+        public void ToggleBandZone()
+        {
+            State.bandOpen = !State.bandOpen;
+            Changed?.Invoke();
+        }
+
         /// <summary>左ゾーン（順序表）の開閉（Cubase: Ctrl+Alt+L）。</summary>
         public void ToggleLeftZone()
         {
@@ -204,6 +211,7 @@ namespace UniDAW.Editor
                 case PanelEdge.Left: State.leftWidth = Mathf.Clamp(size, ComposerState.MinSideWidth, ComposerState.MaxSideWidth); break;
                 case PanelEdge.Right: State.rightWidth = Mathf.Clamp(size, ComposerState.MinSideWidth, ComposerState.MaxSideWidth); break;
                 case PanelEdge.Lower: State.lowerHeight = Mathf.Clamp(size, ComposerState.MinLowerHeight, ComposerState.MaxLowerHeight); break;
+                case PanelEdge.Band: State.bandHeight = Mathf.Clamp(size, ComposerState.MinBandHeight, ComposerState.MaxBandHeight); break;
             }
         }
 
@@ -217,6 +225,12 @@ namespace UniDAW.Editor
 
         public void ShowLowerTab(LowerTab tab)
         {
+            if (tab == LowerTab.Arrange)
+            {
+                State.bandOpen = true;
+                Changed?.Invoke();
+                return;
+            }
             State.lowerOpen = true;
             State.lowerTab = tab;
             Changed?.Invoke();
