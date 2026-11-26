@@ -30,7 +30,7 @@ namespace UniDAW.Editor
                 new Button(f.NewSong) { text = "New Song", tooltip = "空の Song を作って保存先を選ぶ" },
                 new Button(f.OpenSong) { text = "Open…", tooltip = "プロジェクト内の Song アセットを選んで開く" },
                 new Button(() => f.ImportMidi(VoiceAssignMode.Auto)) { text = "Import MIDI…", tooltip = "MIDI ファイルを 4ch に割り振って Song にする" },
-                new Button(f.OpenSamples) { text = "Demo Samples…", tooltip = "Package Manager の Samples から Demo を Import すると、デモ曲とサンプルシーンが入る" }));
+                new Button(f.OpenSamples) { text = "Demo Songs…", tooltip = "デモ曲とサンプルシーンを Assets/Samples/UniDAW に取り込んで開く（取り込み済みなら足りないものだけ足す）" }));
             var cap = new Label("Songs in project");
             cap.AddToClassList("cd-start-cap");
             card.Add(cap);

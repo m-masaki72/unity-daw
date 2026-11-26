@@ -43,10 +43,53 @@ namespace UniDAW.Editor
             s.SetSong(song);
         }
 
-        /// <summary>Package Manager で UniDAW を開く（デモ曲・デモシーンは Samples から読み込む）。</summary>
+        /// <summary>
+        /// パッケージの Samples~/Demo を Assets/Samples/UniDAW/&lt;version&gt;/Demo に取り込み、デモ曲を開く。
+        /// 埋め込み・ローカルのパッケージは Package Manager に Import ボタンが出ないため、自前でコピーする。
+        /// 取り込み済みのファイルは上書きせず、足りないもの（新しいデモ曲など）だけ足す。
+        /// </summary>
         public void OpenSamples()
         {
-            UnityEditor.PackageManager.UI.Window.Open(PackageName);
+            var info = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(SongFileCommands).Assembly);
+            var src = info == null ? null : Path.Combine(info.resolvedPath, "Samples~", "Demo");
+            if (src == null || !Directory.Exists(src))
+            {
+                UnityEditor.PackageManager.UI.Window.Open(PackageName);
+                return;
+            }
+            var dst = DemoFolder(info.version);
+            int added = CopyMissing(src, dst);
+            AssetDatabase.Refresh();
+            var song = AssetDatabase.LoadAssetAtPath<Song>(dst + "/DemoSong.asset");
+            if (song != null) s.SetSong(song);
+            EditorGUIUtility.PingObject(AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(dst));
+            s.Notify(added > 0 ? $"デモを {dst} に取り込みましたわ（{added} ファイル）" : $"デモは取り込み済みですわ（{dst}）");
+        }
+
+        /// <summary>前に取り込んだ Demo があればそこ（GUID が重複しないように）、無ければ今のバージョンのフォルダ。</summary>
+        public static string DemoFolder(string version)
+        {
+            const string root = "Assets/Samples/UniDAW";
+            if (Directory.Exists(root))
+                foreach (var d in Directory.GetDirectories(root))
+                    if (Directory.Exists(Path.Combine(d, "Demo")))
+                        return $"{root}/{Path.GetFileName(d)}/Demo";
+            return $"{root}/{version}/Demo";
+        }
+
+        /// <summary>src 以下のファイルのうち dst に無いものだけコピーする。コピーした数を返す。</summary>
+        public static int CopyMissing(string src, string dst)
+        {
+            int n = 0;
+            foreach (var file in Directory.GetFiles(src, "*", SearchOption.AllDirectories))
+            {
+                var to = Path.Combine(dst, Path.GetRelativePath(src, file));
+                if (File.Exists(to)) continue;
+                Directory.CreateDirectory(Path.GetDirectoryName(to));
+                File.Copy(file, to);
+                n++;
+            }
+            return n;
         }
 
         public const string PackageName = "com.morilab.unidaw";

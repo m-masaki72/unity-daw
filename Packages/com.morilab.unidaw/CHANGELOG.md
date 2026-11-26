@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.32.1] - 2026-11-26
+
+### Fixed
+- 埋め込み・ローカルのパッケージでデモを取り込めなかった（Package Manager に Samples の Import が出ない）。File > Import Demo Songs / 開始画面の Demo Songs… で `Assets/Samples/UniDAW/<version>/Demo` に直接コピーしてデモ曲を開く。取り込み済みなら足りないファイル（新しいデモ曲など）だけ足す
+
 ## [0.32.0] - 2026-11-26
 
 ### Added

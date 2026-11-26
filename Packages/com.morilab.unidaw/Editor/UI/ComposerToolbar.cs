@@ -157,7 +157,7 @@ namespace UniDAW.Editor
             bool has = ctx.Session.Song != null;
             var m = new GenericMenu();
             Item(m, "New Song...", true, f.NewSong);
-            Item(m, "Demo Samples (Package Manager)...", true, f.OpenSamples);
+            Item(m, "Import Demo Songs", true, f.OpenSamples);
             m.AddSeparator("");
             Item(m, "Import MIDI.../Auto", true, () => f.ImportMidi(VoiceAssignMode.Auto));
             Item(m, "Import MIDI.../By Track", true, () => f.ImportMidi(VoiceAssignMode.ByTrack));
