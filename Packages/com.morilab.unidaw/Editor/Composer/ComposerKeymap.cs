@@ -30,7 +30,7 @@ namespace UniDAW.Editor
                 "Space : 再生/停止   Enter : 再生\n" +
                 "Num0 / Esc : 停止   Num. : 先頭へ\n" +
                 "Num/ : サイクル   Num* : 録音\n" +
-                "Alt+C : メトロノーム\n" +
+                "Alt+C : メトロノーム   F1 : この一覧\n" +
                 "F3 : ミキサー   Ctrl+Alt+E : 下ゾーン   Ctrl+Alt+A : アレンジ帯\n" +
                 "Ctrl+Alt+L / R : 左 / 右ゾーン\n" +
                 "Num- / Num+ : 前/次の順序\n" +
@@ -106,6 +106,17 @@ namespace UniDAW.Editor
         /// <summary>キーを処理したら true。</summary>
         public bool HandleKey(KeyCode k, bool ctrl, bool shift, bool alt = false)
         {
+            // F1 = キー操作の一覧（Song が無くても開ける）。開いている間の Esc は一覧を閉じるだけ
+            if (k == KeyCode.F1)
+            {
+                s.SetKeyHelp(!s.State.keyHelpOpen);
+                return true;
+            }
+            if (k == KeyCode.Escape && s.State.keyHelpOpen)
+            {
+                s.SetKeyHelp(false);
+                return true;
+            }
             if (s.Song == null) return false;
             if (HandleZone(k, ctrl, alt) || alt && HandleOrder(k, ctrl, shift)) return true;
             if (HandleTransport(k) || HandleGlobal(k, shift)) return true;

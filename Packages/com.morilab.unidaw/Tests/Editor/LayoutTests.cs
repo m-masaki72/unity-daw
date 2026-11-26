@@ -168,6 +168,42 @@ namespace UniDAW.Tests
         }
 
         [Test]
+        public void KeyHelp_F1TogglesAndEscClosesWithoutStopping()
+        {
+            var w = ScriptableObject.CreateInstance<UniDAWWindow>();
+            try
+            {
+                Assert.IsTrue(w.HandleKey(KeyCode.F1, false, false), "Song が無くても F1 は効く");
+                Assert.IsTrue(w.State.keyHelpOpen);
+                Assert.IsTrue(w.HandleKey(KeyCode.Escape, false, false));
+                Assert.IsFalse(w.State.keyHelpOpen, "Esc で閉じる");
+                Assert.IsFalse(w.HandleKey(KeyCode.Escape, false, false), "閉じた後の Esc は Song が無ければ何もしない");
+            }
+            finally
+            {
+                Object.DestroyImmediate(w);
+            }
+        }
+
+        [Test]
+        public void StatusHint_FollowsCursorAndView()
+        {
+            var st = new ComposerState();
+            StringAssert.Contains("New / Open", StatusBar.Hint(st, null), "Song なし");
+            WithWindow((w, song) =>
+            {
+                w.State.view = PatternViewKind.Tracker;
+                w.State.cursorCol = 0;
+                StringAssert.Contains("ノート入力", StatusBar.Hint(w.State, null));
+                w.State.cursorCol = 2;
+                StringAssert.Contains("音量", StatusBar.Hint(w.State, null));
+                StringAssert.StartsWith("FXHELP", StatusBar.Hint(w.State, "FXHELP"), "エフェクトの説明を優先");
+                w.State.view = PatternViewKind.PianoRoll;
+                StringAssert.Contains("ダブルクリック", StatusBar.Hint(w.State, null));
+            });
+        }
+
+        [Test]
         public void PlainKeys_StillEditCells()
         {
             WithWindow((w, song) =>

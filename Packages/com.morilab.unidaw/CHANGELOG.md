@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.23.0] - 2026-11-26
+
+### Added
+- キー操作の一覧を F1 / ツールバーの ? で重ねて表示（Esc・背景クリックで閉じる）
+- Song が無いときの開始画面（New Song / Open… / Import MIDI… / Demo Song、プロジェクト内の Song 一覧）
+- `SongFileCommands.OpenSong`、`ComposerSession.SetKeyHelp`
+
+### Changed
+- ステータスバーを「結果メッセージ（5 秒で消える）」と「カーソル位置の操作説明」だけに。再生位置・オクターブ等は液晶と編集見出しに一本化
+- 通知はウィンドウ中央のポップアップではなくステータスバーに出す
+
+### Removed
+- 起動時にデモ曲を自動で開く処理
+- 右パネル下のキー一覧（F1 の一覧へ）
+
 ## [0.22.0] - 2026-11-26
 
 ### Changed

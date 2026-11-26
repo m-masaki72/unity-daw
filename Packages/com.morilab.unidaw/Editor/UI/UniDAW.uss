@@ -430,6 +430,7 @@
 
 .cd-status {
     flex-shrink: 0;
+    flex-direction: row;
     padding: 2px 6px;
     font-size: 11px;
     background-color: rgb(20, 20, 26);
@@ -437,6 +438,46 @@
     border-top-width: 1px;
     border-color: rgb(50, 50, 60);
 }
+.cd-status-msg { flex-shrink: 1; min-width: 0; color: rgb(140, 220, 160); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 12px; }
+.cd-status-msg.error { color: rgb(240, 130, 110); }
+.cd-status-hint { flex-grow: 1; flex-shrink: 1; min-width: 0; -unity-text-align: middle-right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cd-tb-help { min-width: 22px; margin-left: 4px; -unity-font-style: bold; }
+
+.cd-keyhelp {
+    position: absolute;
+    left: 0; top: 0; right: 0; bottom: 0;
+    background-color: rgba(0, 0, 0, 0.55);
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+.cd-keyhelp-card {
+    max-width: 960px;
+    max-height: 100%;
+    padding: 8px 10px;
+    background-color: rgb(32, 32, 41);
+    border-width: 1px;
+    border-color: rgb(70, 70, 88);
+    border-radius: 4px;
+}
+.cd-keyhelp-head { flex-direction: row; align-items: center; margin-bottom: 4px; }
+.cd-keyhelp-cols { flex-direction: row; flex-wrap: wrap; }
+.cd-keyhelp-sec {
+    width: 290px;
+    margin: 0 8px 8px 0;
+    padding: 4px 6px;
+    background-color: rgb(24, 24, 31);
+    border-radius: 3px;
+    font-size: 11px;
+    white-space: normal;
+}
+
+.cd-start { flex-grow: 1; align-items: center; justify-content: center; padding: 16px; }
+.cd-start-card { max-width: 560px; padding: 16px 20px; background-color: rgb(30, 30, 39); border-radius: 6px; }
+.cd-start-title { font-size: 22px; -unity-font-style: bold; color: rgb(255, 210, 90); margin-bottom: 4px; }
+.cd-start-sub { white-space: normal; color: rgb(150, 150, 165); margin-bottom: 8px; }
+.cd-start-cap { -unity-font-style: bold; margin-top: 10px; margin-bottom: 4px; }
+.cd-start-song { -unity-text-align: middle-left; margin: 0 0 2px 0; }
 
 /* ピアノロール */
 .cd-roll-tools { height: 20px; margin: 0 6px; padding: 1px; }

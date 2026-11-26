@@ -200,6 +200,14 @@ namespace UniDAW.Editor
             Changed?.Invoke();
         }
 
+        /// <summary>キー操作の一覧（F1）の表示・非表示。</summary>
+        public void SetKeyHelp(bool open)
+        {
+            if (State.keyHelpOpen == open) return;
+            State.keyHelpOpen = open;
+            Changed?.Invoke();
+        }
+
         /// <summary>右ゾーンを開いてタブを切り替える。</summary>
         public void ShowRightTab(RightTab tab)
         {

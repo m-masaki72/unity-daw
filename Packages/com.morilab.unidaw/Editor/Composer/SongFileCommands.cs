@@ -28,6 +28,21 @@ namespace UniDAW.Editor
             s.SetSong(UniDAWAssets.SaveSong(song, path));
         }
 
+        /// <summary>プロジェクト内の Song アセットをファイルダイアログで選んで開く。</summary>
+        public void OpenSong()
+        {
+            var path = EditorUtility.OpenFilePanel("Open Song", Application.dataPath, "asset");
+            if (string.IsNullOrEmpty(path)) return;
+            var rel = FileUtil.GetProjectRelativePath(path.Replace('\\', '/'));
+            var song = string.IsNullOrEmpty(rel) ? null : AssetDatabase.LoadAssetAtPath<Song>(rel);
+            if (song == null)
+            {
+                s.Notify("プロジェクト内の Song アセットを選んでくださいませ");
+                return;
+            }
+            s.SetSong(song);
+        }
+
         public void CreateDemo()
         {
             bool scene = EditorUtility.DisplayDialog("UniDAW", "デモシーン（映像連携のサンプル）も作成しますか？\n現在のシーンは閉じられます。", "作成する", "曲だけ");

@@ -108,6 +108,9 @@ namespace UniDAW.Editor
             zones.Add(lowerChip);
             zones.Add(rightChip);
             Add(zones);
+            var keys = new Button(() => s.SetKeyHelp(!ctx.State.keyHelpOpen)) { text = "?", tooltip = "キー操作の一覧（F1）" };
+            keys.AddToClassList("cd-tb-help");
+            Add(keys);
         }
 
         static VisualElement Group()

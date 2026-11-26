@@ -4,7 +4,7 @@ namespace UniDAW.Editor
 {
     /// <summary>
     /// 右ゾーン：上にカーソル位置の要約（タブに関係なく常に表示）、その下を Inspector / Assist のタブで切り替える。
-    /// Inspector はセル・楽器・曲の設定とキー一覧、Assist は入力支援（スケール補正・伴奏・メロディ・Claude）。
+    /// Inspector はセル・楽器・曲の設定、Assist は入力支援（スケール補正・伴奏・メロディ・Claude）。
     /// </summary>
     public sealed class RightPanel : VisualElement
     {
@@ -18,7 +18,6 @@ namespace UniDAW.Editor
         readonly InstrumentPanel instrumentPanel;
         readonly SongPanel songPanel;
         readonly AssistPanel assistPanel;
-        readonly Label help;
 
         public RightPanel(ComposerContext ctx)
         {
@@ -38,9 +37,6 @@ namespace UniDAW.Editor
             inspectorPage.Add(inspector = new CellInspector(ctx));
             inspectorPage.Add(instrumentPanel = new InstrumentPanel(ctx));
             inspectorPage.Add(songPanel = new SongPanel(ctx));
-            help = new Label();
-            help.AddToClassList("cd-help");
-            inspectorPage.Add(help);
 
             assistPage = Page();
             assistPage.Add(assistPanel = new AssistPanel(ctx));
@@ -61,7 +57,6 @@ namespace UniDAW.Editor
             tabs.SetIndex((int)tab);
             inspectorPage.style.display = tab == RightTab.Inspector ? DisplayStyle.Flex : DisplayStyle.None;
             assistPage.style.display = tab == RightTab.Assist ? DisplayStyle.Flex : DisplayStyle.None;
-            help.text = ComposerKeymap.Help(DawKeys.Preset);
             if (st.song == null || st.CurrentPattern == null)
             {
                 summary.text = "—";

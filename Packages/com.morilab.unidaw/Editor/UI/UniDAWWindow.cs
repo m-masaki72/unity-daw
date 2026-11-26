@@ -42,6 +42,8 @@ namespace UniDAW.Editor
         ArrangeView arrangeBand;
         Splitter bandSplit;
         RightPanel rightPanel;
+        KeyHelpOverlay keyHelp;
+        StartScreen startScreen;
         VisualElement body, center;
         Splitter leftSplit, rightSplit, lowerSplit;
         LowerZone lowerZone;
@@ -133,7 +135,10 @@ namespace UniDAW.Editor
             transport.Engine?.Stop();
         }
 
-        void Notify(string message) => ShowNotification(new GUIContent(message));
+        void Notify(string message) => statusBar?.ShowMessage(message);
+
+        /// <summary>ステータスバーに出ている結果メッセージ（テスト用）。</summary>
+        public string StatusMessage => statusBar?.Message;
 
         void FocusMain() => mainArea?.Focus();
 
@@ -176,15 +181,15 @@ namespace UniDAW.Editor
 
             statusBar = new StatusBar(ctx);
             root.Add(statusBar);
+            keyHelp = new KeyHelpOverlay(ctx);
+            root.Add(keyHelp);
 
             root.RegisterCallback<KeyDownEvent>(OnKeyDown, TrickleDown.TrickleDown);
             root.RegisterCallback<KeyUpEvent>(OnKeyUp, TrickleDown.TrickleDown);
             root.RegisterCallback<DragUpdatedEvent>(OnDragUpdated);
             root.RegisterCallback<DragPerformEvent>(OnDragPerform);
 
-            var song = state.song;
-            if (song == null) song = AssetDatabase.LoadAssetAtPath<Song>(UniDAWAssets.DemoSongPath);
-            SetSong(song);
+            SetSong(state.song);
         }
 
         static void AddStyleSheet(VisualElement root)
@@ -203,6 +208,10 @@ namespace UniDAW.Editor
         {
             center = new VisualElement();
             center.AddToClassList("cd-center");
+            // Song が無いときだけ出す開始画面
+            startScreen = new StartScreen(ctx);
+            startScreen.style.display = DisplayStyle.None;
+            center.Add(startScreen);
             // 上：アレンジ帯（曲全体の並び）→ 見出し → パターン編集 → 下ゾーン
             arrangeBand = new ArrangeView(ctx);
             center.Add(arrangeBand);
@@ -245,8 +254,9 @@ namespace UniDAW.Editor
         void ApplyLayout()
         {
             if (body == null) return;
+            bool has = state.song != null;
             float h = center.resolvedStyle.height - editorHeader.resolvedStyle.height;
-            visible = PanelLayout.Fit(body.resolvedStyle.width, h, new PanelVisibility(state.leftOpen, state.rightOpen, state.bandOpen, state.lowerOpen),
+            visible = PanelLayout.Fit(body.resolvedStyle.width, h, new PanelVisibility(has && state.leftOpen, has && state.rightOpen, has && state.bandOpen, has && state.lowerOpen),
                 state.leftWidth + SplitterSize, state.rightWidth + SplitterSize, state.bandHeight + SplitterSize, state.lowerHeight + SplitterSize, state.view);
             patternList.style.width = state.leftWidth;
             rightPanel.style.width = state.rightWidth;
@@ -260,6 +270,15 @@ namespace UniDAW.Editor
             bool bandWas = arrangeBand.style.display != DisplayStyle.None;
             Show(arrangeBand, bandSplit, visible.band);
             if (visible.band && !bandWas && state.song != null) arrangeBand.Refresh();
+        }
+
+        /// <summary>表示を切り替え、変わったら true。</summary>
+        static bool SetDisplay(VisualElement v, bool on)
+        {
+            var d = on ? DisplayStyle.Flex : DisplayStyle.None;
+            if (v.style.display == d) return false;
+            v.style.display = d;
+            return true;
         }
 
         static void Show(VisualElement panel, VisualElement splitter, bool on)
@@ -284,6 +303,11 @@ namespace UniDAW.Editor
             bool has = state.song != null;
             toolbar.Refresh();
             mainArea.SetEnabled(has);
+            SetDisplay(editorHeader, has);
+            SetDisplay(mainArea, has);
+            if (SetDisplay(startScreen, !has) && !has) startScreen.Refresh();
+            SetDisplay(keyHelp, state.keyHelpOpen);
+            if (state.keyHelpOpen) keyHelp.Refresh(ComposerKeymap.Help(DawKeys.Preset));
             readOnlyBanner.style.display = session.IsReadOnly ? DisplayStyle.Flex : DisplayStyle.None;
             var cur = CurrentView;
             foreach (var v in views) ((VisualElement)v).style.display = v == cur ? DisplayStyle.Flex : DisplayStyle.None;
@@ -300,6 +324,7 @@ namespace UniDAW.Editor
 
         void OnEditorUpdate()
         {
+            statusBar?.Tick();
             bool moved = transport.Poll(out bool patternChanged);
             var e = transport.Engine;
             if (e == null) return;
@@ -341,7 +366,7 @@ namespace UniDAW.Editor
 
         void OnKeyDown(KeyDownEvent ev)
         {
-            if (ev.keyCode == KeyCode.None || state.song == null || IsTypingInField()) return;
+            if (ev.keyCode == KeyCode.None || IsTypingInField()) return;
             if (HandleKey(ev.keyCode, ev.actionKey, ev.shiftKey, ev.altKey))
             {
                 held.Add(ev.keyCode);
