@@ -57,7 +57,8 @@ namespace UniDAW.Editor
                 "↑↓ : 移調 (+Shift 1oct)   ←→ : 前後のノート\n" +
                 (s1 ? "Alt+←→ : ナッジ   D : 複製   Ctrl+D : 選択解除\n" : "Ctrl+←→ : ナッジ   Ctrl+D : 複製\n") +
                 "Ctrl+A / C / X / V   Del : 削除\n" +
-                "\n.mid をドロップでインポート";
+                "\n.mid をドロップでインポート\n" +
+                "再生・テンキー・F1 / F3・Alt+C・Ctrl+Alt+E / A / L / R は\nウィンドウ内のどこでも効く（Edit > Shortcuts の UniDAW で変更可）";
         }
 
         const int PageRows = 16;
@@ -76,6 +77,23 @@ namespace UniDAW.Editor
             this.order = order;
             this.claude = claude;
         }
+
+        /// <summary>
+        /// ウィンドウ全体で効かせるキー（再生・トランスポート・表示の開閉）。エディタでは Shortcut Manager に登録され
+        /// （<c>UniDAWShortcuts</c>）、ウィンドウ内のどこにフォーカスがあっても効く。割り当ては Edit &gt; Shortcuts で変えられる。
+        /// </summary>
+        public static readonly (KeyCode key, bool ctrl, bool alt)[] WindowCommands =
+        {
+            (KeyCode.Space, false, false), (KeyCode.KeypadEnter, false, false),
+            (KeyCode.Keypad0, false, false), (KeyCode.KeypadPeriod, false, false), (KeyCode.KeypadDivide, false, false),
+            (KeyCode.KeypadMultiply, false, false), (KeyCode.KeypadMinus, false, false), (KeyCode.KeypadPlus, false, false),
+            (KeyCode.F1, false, false), (KeyCode.F3, false, false), (KeyCode.C, false, true),
+            (KeyCode.E, true, true), (KeyCode.A, true, true), (KeyCode.L, true, true), (KeyCode.R, true, true),
+        };
+
+        /// <summary>既定の割り当てでウィンドウ全体のキーか（Shift 付きは対象外）。</summary>
+        public static bool IsWindowCommand(KeyCode k, bool ctrl, bool shift, bool alt) =>
+            !shift && Array.IndexOf(WindowCommands, (k, ctrl, alt)) >= 0;
 
         /// <summary>鍵盤キーなら半音オフセット（0..28）、それ以外は -1。</summary>
         public static int PianoOffset(KeyCode k)

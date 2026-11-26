@@ -215,4 +215,31 @@ namespace UniDAW.Tests
             });
         }
     }
+
+    public class ShortcutTests
+    {
+        /// <summary>Shortcut Manager に登録した既定キーが、キーマップのウィンドウ全体キーの一覧と一致する。</summary>
+        [Test]
+        public void ShortcutsMatchWindowCommands()
+        {
+            var type = typeof(ComposerKeymap).Assembly.GetType("UniDAW.Editor.UniDAWShortcuts");
+            Assert.IsNotNull(type);
+            var found = new List<(KeyCode, bool, bool)>();
+            foreach (var m in type.GetMethods(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic))
+                foreach (var a in m.CustomAttributes)
+                {
+                    if (a.AttributeType != typeof(UnityEditor.ShortcutManagement.ShortcutAttribute)) continue;
+                    var args = a.ConstructorArguments;
+                    var key = (KeyCode)(int)args[2].Value;
+                    var mods = args.Count > 3 ? (UnityEditor.ShortcutManagement.ShortcutModifiers)(int)args[3].Value : 0;
+                    found.Add((key, (mods & UnityEditor.ShortcutManagement.ShortcutModifiers.Action) != 0,
+                        (mods & UnityEditor.ShortcutManagement.ShortcutModifiers.Alt) != 0));
+                }
+            CollectionAssert.AreEquivalent(ComposerKeymap.WindowCommands, found);
+            Assert.IsTrue(ComposerKeymap.IsWindowCommand(KeyCode.Space, false, false, false));
+            Assert.IsFalse(ComposerKeymap.IsWindowCommand(KeyCode.Space, false, true, false), "Shift 付きは今まで通りキーマップへ");
+            Assert.IsFalse(ComposerKeymap.IsWindowCommand(KeyCode.C, false, false, false), "C はノート入力");
+            Assert.IsTrue(ComposerKeymap.IsWindowCommand(KeyCode.L, true, false, true));
+        }
+    }
 }

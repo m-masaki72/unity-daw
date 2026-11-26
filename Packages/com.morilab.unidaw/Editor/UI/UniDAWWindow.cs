@@ -75,6 +75,11 @@ namespace UniDAW.Editor
         /// <summary>キー処理（テストからも呼べるよう public）。処理したら true。</summary>
         public bool HandleKey(KeyCode k, bool ctrl, bool shift, bool alt = false) => keymap.HandleKey(k, ctrl, shift, alt);
 
+        /// <summary>Shortcut Manager から：ウィンドウ全体のキー（<see cref="ComposerKeymap.WindowCommands"/>）を実行する。</summary>
+        internal void RunWindowCommand(KeyCode k, bool ctrl, bool alt) => keymap.HandleKey(k, ctrl, false, alt);
+
+        UniDAWShortcuts.Context shortcutContext;
+
         [MenuItem("Window/UniDAW/Composer")]
         public static UniDAWWindow Open()
         {
@@ -123,6 +128,8 @@ namespace UniDAW.Editor
             transport.Changed += RefreshAll;
             EditorApplication.update += OnEditorUpdate;
             Undo.undoRedoPerformed += session.OnUndoRedo;
+            shortcutContext = new UniDAWShortcuts.Context(this);
+            UnityEditor.ShortcutManagement.ShortcutManager.RegisterContext(shortcutContext);
         }
 
         void OnDisable()
@@ -132,6 +139,7 @@ namespace UniDAW.Editor
             transport.Changed -= RefreshAll;
             EditorApplication.update -= OnEditorUpdate;
             Undo.undoRedoPerformed -= session.OnUndoRedo;
+            UnityEditor.ShortcutManagement.ShortcutManager.UnregisterContext(shortcutContext);
             transport.Engine?.Stop();
         }
 
@@ -141,11 +149,6 @@ namespace UniDAW.Editor
         public string StatusMessage => statusBar?.Message;
 
         void FocusMain() => mainArea?.Focus();
-
-        void KeepFocus()
-        {
-            if (rootVisualElement.focusController?.focusedElement == null) FocusMain();
-        }
 
         // =====================================================================
         // レイアウト
@@ -191,12 +194,16 @@ namespace UniDAW.Editor
 
             root.RegisterCallback<KeyDownEvent>(OnKeyDown, TrickleDown.TrickleDown);
             root.RegisterCallback<KeyUpEvent>(OnKeyUp, TrickleDown.TrickleDown);
-            // キーマップが処理したキー（Space の再生など）で、フォーカスが残った Button（▶ Audition 等）まで
-            // Submit で押されると、再生が切り替わらず「無反応」に見える。キーマップが使ったキーの Submit だけ止める
+            // Space / Enter は再生のショートカット。フォーカスが残った Button（▶ Audition 等）まで Submit で押されると
+            // 再生が切り替わらず「無反応」に見えるので、文字入力中以外は Submit を止める（ボタンはクリックで押す）
             root.RegisterCallback<NavigationSubmitEvent>(OnSubmit, TrickleDown.TrickleDown);
-            // フォーカスを持てない所（アレンジ帯のブロック等）をクリックするとフォーカスが外れ、キーはこの root より外へ
-            // 送られて Space 等が効かなくなる。クリックの処理が終わってもフォーカスが無ければ編集面に戻す
-            root.RegisterCallback<PointerDownEvent>(_ => root.schedule.Execute(KeepFocus), TrickleDown.TrickleDown);
+            // フォーカスを持てない所（アレンジ帯のブロック等）をクリックしてもフォーカスがウィンドウの外へ抜けないよう、
+            // 大枠にフォーカスを持たせる（クリックした所に一番近いフォーカス可能な親が受け取る）。Tab 移動の対象にはしない
+            foreach (var frame in new VisualElement[] { toolbar, readOnlyBanner, body, statusBar, keyHelp })
+            {
+                frame.focusable = true;
+                frame.tabIndex = -1;
+            }
             root.RegisterCallback<DragUpdatedEvent>(OnDragUpdated);
             root.RegisterCallback<DragPerformEvent>(OnDragPerform);
 
@@ -373,11 +380,12 @@ namespace UniDAW.Editor
             return false;
         }
 
+        /// <summary>文字入力欄にフォーカスがある（キーはすべて入力欄へ渡す）。</summary>
+        internal bool IsTyping => FocusTakesKey(KeyCode.Space);
+
         void OnSubmit(NavigationSubmitEvent ev)
         {
-            // held = キーマップが処理して押されたままのキー
-            if (held.Contains(KeyCode.Space) || held.Contains(KeyCode.Return) || held.Contains(KeyCode.KeypadEnter))
-                ev.StopImmediatePropagation();
+            if (!IsTyping) ev.StopImmediatePropagation();
         }
 
         void OnKeyUp(KeyUpEvent ev)
@@ -389,6 +397,8 @@ namespace UniDAW.Editor
         void OnKeyDown(KeyDownEvent ev)
         {
             if (ev.keyCode == KeyCode.None || FocusTakesKey(ev.keyCode)) return;
+            // ウィンドウ全体のキーは Shortcut Manager（UniDAWShortcuts）が受け持つ。ここでも処理すると二重に効く
+            if (ComposerKeymap.IsWindowCommand(ev.keyCode, ev.actionKey, ev.shiftKey, ev.altKey)) return;
             if (HandleKey(ev.keyCode, ev.actionKey, ev.shiftKey, ev.altKey))
             {
                 held.Add(ev.keyCode);

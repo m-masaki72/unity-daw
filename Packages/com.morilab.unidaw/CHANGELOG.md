@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.27.0] - 2026-11-26
+
+### Changed
+- 再生・テンキーのトランスポート・F1 / F3・Alt+C・Ctrl+Alt+E / A / L / R を Unity の Shortcut Manager に登録。ウィンドウ内のどこにフォーカスがあっても効き、Edit > Shortcuts の「UniDAW」で割り当てを変えられる（文字入力欄にフォーカスがある間は入力を優先）。Enter（Return）は Shortcut Manager に割り当てられないため従来どおりキーマップで受ける
+- ウィンドウ全体のキーの一覧を `ComposerKeymap.WindowCommands` / `IsWindowCommand` にまとめた
+
+### Fixed
+- フォーカスを持てない所をクリックしてもフォーカスがウィンドウの外へ抜けないよう、大枠（ツールバー・本体・ステータスバー等）がフォーカスを受け取るようにした。0.26.0 の「フォーカスが無くなったら編集面に戻す」処理は廃止
+- フォーカスが残ったボタンが Space / Enter で押されないよう、文字入力中以外は Submit を止める
+
 ## [0.26.0] - 2026-11-26
 
 ### Added
