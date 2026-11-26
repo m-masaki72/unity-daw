@@ -327,6 +327,19 @@
 }
 .cd-edhead-group { flex-direction: row; align-items: center; margin-right: 8px; }
 .cd-roll-headtools { flex-direction: row; align-items: center; }
+/* ピアノロールのチャンネル切替（波形アイコン＋名前。選ぶとチャンネルの色） */
+.cd-roll-chs { flex-direction: row; align-items: center; margin: 2px 6px 2px 0; }
+.cd-ibtn.cd-roll-ch { width: 58px; height: 34px; margin: 0 3px 0 0; }
+.cd-ibtn.cd-roll-ch > .cd-ibtn-icon { width: 22px; height: 11px; margin-bottom: 4px; }
+.cd-ibtn.cd-roll-ch.ch0 { color: rgb(110, 175, 225); }
+.cd-ibtn.cd-roll-ch.ch1 { color: rgb(120, 205, 140); }
+.cd-ibtn.cd-roll-ch.ch2 { color: rgb(225, 170, 100); }
+.cd-ibtn.cd-roll-ch.ch3 { color: rgb(205, 135, 205); }
+.cd-ibtn.cd-roll-ch.on > .cd-ibtn-cap { color: rgb(240, 240, 250); }
+.cd-ibtn.cd-roll-ch.ch0.on { background-color: rgb(30, 64, 92); border-color: rgb(90, 190, 255); color: rgb(150, 215, 255); }
+.cd-ibtn.cd-roll-ch.ch1.on { background-color: rgb(32, 80, 44); border-color: rgb(115, 240, 140); color: rgb(160, 250, 180); }
+.cd-ibtn.cd-roll-ch.ch2.on { background-color: rgb(92, 60, 24); border-color: rgb(255, 180, 80); color: rgb(255, 205, 140); }
+.cd-ibtn.cd-roll-ch.ch3.on { background-color: rgb(78, 36, 80); border-color: rgb(230, 130, 230); color: rgb(245, 185, 245); }
 .cd-lcd-link:hover { background-color: rgba(120, 160, 255, 0.15); }
 .cd-songpanel { margin-top: 6px; }
 .cd-songpanel-cap { width: 90px; min-width: 90px; padding-left: 3px; }
@@ -480,7 +493,7 @@
 .cd-start-song { -unity-text-align: middle-left; margin: 0 0 2px 0; }
 
 /* ピアノロール */
-.cd-roll-tools { height: 20px; margin: 0 6px; padding: 1px; }
+.cd-roll-tools { height: 22px; margin: 0 6px; padding: 1px; }
 .cd-roll-tools > .cd-seg-item { padding: 0 8px; font-size: 10px; }
 .cd-roll-canvas.resize { cursor: resize-horizontal; }
 .cd-lane { flex-shrink: 0; border-top-width: 1px; border-color: rgb(60, 60, 72); }

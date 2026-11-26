@@ -22,7 +22,9 @@ namespace UniDAW.Editor
         enum Drag { None, Move, Resize, Marquee, Erase }
 
         readonly ComposerContext ctx;
-        readonly Button[] chButtons = new Button[Song.ChannelCount];
+        readonly IconButton[] chButtons = new IconButton[Song.ChannelCount];
+        static readonly Glyph[] ChGlyphs = { Glyph.PulseWave, Glyph.PulseWave, Glyph.TriangleWave, Glyph.NoiseWave };
+        static readonly string[] ChCaptions = { "PULSE 1", "PULSE 2", "TRIANGLE", "NOISE" };
         readonly SegmentedControl toolSeg;
         readonly Label info;
         readonly VisualElement keys;
@@ -59,14 +61,19 @@ namespace UniDAW.Editor
             // チャンネルとツールはエディタ見出しに並べる（HeaderTools）
             HeaderTools = new VisualElement();
             HeaderTools.AddToClassList("cd-roll-headtools");
+            var chGroup = new VisualElement();
+            chGroup.AddToClassList("cd-roll-chs");
             for (int c = 0; c < Song.ChannelCount; c++)
             {
                 int ch = c;
-                var b = new Button(() => { ctx.Session.SetCursor(ctx.State.cursorRow, ch, 0); ctx.FocusMain(); }) { text = Song.ChannelNames[c], tooltip = "編集するチャンネルを切り替え" };
-                b.AddToClassList("cd-ms");
+                var b = new IconButton(ChGlyphs[c], ChCaptions[c], () => { ctx.Session.SetCursor(ctx.State.cursorRow, ch, 0); ctx.FocusMain(); },
+                    $"{Song.ChannelNames[c]} を編集する");
+                b.AddToClassList("cd-roll-ch");
+                b.AddToClassList("ch" + c);
                 chButtons[c] = b;
-                HeaderTools.Add(b);
+                chGroup.Add(b);
             }
+            HeaderTools.Add(chGroup);
             toolSeg = new SegmentedControl(ToolNames, i => { ctx.Session.SetRollTool((RollTool)i); ctx.FocusMain(); });
             toolSeg.AddToClassList("cd-roll-tools");
             HeaderTools.Add(toolSeg);

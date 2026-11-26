@@ -12,7 +12,7 @@ namespace UniDAW.Editor
             var p = ctx.State.CurrentPattern;
             if (p == null) return;
             int ch = ctx.State.cursorCh;
-            for (int c = 0; c < Song.ChannelCount; c++) chButtons[c].EnableInClassList("on", c == ch);
+            for (int c = 0; c < Song.ChannelCount; c++) chButtons[c].Active = c == ch;
             toolSeg.SetIndex((int)ctx.State.rollTool);
 
             // 表示する音域：ノイズは 0..15、それ以外は C2..C6 を基本に中身が収まるよう広げる

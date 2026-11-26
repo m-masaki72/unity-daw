@@ -4,7 +4,7 @@ using UnityEngine.UIElements;
 
 namespace UniDAW.Editor
 {
-    public enum Glyph { Play, PlayFromStart, Stop, Record, Menu, ToStart, Loop }
+    public enum Glyph { Play, PlayFromStart, Stop, Record, Menu, ToStart, Loop, PulseWave, TriangleWave, NoiseWave }
 
     /// <summary>ベクター描画のアイコン＋小さな見出しのボタン。フォーカスを奪わない。</summary>
     public sealed class IconButton : VisualElement
@@ -92,7 +92,33 @@ namespace UniDAW.Editor
                 case Glyph.Menu:
                     for (int i = 0; i < 3; i++) Box(p, 0, h * (0.15f + i * 0.3f), w, 1.6f);
                     break;
+                case Glyph.PulseWave:
+                    Wave(p, w, h, 0f, 0f, 0.25f, 0.25f, 1f, 0.25f, 1f, 0f, 0.5f, 0f, 0.5f, 1f, 0.75f, 1f, 0.75f, 0f, 1f, 0f);
+                    break;
+                case Glyph.TriangleWave:
+                    Wave(p, w, h, 0f, 0.5f, 0.125f, 0f, 0.375f, 1f, 0.625f, 0f, 0.875f, 1f, 1f, 0.5f);
+                    break;
+                case Glyph.NoiseWave:
+                    Wave(p, w, h, 0f, 0.5f, 0.1f, 0.1f, 0.2f, 0.8f, 0.3f, 0.3f, 0.4f, 1f, 0.5f, 0f, 0.6f, 0.65f, 0.7f, 0.2f, 0.8f, 0.9f, 0.9f, 0.35f, 1f, 0.6f);
+                    break;
             }
+        }
+
+        /// <summary>0..1 の (x, y) の折れ線（y は上が 0）を線で描く。</summary>
+        static void Wave(Painter2D p, float w, float h, params float[] xy)
+        {
+            const float pad = 1f;
+            p.strokeColor = p.fillColor;
+            p.lineWidth = 1.5f;
+            p.lineJoin = LineJoin.Miter;
+            p.BeginPath();
+            for (int i = 0; i + 1 < xy.Length; i += 2)
+            {
+                var pt = new Vector2(pad + xy[i] * (w - 2 * pad), pad + xy[i + 1] * (h - 2 * pad));
+                if (i == 0) p.MoveTo(pt);
+                else p.LineTo(pt);
+            }
+            p.Stroke();
         }
 
         static void Tri(Painter2D p, float x0, float y0, float x1, float y1)

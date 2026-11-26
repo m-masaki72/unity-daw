@@ -12,7 +12,7 @@ Unity をエディタとして使う音楽制作向けの DAW です。ステッ
 - 4ch：Pulse1 / Pulse2 / Triangle / Noise（NES 風）
 - **Window > UniDAW > Composer** でエディタを開く
   - 上部のトランスポートバー：再生（PATTERN / SONG / STOP / REC）、再生位置・BPM・キーの表示（BPM / KEY をクリックすると右パネルの Song 欄を開く）、チャンネルごとのレベルメーター
-  - エディタ見出し：表示切替（Tracker / Step / Piano）、表示ごとの道具（ピアノロールのチャンネル・ツール）、OCT / STEP（ドラッグ・ホイールで変更、ダブルクリックで直接入力）・FOLLOW、編集中のパターン（◀▶・名前・LEN・New / Clone）
+  - エディタ見出し：表示切替（Tracker / Step / Piano）、表示ごとの道具（ピアノロールのチャンネル切替＝波形アイコン付きのボタンで、選ぶとチャンネルの色になる・ツール）、OCT / STEP（ドラッグ・ホイールで変更、ダブルクリックで直接入力）・FOLLOW、編集中のパターン（◀▶・名前・LEN・New / Clone）
   - 右パネルの Song 欄：BPM / Rows/Beat / Speed とキー・スケール
   - トラッカー／ステップ／ピアノロールの 3 表示（同じデータを編集、エディタ見出しの Tracker / Step / Piano で切替）。ピアノロールは左クリックで置く・消す、右クリックでノートオフ
   - パラメータロック（ステップごとの音量・エフェクト・確率・条件 A:B）
