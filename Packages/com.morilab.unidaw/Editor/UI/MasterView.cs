@@ -27,7 +27,7 @@ namespace UniDAW.Editor
         readonly Label[] values = new Label[SongMaster.ParamCount];
         readonly Label reduction, status, report;
         readonly MenuChip target;
-        readonly Button analyze, match;
+        readonly Button analyze, match, ai;
         float grHold;
 
         MasteringCommands M => ctx.Mastering;
@@ -81,6 +81,13 @@ namespace UniDAW.Editor
             arow.Add(target);
             arow.Add(analyze);
             arow.Add(match);
+            ai = new Button(AskClaude)
+            {
+                text = "AI に 3 案",
+                tooltip = "Claude に曲の解析結果を見せてマスターチェーンを 3 案作ってもらう（それぞれ目標ラウドネスにそろえて書き込む）。" +
+                          "要望は Assist タブの入力欄、案の切り替えは Assist タブの候補ボタンか Ctrl+Alt+←→"
+            };
+            arow.Add(ai);
             an.Add(arow);
             status = new Label();
             status.AddToClassList("cd-master-status");
@@ -143,11 +150,23 @@ namespace UniDAW.Editor
             target.Text = "目標 " + m.TargetLufs.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " LUFS";
             analyze.SetEnabled(has && !m.Busy);
             match.SetEnabled(has && !m.Busy && !ctx.Session.IsReadOnly);
-            status.text = m.Status;
-            status.style.display = string.IsNullOrEmpty(m.Status) ? DisplayStyle.None : DisplayStyle.Flex;
+            var claude = ctx.Assist.Claude;
+            ai.SetEnabled(has && !claude.Busy && !ctx.Session.IsReadOnly);
+            string st = m.Status;
+            if (ctx.State.aiTarget == AiTarget.Master && !string.IsNullOrEmpty(claude.Status))
+                st = (st.Length > 0 ? st + "\n" : "") + "AI: " + claude.Status;
+            status.text = st;
+            status.style.display = string.IsNullOrEmpty(st) ? DisplayStyle.None : DisplayStyle.Flex;
             report.text = m.Report != null ? m.Report.Text() : "「解析」で曲のラウドネス・ピーク・帯域のバランスを測ります。";
             EnableInClassList("off", !m.Enabled);
             UpdateLabels();
+        }
+
+        void AskClaude()
+        {
+            var claude = ctx.Assist.Claude;
+            claude.SetTarget(AiTarget.Master);
+            claude.Request();
         }
 
         /// <summary>毎フレーム：数値表示とゲインリダクション。</summary>

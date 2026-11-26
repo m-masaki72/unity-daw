@@ -53,7 +53,7 @@ namespace UniDAW.Editor
         static string F(float v) => v.ToString("0.##", CultureInfo.InvariantCulture);
 
         /// <summary>曲全体（順序表のパターン）でチャンネルが鳴らす内容の要約。</summary>
-        static string ChannelContent(Song song, int ch)
+        internal static string ChannelContent(Song song, int ch)
         {
             var used = song.order.Where(i => i >= 0 && i < song.patterns.Count).Distinct().Select(i => song.patterns[i]).Where(p => p != null).ToList();
             var notes = used.SelectMany(p => MelodyModel.Extract(p, ch)).ToList();

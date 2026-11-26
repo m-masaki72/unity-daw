@@ -37,6 +37,16 @@ namespace UniDAW.Editor
             public ChannelSetting[] mix;
             public int sidechainSource = -1;
             public float duckRelease = -1f;
+            /// <summary>マスタリングの依頼のときだけ使う。</summary>
+            public MasterSetting master;
+        }
+
+        /// <summary>マスタリングの提案（マスターチェーンの設定）。gain は返答には含まれず、ラウドネス合わせで決める。</summary>
+        [Serializable]
+        public sealed class MasterSetting
+        {
+            public float eqLow, eqMid, eqHigh, width = 1f, threshold = -12f, ratio = 1f, ceiling = -1f, gain;
+            public bool limiter = true;
         }
 
         /// <summary>ミックスの提案の 1 チャンネル分。</summary>

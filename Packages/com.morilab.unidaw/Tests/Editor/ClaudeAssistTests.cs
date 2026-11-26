@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using NUnit.Framework;
 using UniDAW.Editor;
 using UnityEngine;
@@ -265,6 +266,60 @@ namespace UniDAW.Tests
                 Assert.IsTrue(c.Choose(-1));
                 Assert.AreEqual((0f, 0f), (song.mixer[1].volumeDb, song.mixer[1].eqLowDb));
                 Assert.IsFalse(song.mixer[1].mute, "切り替えの間に変えたミュートは残す");
+            }
+            finally
+            {
+                Object.DestroyImmediate(w);
+                Object.DestroyImmediate(song);
+            }
+        }
+
+        static string Master(float lo, float width, float ratio, string limiter = "true") =>
+            $"{{\"eqLow\":{lo},\"eqMid\":0,\"eqHigh\":-1.5,\"width\":{width},\"threshold\":-18,\"ratio\":{ratio},\"ceiling\":-1,\"limiter\":{limiter}}}";
+
+        [Test]
+        public void ClaudeAssist_ProposesMasterMatchedToTarget()
+        {
+            var song = Song.CreateDefault(32);
+            var w = ScriptableObject.CreateInstance<UniDAWWindow>();
+            try
+            {
+                w.SetSong(song);
+                for (int r = 0; r < 32; r += 4)
+                {
+                    song.patterns[0].tracks[0].cells[r] = Cell.NoteCell(60 + (r / 4) % 5, Song.InstBass);
+                    song.patterns[0].tracks[2].cells[r] = Cell.NoteCell(40, Song.InstBass);
+                }
+                song.master.targetLufs = -16f;
+                string sent = null;
+                Action<string, string> pending = null;
+                var c = new ClaudeAssist(w.Session, w.Roll, (model, msg, done) => { sent = msg; pending = done; return () => { }; });
+                c.RunBackground = a => { a(); return Task.CompletedTask; };
+                w.State.aiTarget = AiTarget.Master;
+                Assert.AreEqual("マスタリング", ClaudePrompt.TargetLabel(AiTarget.Master, 0));
+                Assert.IsTrue(c.Request());
+                Assert.IsNotNull(sent, c.Status);
+                StringAssert.Contains("## Analysis of the mix", sent);
+                StringAssert.Contains("Target loudness: -16 LUFS", sent);
+                StringAssert.Contains("0 Pulse 1", sent);
+
+                pending(Reply("{\"candidates\":[" +
+                              "{\"comment\":\"a\",\"master\":" + Master(40, 1.2f, 2) + "}," +
+                              "{\"comment\":\"b\",\"master\":" + Master(-2, 0.5f, 1, "false") + "}]}"), null);
+                Assert.IsFalse(c.Busy);
+                Assert.IsFalse(c.StatusIsError, c.Status);
+                Assert.AreEqual(2, c.CandidateCount);
+                var m = song.master;
+                Assert.IsTrue(m.enabled && m.limiter);
+                Assert.AreEqual((12f, 1.2f, 2f, -16f), (m.eqLowDb, m.width, m.compRatio, m.targetLufs), "範囲外は丸め、目標はそのまま");
+                float lufs = MasterAnalysis.Measure(song, m).integratedLufs;
+                Assert.IsTrue(Math.Abs(lufs + 16f) < 1f || m.gainDb >= 12f, $"ゲインを目標に合わせる：{lufs} LUFS / {m.gainDb} dB");
+
+                Assert.IsTrue(c.Choose(1));
+                Assert.AreEqual((-2f, 0.5f, false), (song.master.eqLowDb, song.master.width, song.master.limiter));
+                Assert.IsTrue(c.Choose(-1));
+                Assert.IsFalse(song.master.enabled, "依頼前に戻す");
+                Assert.AreEqual(0f, song.master.eqLowDb);
             }
             finally
             {

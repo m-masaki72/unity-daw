@@ -6,7 +6,7 @@ using System.Text;
 namespace UniDAW.Editor
 {
     /// <summary>Claude に頼む内容。</summary>
-    public enum AiTarget { Melody = 0, Chords = 1, MelodyAndChords = 2, Structure = 3, Mix = 4 }
+    public enum AiTarget { Melody = 0, Chords = 1, MelodyAndChords = 2, Structure = 3, Mix = 4, Master = 5 }
 
     /// <summary>
     /// Claude への依頼文：曲の文脈の文章化と、返答の形（スキーマ）・システムプロンプト。返答の読み取りは <see cref="ClaudeReply"/>。
@@ -14,7 +14,7 @@ namespace UniDAW.Editor
     /// </summary>
     public static class ClaudePrompt
     {
-        public static readonly string[] TargetNames = { "メロディ", "コード進行", "メロディ＋コード", "曲構成", "ミックス" };
+        public static readonly string[] TargetNames = { "メロディ", "コード進行", "メロディ＋コード", "曲構成", "ミックス", "マスタリング" };
         /// <summary>チャンネルごとの役割（Assist の表示用）。</summary>
         public static readonly string[] PartNames = { "メロディ", "ハーモニー", "ベース", "ドラム" };
 

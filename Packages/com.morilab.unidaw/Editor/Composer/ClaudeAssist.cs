@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace UniDAW.Editor
 {
@@ -38,6 +39,11 @@ namespace UniDAW.Editor
         // ミックスの依頼前のミキサー
         List<ChannelMix> originalMixer;
         SongEffects originalEffects;
+        // マスタリングの依頼前のマスターチェーン
+        SongMaster originalMaster;
+
+        /// <summary>重い処理（曲の解析・ラウドネス合わせ）を走らせる。テストでは同期実行に差し替える。</summary>
+        public Func<Action, Task> RunBackground = a => Task.Run(a);
         /// <summary>送る依頼の種類（既定の送信関数がシステムプロンプトとスキーマを選ぶ）。</summary>
         AiTarget sendingTarget;
 
@@ -57,7 +63,9 @@ namespace UniDAW.Editor
                 ? ClaudeClient.Send(model, ClaudeStructure.SystemPrompt, ClaudeStructure.Schema, msg, done)
                 : sendingTarget == AiTarget.Mix
                     ? ClaudeClient.Send(model, ClaudeMix.SystemPrompt, ClaudeMix.Schema, msg, done)
-                    : ClaudeClient.Send(model, ClaudePrompt.SystemPrompt, ClaudePrompt.Schema, msg, done));
+                    : sendingTarget == AiTarget.Master
+                        ? ClaudeClient.Send(model, ClaudeMaster.SystemPrompt, ClaudeMaster.Schema, msg, done)
+                        : ClaudeClient.Send(model, ClaudePrompt.SystemPrompt, ClaudePrompt.Schema, msg, done));
         }
 
         ComposerState State => s.State;
@@ -91,6 +99,7 @@ namespace UniDAW.Editor
             if (!s.CanEdit()) return false;
             if (target == AiTarget.Structure) return RequestStructure(song);
             if (target == AiTarget.Mix) return RequestMix(song);
+            if (target == AiTarget.Master) return RequestMaster(song);
 
             int tl = p.TrackLength(ch), from, to;
             var sel = roll.Selection;
@@ -157,15 +166,73 @@ namespace UniDAW.Editor
                     originalEffects = song.effects.Clone();
                 });
 
-        /// <summary>送って、返答を読み、まだ書き込める状態なら（stale が null を返せば）記録して候補 1 を書き込む。</summary>
-        bool Send(AiTarget target, string message, string what, Func<string> stale, Action remember)
+        /// <summary>
+        /// マスタリング：まず曲をチェーンなしで解析し（バックグラウンド）、結果を添えて送る。
+        /// 返ってきた候補はそれぞれ目標ラウドネスにゲインを合わせてから書き込む（音量差でなく音色で聴き比べられるように）。
+        /// </summary>
+        bool RequestMaster(Song song)
+        {
+            song.Validate();
+            var original = song.master.Clone();
+            var dry = original.Clone();
+            dry.enabled = false;
+            string request = State.aiPrompt;
+            int id = ++requestId;
+            Busy = true;
+            SetStatus("曲を解析しています…（マスタリング）", false);
+            Run();
+            return true;
+
+            async void Run()
+            {
+                MasterReport report = null;
+                string error = null;
+                try { await RunBackground(() => report = MasterAnalysis.Analyze(song, dry)); }
+                catch (Exception ex) { error = ex.GetBaseException().Message; }
+                if (id != requestId) return;
+                Busy = false;
+                if (error != null)
+                {
+                    SetStatus("解析に失敗しましたわ：" + error, true);
+                    return;
+                }
+                if (report.mix.Silent)
+                {
+                    SetStatus("音が出ていないので、マスタリングできませんわ", true);
+                    return;
+                }
+                if (s.Song != song)
+                {
+                    SetStatus("解析の間に曲が変わったので、送りませんでしたわ", true);
+                    return;
+                }
+                Send(AiTarget.Master, ClaudeMaster.BuildUserMessage(song, report, request), "マスタリング",
+                    () => s.Song == song ? null : "返答の間に曲が変わったので、提案は書き込みませんでしたわ",
+                    () =>
+                    {
+                        lastReq = new ClaudePrompt.Request { target = AiTarget.Master };
+                        lastSong = song;
+                        lastPattern = -1;
+                        originalMaster = original;
+                    },
+                    list => RunBackground(() => ClaudeMaster.MatchGains(song, original, list)),
+                    "3 案のラウドネスをそろえています…");
+            }
+        }
+
+        /// <summary>
+        /// 送って、返答を読み、まだ書き込める状態なら（stale が null を返せば）記録して候補 1 を書き込む。
+        /// prepare があれば、書き込む前に候補へ重い下ごしらえをする（その間も Busy）。
+        /// </summary>
+        bool Send(AiTarget target, string message, string what, Func<string> stale, Action remember,
+            Func<List<ClaudeReply.Suggestion>, Task> prepare = null, string preparing = null)
         {
             string model = ClaudePrompt.ModelIds[Math.Max(0, Math.Min(ClaudePrompt.ModelIds.Length - 1, State.aiModel))];
             int id = ++requestId;
             Busy = true;
             SetStatus($"Claude が考えています…（{what}）", false);
             sendingTarget = target;
-            cancel = send(model, message, (json, netError) =>
+            cancel = send(model, message, async (json, netError) =>
             {
                 if (id != requestId) return;
                 Busy = false;
@@ -182,6 +249,22 @@ namespace UniDAW.Editor
                     return;
                 }
                 string why = stale();
+                if (why == null && prepare != null)
+                {
+                    Busy = true;
+                    SetStatus(preparing ?? "仕上げています…", false);
+                    string error2 = null;
+                    try { await prepare(list); }
+                    catch (Exception ex) { error2 = ex.GetBaseException().Message; }
+                    if (id != requestId) return;
+                    Busy = false;
+                    if (error2 != null)
+                    {
+                        SetStatus(error2, true);
+                        return;
+                    }
+                    why = stale();
+                }
                 if (why != null)
                 {
                     SetStatus(why, true);
@@ -211,8 +294,8 @@ namespace UniDAW.Editor
         {
             if (Busy || candidates.Count == 0 || i < -1 || i >= candidates.Count || i == Chosen) return false;
             var req = lastReq;
-            bool structure = req.target == AiTarget.Structure, mix = req.target == AiTarget.Mix;
-            if (s.Song != lastSong || !structure && !mix && (State.patternIndex != lastPattern || req.target != AiTarget.Chords && State.cursorCh != req.channel)
+            bool structure = req.target == AiTarget.Structure, mix = req.target == AiTarget.Mix, master = req.target == AiTarget.Master;
+            if (s.Song != lastSong || !structure && !mix && !master && (State.patternIndex != lastPattern || req.target != AiTarget.Chords && State.cursorCh != req.channel)
                 || structure && s.Song.patterns.Count < originalPatternCount)
             {
                 SetStatus("パターンかチャンネルが変わったので、候補は切り替えられませんわ", true);
@@ -220,6 +303,11 @@ namespace UniDAW.Editor
             }
             if (!s.CanEdit()) return false;
             Chosen = i;
+            if (master)
+            {
+                ChooseMaster(i);
+                return true;
+            }
             if (mix)
             {
                 ChooseMix(i);
@@ -259,6 +347,19 @@ namespace UniDAW.Editor
             {
                 var c = candidates[i].comment;
                 SetStatus($"案{i + 1}/{candidates.Count}: " + (c.Length > 0 ? c + "  " : "") + $"[{order}]", false);
+            }
+        }
+
+        /// <summary>マスタリングの候補 i（-1 は依頼前）にする（1 回の Undo）。</summary>
+        void ChooseMaster(int i)
+        {
+            var m = i < 0 ? originalMaster.Clone() : ClaudeMaster.Build(originalMaster, candidates[i].master);
+            s.ModifySong(i < 0 ? "AI Original" : "AI Master", song => song.master = m.Clone());
+            if (i < 0) SetStatus("依頼前のマスターに戻しましたわ", false);
+            else
+            {
+                var c = candidates[i].comment;
+                SetStatus($"案{i + 1}/{candidates.Count}: " + (c.Length > 0 ? c + "  " : "") + $"[{ClaudeMaster.Label(m)}]", false);
             }
         }
 
