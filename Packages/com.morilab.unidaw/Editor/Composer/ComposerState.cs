@@ -47,7 +47,7 @@ namespace UniDAW.Editor
         /// <summary>下ゾーン（ミキサー / 楽器エディタ）を開いているか。</summary>
         public bool lowerOpen = true;
         public LowerTab lowerTab;
-        /// <summary>左（順序表）・右（インスペクター）パネルの開閉と、ドラッグで決めた大きさ。</summary>
+        /// <summary>左（パターン一覧）・右（インスペクター）パネルの開閉と、ドラッグで決めた大きさ。</summary>
         public bool leftOpen = true, rightOpen = true;
         public float leftWidth = 150f, rightWidth = 270f, lowerHeight = 230f;
         public const float MinSideWidth = 120f, MaxSideWidth = 480f, MinLowerHeight = 90f, MaxLowerHeight = 600f;

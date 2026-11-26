@@ -179,7 +179,7 @@ namespace UniDAW.Editor
             Changed?.Invoke();
         }
 
-        /// <summary>左ゾーン（順序表）の開閉（Cubase: Ctrl+Alt+L）。</summary>
+        /// <summary>左ゾーン（パターン一覧）の開閉（Cubase: Ctrl+Alt+L）。</summary>
         public void ToggleLeftZone()
         {
             State.leftOpen = !State.leftOpen;

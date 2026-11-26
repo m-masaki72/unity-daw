@@ -99,7 +99,7 @@ namespace UniDAW.Editor
 
             // ---- ゾーンの開閉（Cubase の Left / Lower / Right Zone）----
             var zones = Group();
-            leftChip = new ToggleChip("LEFT", _ => s.ToggleLeftZone(), "左ゾーン：順序表（Ctrl+Alt+L）");
+            leftChip = new ToggleChip("LEFT", _ => s.ToggleLeftZone(), "左ゾーン：パターン一覧（Ctrl+Alt+L）");
             bandChip = new ToggleChip("ARRANGE", _ => s.ToggleBandZone(), "上部のアレンジ帯（Ctrl+Alt+A）");
             lowerChip = new ToggleChip("LOWER", _ => s.ToggleLowerZone(), "下ゾーン：ミキサーなど（Ctrl+Alt+E）");
             rightChip = new ToggleChip("RIGHT", _ => s.ToggleRightZone(), "右ゾーン：インスペクター（Ctrl+Alt+R）");

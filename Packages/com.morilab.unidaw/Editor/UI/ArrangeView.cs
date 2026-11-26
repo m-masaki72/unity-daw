@@ -373,9 +373,7 @@ namespace UniDAW.Editor
             dragging = true;
             v.style.translate = new Translate(dx, 0);
             v.AddToClassList("drag");
-            int to = ArrangeLayout.SlotAt(blocks, RowAt(e.position));
-            float mx = to >= blocks.Count ? ArrangeLayout.TotalRows(blocks) * zoom : blocks[to].start * zoom;
-            dropMarker.style.left = mx - 1f;
+            dropMarker.style.left = SlotX(ArrangeLayout.SlotAt(blocks, RowAt(e.position))) - 1f;
             dropMarker.style.display = DisplayStyle.Flex;
         }
 
@@ -394,6 +392,29 @@ namespace UniDAW.Editor
             else S.SelectOrder(index);
             e.StopPropagation();
         }
+
+        /// <summary>パターン一覧からドラッグ中：帯の上なら挿入位置に印を出す（null で消す）。</summary>
+        public void ShowPatternDrop(Vector2? worldPos)
+        {
+            if (dragIndex >= 0) return;
+            int slot = worldPos.HasValue ? DropSlot(worldPos.Value) : -1;
+            dropMarker.style.display = slot >= 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            if (slot >= 0) dropMarker.style.left = SlotX(slot) - 1f;
+        }
+
+        /// <summary>パターン一覧からのドロップ：帯の上なら、その位置にパターンを並べる。</summary>
+        public bool DropPattern(Vector2 worldPos, int pattern)
+        {
+            int slot = DropSlot(worldPos);
+            if (slot < 0) return false;
+            O.InsertPattern(slot, pattern);
+            return true;
+        }
+
+        int DropSlot(Vector2 worldPos) =>
+            ctx.State.song != null && scroll.worldBound.Contains(worldPos) ? ArrangeLayout.SlotAt(blocks, RowAt(worldPos)) : -1;
+
+        float SlotX(int slot) => slot >= blocks.Count ? ArrangeLayout.TotalRows(blocks) * zoom : blocks[slot].start * zoom;
 
         /// <summary>画面上の位置 → 時間軸の行。</summary>
         float RowAt(Vector2 worldPos) => canvas.WorldToLocal(worldPos).x / Mathf.Max(0.01f, zoom);

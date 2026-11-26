@@ -37,7 +37,7 @@ namespace UniDAW.Editor
         // ---- UI
         ComposerToolbar toolbar;
         VisualElement readOnlyBanner, mainArea;
-        OrderPanel orderPanel;
+        PatternListPanel patternList;
         EditorHeader editorHeader;
         ArrangeView arrangeBand;
         Splitter bandSplit;
@@ -162,13 +162,13 @@ namespace UniDAW.Editor
 
             body = new VisualElement();
             body.AddToClassList("cd-body");
-            orderPanel = new OrderPanel(ctx);
-            body.Add(orderPanel);
             BuildCenter();
+            patternList = new PatternListPanel(ctx, arrangeBand);
+            body.Add(patternList);
             BuildRightPanel();
-            leftSplit = new Splitter(orderPanel, PanelEdge.Left, () => ComposerState.MinSideWidth, () => MaxSide(rightPanel),
+            leftSplit = new Splitter(patternList, PanelEdge.Left, () => ComposerState.MinSideWidth, () => MaxSide(rightPanel),
                 w => session.SetPanelSize(PanelEdge.Left, w), session.ToggleLeftZone, "ドラッグで幅を変更・ダブルクリックで閉じる（Ctrl+Alt+L）");
-            rightSplit = new Splitter(rightPanel, PanelEdge.Right, () => ComposerState.MinSideWidth, () => MaxSide(orderPanel),
+            rightSplit = new Splitter(rightPanel, PanelEdge.Right, () => ComposerState.MinSideWidth, () => MaxSide(patternList),
                 w => session.SetPanelSize(PanelEdge.Right, w), session.ToggleRightZone, "ドラッグで幅を変更・ダブルクリックで閉じる（Ctrl+Alt+R）");
             body.Add(leftSplit);
             body.Add(center);
@@ -251,11 +251,11 @@ namespace UniDAW.Editor
             float h = center.resolvedStyle.height - editorHeader.resolvedStyle.height;
             visible = PanelLayout.Fit(body.resolvedStyle.width, h, new PanelVisibility(state.leftOpen, state.rightOpen, state.bandOpen, state.lowerOpen),
                 state.leftWidth + SplitterSize, state.rightWidth + SplitterSize, state.bandHeight + SplitterSize, state.lowerHeight + SplitterSize, state.view);
-            orderPanel.style.width = state.leftWidth;
+            patternList.style.width = state.leftWidth;
             rightPanel.style.width = state.rightWidth;
             lowerZone.style.height = state.lowerHeight;
             arrangeBand.style.height = state.bandHeight;
-            Show(orderPanel, leftSplit, visible.left);
+            Show(patternList, leftSplit, visible.left);
             Show(rightPanel, rightSplit, visible.right);
             bool lowerWas = lowerZone.style.display != DisplayStyle.None;
             Show(lowerZone, lowerSplit, visible.lower);
@@ -307,7 +307,7 @@ namespace UniDAW.Editor
             if (!has) return;
             if (visible.lower) lowerZone.Refresh();
             if (visible.band) arrangeBand.Refresh();
-            if (visible.left) orderPanel.Refresh();
+            if (visible.left) patternList.Refresh();
             cur.Refresh();
             if (visible.right)
             {
@@ -334,7 +334,7 @@ namespace UniDAW.Editor
 
             CurrentView.UpdatePlayhead();
             statusBar.Refresh();
-            if (patternChanged) orderPanel.Refresh();
+            if (patternChanged) patternList.Refresh();
         }
 
         // =====================================================================

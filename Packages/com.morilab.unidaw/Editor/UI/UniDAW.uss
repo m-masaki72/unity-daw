@@ -279,15 +279,21 @@
 .cd-condrow > IntegerField { width: 50px; }
 .cd-help { white-space: normal; font-size: 10px; color: rgb(140, 140, 155); margin-top: 6px; }
 
-.cd-order-item {
-    -unity-text-align: middle-left;
-    margin: 0;
-    border-radius: 0;
+.cd-patitem {
+    flex-direction: row;
+    align-items: center;
+    padding: 2px 4px;
+    margin-bottom: 1px;
     background-color: rgb(34, 34, 42);
-    font-size: 11px;
+    border-left-width: 3px;
+    border-color: rgb(34, 34, 42);
 }
-.cd-order-item.selected { background-color: rgb(50, 70, 110); }
-.cd-order-item.playing { color: rgb(120, 255, 140); }
+.cd-patitem:hover { background-color: rgb(42, 42, 54); }
+.cd-patitem.selected { background-color: rgb(50, 70, 110); border-color: rgb(255, 210, 90); }
+.cd-patitem.drag { opacity: 0.6; }
+.cd-patitem-name { flex-grow: 1; flex-shrink: 1; font-size: 11px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.cd-patitem-meta { flex-shrink: 0; font-size: 10px; color: rgb(150, 150, 170); }
+.cd-patitem.unused .cd-patitem-name { color: rgb(140, 140, 150); }
 
 .cd-patbar {
     flex-direction: row;

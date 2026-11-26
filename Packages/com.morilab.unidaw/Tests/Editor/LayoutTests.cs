@@ -130,6 +130,24 @@ namespace UniDAW.Tests
         }
 
         [Test]
+        public void PatternList_InsertPatternAtSlot()
+        {
+            WithWindow((w, song) =>
+            {
+                int n = song.order.Count, last = song.patterns.Count - 1;
+                w.Order.InsertPattern(0, last);
+                Assert.AreEqual(n + 1, song.order.Count);
+                Assert.AreEqual(last, song.order[0], "先頭に並ぶ");
+                Assert.AreEqual(0, w.State.orderIndex, "並べたエントリを選択");
+                Assert.AreEqual(last, w.State.patternIndex);
+                w.Order.InsertPattern(999, 0);
+                Assert.AreEqual(0, song.order[song.order.Count - 1], "範囲外は末尾");
+                w.Order.InsertPattern(0, 999);
+                Assert.AreEqual(n + 2, song.order.Count, "存在しないパターンは無視");
+            });
+        }
+
+        [Test]
         public void PlainKeys_StillEditCells()
         {
             WithWindow((w, song) =>

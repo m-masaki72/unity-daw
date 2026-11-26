@@ -5,7 +5,7 @@ namespace UniDAW.Editor
 {
     /// <summary>
     /// 順序表（アレンジ）の編集。すべて Undo 付きで、終わったら操作したエントリを選択してそのパターンを表示する。
-    /// 左の順序表パネルは「選択中のエントリ」、アレンジ表示は「エントリ番号」を指定して同じ操作を使う。
+    /// キー操作は「選択中のエントリ」、アレンジ帯は「エントリ番号」を指定して同じ操作を使う。
     /// </summary>
     public sealed class OrderCommands
     {
@@ -27,7 +27,7 @@ namespace UniDAW.Editor
             State.patternIndex = s.order[sel];
         });
 
-        // ---- 選択中のエントリ（順序表パネル） ------------------------------------------
+        // ---- 選択中のエントリ（キー操作・アレンジ帯のボタン） ------------------------------------------
 
         /// <summary>現在のパターンを選択中エントリの後ろに挿入（移調は引き継ぐ）。</summary>
         public void Insert()
@@ -37,6 +37,18 @@ namespace UniDAW.Editor
             {
                 s.InsertOrder(Selected + 1, State.patternIndex, s.TransposeAtOrder(Selected));
                 return Selected + 1;
+            });
+        }
+
+        /// <summary>パターンを順序表の <paramref name="slot"/>（0..Count）に並べる（パターン一覧からのドラッグ）。</summary>
+        public void InsertPattern(int slot, int pattern)
+        {
+            if (Song == null || pattern < 0 || pattern >= Song.patterns.Count) return;
+            Edit("Add Order", s =>
+            {
+                int at = Mathf.Clamp(slot, 0, s.order.Count);
+                s.InsertOrder(at, pattern);
+                return at;
             });
         }
 
