@@ -3,7 +3,7 @@ using UniDAW.Midi;
 
 namespace UniDAW
 {
-    /// <summary>機能紹介用のデモ曲（オリジナル）とデモ MIDI の生成。</summary>
+    /// <summary>テスト用のデモ曲（オリジナル）とデモ MIDI の生成。Samples~/Demo のアセットはこれで作ったもの。</summary>
     public static class DemoSongs
     {
         static void Put(Pattern p, int ch, int row, string note, int inst = -1, int vol = -1, string fx1 = null, string fx2 = null, int prob = 100)

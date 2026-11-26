@@ -23,7 +23,7 @@ Unity をエディタとして使う音楽制作向けの DAW です。ステッ
   - 左ゾーン（パターン一覧、Ctrl+Alt+L）・右ゾーン（Ctrl+Alt+R）も境界ドラッグで幅を変えられ、ダブルクリックで閉じる。ツールバー右端の LEFT / ARRANGE / LOWER / RIGHT でも開閉
   - 右ゾーンは上にカーソル位置の要約（チャンネル・行・音・楽器）を常に出し、その下を **Inspector**（セル・楽器・Song 設定）／ **Assist**（入力支援）のタブで切り替える
   - ステータスバーは左に操作の結果（数秒で消える）、右にカーソル位置でできる操作の説明。キー操作の一覧は F1 かツールバー右端の ? で重ねて表示（Esc で閉じる）
-  - Song を開いていないときは中央に開始画面（New Song / Open… / Import MIDI… / Demo Song と、プロジェクト内の Song 一覧）。デモ曲を勝手に開くことはしない
+  - Song を開いていないときは中央に開始画面（New Song / Open… / Import MIDI… / Demo Samples… と、プロジェクト内の Song 一覧）。デモ曲を勝手に開くことはしない
   - 編集エリアの上にアレンジ帯（Ctrl+Alt+A で開閉、境界ドラッグで高さ変更。ブロックは高さに合わせて伸縮）
   - 左ゾーンはパターン一覧：番号・名前・行数・曲中の使用回数（未使用は薄く表示）。クリックで編集、アレンジ帯へドラッグでその位置に並べる、New / Clone / → Song（選択中のエントリの後ろに並べる）
   - ウィンドウが狭いと編集エリアの幅（トラッカー 700px、他 360px）と高さ（160px）を残すよう、右 → 左、下ゾーンの順に自動で畳む
@@ -168,10 +168,15 @@ player.SetLayer(3, false);     // ノイズを抜く
 ```
 
 ## デモ
-File > Create Demo Assets、または次のコマンド：
+デモはパッケージ本体に含めず、UPM のサンプルとして同梱しています。Package Manager で UniDAW を選び、Samples の **Demo** を Import すると `Assets/Samples/UniDAW/<version>/Demo/` に入ります（File > Demo Samples… / 開始画面の Demo Samples… からも開けます）。
+
+- `DemoSong.asset`：機能紹介用のデモ曲
+- `Demo.mid` / `DemoFromMidi.asset`：デモ MIDI と、それを読み込んだ Song
+- `UniDAWDemo.unity`：`UniDAWPlayer` + `UniDAWVisualizer` で再生と映像連携をするシーン
+
+## CLI
 
 ```
-Unity.exe -batchmode -projectPath . -executeMethod UniDAW.Editor.UniDAWCli.CreateDemo
 Unity.exe -batchmode -projectPath . -executeMethod UniDAW.Editor.UniDAWCli.RenderMidi -unidawMidi in.mid -unidawWav out.wav
 ```
 

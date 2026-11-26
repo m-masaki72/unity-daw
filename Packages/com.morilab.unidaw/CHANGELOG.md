@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.24.0] - 2026-11-26
+
+### Changed
+- デモ（デモ曲・デモ MIDI・MIDI 変換結果・デモシーン）を UPM サンプル `Samples~/Demo` に分離。Package Manager の Samples から Import する
+- File メニューと開始画面の Demo は Package Manager を開くボタンに
+
+### Removed
+- `UniDAWAssets.CreateDemo` / `CreateDemoScene` / `Demo*Path`、`UniDAWCli.CreateDemo`、`SongFileCommands.CreateDemo`
+- Runtime の `DemoSongs`（テスト用にテストアセンブリへ移動）
+
 ## [0.23.0] - 2026-11-26
 
 ### Added

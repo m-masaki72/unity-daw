@@ -8,7 +8,6 @@ namespace UniDAW.Editor
 {
     /// <summary>
     /// バッチモード用エントリ。
-    ///   -executeMethod UniDAW.Editor.UniDAWCli.CreateDemo
     ///   -executeMethod UniDAW.Editor.UniDAWCli.RenderMidi -unidawMidi in.mid -unidawWav out.wav [-unidawAsset Assets/x.asset] [-unidawMode Auto|ByTrack|SplitByPitch]
     /// </summary>
     public static class UniDAWCli
@@ -19,29 +18,6 @@ namespace UniDAW.Editor
             for (int i = 0; i < args.Length - 1; i++)
                 if (args[i] == name) return args[i + 1];
             return null;
-        }
-
-        public static void CreateDemo()
-        {
-            int code = 0;
-            try
-            {
-                var demo = UniDAWAssets.CreateDemo(createScene: true);
-                Debug.Log($"[UniDAW CLI] returned demo: {Stats(ChipEngine.RenderSong(demo, 48000), 48000)}");
-                foreach (var path in new[] { UniDAWAssets.DemoSongPath, UniDAWAssets.DemoFromMidiPath, UniDAWAssets.DemoMidiPath })
-                {
-                    var s = AssetDatabase.LoadAssetAtPath<Song>(path);
-                    if (s == null) throw new Exception("生成されていません: " + path);
-                    var mono = ChipEngine.RenderSong(s, 48000);
-                    Debug.Log($"[UniDAW CLI] {path}: patterns {s.patterns.Count}, order {s.order.Count}, {Stats(mono, 48000)}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogException(ex);
-                code = 1;
-            }
-            EditorApplication.Exit(code);
         }
 
         public static void RenderMidi()

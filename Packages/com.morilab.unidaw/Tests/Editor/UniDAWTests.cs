@@ -367,18 +367,6 @@ namespace UniDAW.Tests
         }
     }
 
-    public class AssetTests
-    {
-        [Test]
-        public void SavedDemoAsset_RendersAudio()
-        {
-            var s = UnityEditor.AssetDatabase.LoadAssetAtPath<Song>(UniDAW.Editor.UniDAWAssets.DemoSongPath);
-            if (s == null) Assert.Ignore("デモアセット未生成");
-            var mono = ChipEngine.RenderSong(s, 48000);
-            Assert.Greater(mono.Length, 48000 * 5, $"order={s.order.Count} patterns={s.patterns.Count} len0={s.patterns[0].length} bpm={s.bpm}");
-        }
-    }
-
     public class NotationTests
     {
         [Test]

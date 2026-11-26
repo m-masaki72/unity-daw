@@ -43,11 +43,13 @@ namespace UniDAW.Editor
             s.SetSong(song);
         }
 
-        public void CreateDemo()
+        /// <summary>Package Manager で UniDAW を開く（デモ曲・デモシーンは Samples から読み込む）。</summary>
+        public void OpenSamples()
         {
-            bool scene = EditorUtility.DisplayDialog("UniDAW", "デモシーン（映像連携のサンプル）も作成しますか？\n現在のシーンは閉じられます。", "作成する", "曲だけ");
-            s.SetSong(UniDAWAssets.CreateDemo(createScene: scene));
+            UnityEditor.PackageManager.UI.Window.Open(PackageName);
         }
+
+        public const string PackageName = "com.morilab.unidaw";
 
         public void ImportMidi(VoiceAssignMode mode)
         {
