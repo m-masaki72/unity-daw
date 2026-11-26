@@ -45,6 +45,35 @@ UniDAW は曲そのものが譜面なので、ノート・拍・小節・セク�
 - 3D 空間に展開したピアノロール / アレンジビュー、VR での作曲
 - 先行例：PatchWorld（VR のモジュラー作曲）、MultiSequencer-Unity。DAW としての主軸からは離れるので後回し
 
+### 6. ゲーム内 DAW（ウィンドウを Runtime と共通にする）
+ここに書く案は 2026-11-27 時点のもの。
+
+- **ねらい**
+  - エディタの作曲ウィンドウを、ゲームの中でもそのまま動かす。
+  - 使い道は、プレイヤーが曲を作るゲーム、ゲーム内の作曲ツール、実機でのライブ演奏など。
+  - エディタでは今までどおり EditorWindow として使える。
+- **できる見込み**：できると見ている。
+  - UI Toolkit はランタイムでも使える。`UIDocument` と `PanelSettings` を使う。
+  - Model / Audio / Midi / Theory はもともと UnityEngine の実行時 API に依存しない。
+  - Composer 層は UIElements にも依存しない。
+- **エディタ専用 API への依存**（Editor/Composer と Editor/UI の箇所数）
+  - GenericMenu：18 箇所。ランタイムで動くポップアップメニュー部品に置き換える。
+  - AssetDatabase とファイルダイアログ：約 20 箇所。保存先・読み込み元を `ISongStorage` のような口に分ける。エディタではアセット、ランタイムでは JSON（persistentDataPath）。
+  - Undo（`Undo.RecordObject` / `undoRedoPerformed`）：`ComposerSession.ModifySong` に集まっている。`IUndoBackend` に分け、エディタは Unity の Undo、ランタイムは曲のスナップショットを積む自前のスタックにする。
+  - EditorPrefs：PlayerPrefs に置き換える。
+  - `EditorApplication.update` / `timeSinceStartup`：MonoBehaviour の Update と `Time.realtimeSinceStartup` に置き換える。
+  - プレビュー音声（`Transport`）：ランタイムでは `UniDAWPlayer` と同じ `OnAudioFilterRead` の経路で鳴らす。
+  - Claude 連携：API キー方式だけにする（`claude -p` はエディタ専用）。キーの扱いはゲームごとに決める。
+- **進め方**
+  1. Composer と UI を新しい asmdef（例：`UniDAW.Composer`、Editor 限定にしない）へ移す。
+  2. 上のエディタ専用 API を、インターフェース越しに呼ぶ形に変える。
+  3. `UniDAWWindow` は、ホスト（EditorWindow / ランタイムの `UIDocument`）に `VisualElement` を載せるだけの薄い殻にする。
+- **注意点**
+  - USS のエディタ専用変数（`--unity-colors-*`）と、エディタ用フォントへの依存をなくす。
+  - ランタイムのキー入力：IME と、Ctrl のキーをどう割り当てるか。
+  - タッチ操作：ピアノロールのドラッグとホイール操作を、タッチではどうするか。
+  - WebGL：オーディオスレッドと MIDI 入力（WinMM）が使えない。
+
 ## 進め方の案
 1 → 2 を先に作る。どちらも曲の価値を外に見せやすく、トラッカーでもピアノロールでも同じように作れる。
 3 は既存 API の延長なので、その後に足しやすい。
