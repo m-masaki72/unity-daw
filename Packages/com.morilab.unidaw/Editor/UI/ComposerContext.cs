@@ -16,12 +16,13 @@ namespace UniDAW.Editor
         public MixerCommands Mixer { get; }
         public OrderCommands Order { get; }
         public AssistCommands Assist { get; }
+        public MasteringCommands Mastering { get; }
         public Transport Transport => Session.Transport;
         public ComposerState State => Session.State;
 
         readonly Action focusMain;
 
-        public ComposerContext(ComposerSession session, CellCommands cells, RollEditor roll, SongFileCommands files, MixerCommands mixer, OrderCommands order, AssistCommands assist, Action focusMain)
+        public ComposerContext(ComposerSession session, CellCommands cells, RollEditor roll, SongFileCommands files, MixerCommands mixer, OrderCommands order, AssistCommands assist, MasteringCommands mastering, Action focusMain)
         {
             Session = session;
             Cells = cells;
@@ -30,6 +31,7 @@ namespace UniDAW.Editor
             Mixer = mixer;
             Order = order;
             Assist = assist;
+            Mastering = mastering;
             this.focusMain = focusMain;
         }
 

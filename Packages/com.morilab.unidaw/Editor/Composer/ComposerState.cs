@@ -11,7 +11,7 @@ namespace UniDAW.Editor
 
     /// <summary>下ゾーン（Cubase の Lower Zone）のタブ（int としてシリアライズされるので値は固定）。Arrange は上部の帯に移った（読み込み時は Mixer に読み替え）。</summary>
     /// <summary>下ゾーンのタブ。Assist（右ゾーンへ移動）と Arrange（上部の帯）は以前の版で保存された値の読み込み用。</summary>
-    public enum LowerTab { Mixer = 0, Instrument = 1, Assist = 2, Arrange = 3 }
+    public enum LowerTab { Mixer = 0, Instrument = 1, Assist = 2, Arrange = 3, Master = 4 }
 
     /// <summary>右ゾーンのタブ。</summary>
     public enum RightTab { Inspector = 0, Assist = 1 }

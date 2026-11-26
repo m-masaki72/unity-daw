@@ -48,6 +48,28 @@ namespace UniDAW.Editor
             EditorApplication.Exit(code);
         }
 
+        /// <summary>曲アセットを解析して結果をログに出す：-executeMethod UniDAW.Editor.UniDAWCli.AnalyzeSong -unidawAsset Assets/x.asset [-unidawMatch]</summary>
+        public static void AnalyzeSong()
+        {
+            int code = 0;
+            try
+            {
+                var path = Arg("-unidawAsset") ?? throw new ArgumentException("-unidawAsset が必要です");
+                var song = AssetDatabase.LoadAssetAtPath<Song>(path) ?? throw new ArgumentException("曲が見つかりません: " + path);
+                song.Validate();
+                var master = song.master.Clone();
+                if (Array.IndexOf(Environment.GetCommandLineArgs(), "-unidawMatch") >= 0)
+                    master = MasterAnalysis.MatchLoudness(song, master, out _) ?? master;
+                Debug.Log($"[UniDAW CLI] Analyze {path} (master {(master.enabled ? "on" : "off")}, gain {master.gainDb:0.0} dB)\n{MasterAnalysis.Analyze(song, master).Text()}");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+                code = 1;
+            }
+            EditorApplication.Exit(code);
+        }
+
         public static string Stats(float[] mono, int rate)
         {
             double sum = 0;

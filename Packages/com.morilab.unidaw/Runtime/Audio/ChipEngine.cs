@@ -88,6 +88,12 @@ namespace UniDAW
         /// <summary>マスター出力の L/R ピーク（0..1）。</summary>
         public readonly float[] OutputLevels = new float[2];
         public float MasterVolume = 0.8f;
+        /// <summary>マスターチェーンを通さない（ステム書き出し・チャンネル単位の解析用）。</summary>
+        public bool BypassMaster;
+        /// <summary>曲のマスターチェーンの代わりに使う設定（解析・候補の試聴用。null なら曲の設定）。</summary>
+        public volatile SongMaster MasterOverride;
+        /// <summary>直前のブロックでマスターチェーンが下げた最大量（dB、0 以下）。</summary>
+        public float MasterReductionDb;
 
         /// <summary>メトロノーム（拍ごとにクリック、小節頭は高い音）。エディタの試聴用で、書き出しには入らない。</summary>
         public volatile bool Metronome;
@@ -196,7 +202,7 @@ namespace UniDAW
         {
             DrainCommands();
             var s = song;
-            mixer.BeginBlock(s, Mute, Solo, MasterVolume, CurrentBpm(s), frames);
+            mixer.BeginBlock(s, Mute, Solo, MasterVolume, CurrentBpm(s), frames, BypassMaster ? null : (MasterOverride ?? s?.master));
 
             int idx = offset;
             for (int i = 0; i < frames; i++)
@@ -223,6 +229,7 @@ namespace UniDAW
             }
 
             mixer.EndBlock(Levels, OutputLevels);
+            MasterReductionDb = mixer.MasterReductionDb;
         }
 
         void DrainCommands()

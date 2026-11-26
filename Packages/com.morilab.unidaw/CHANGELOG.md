@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.29.0] - 2026-11-26
+
+### Added
+- マスタリング支援：下ゾーンに **Master** タブを追加
+  - マスターチェーン（`SongMaster`、曲に保存）：EQ（LO / MID / HI）→ ステレオ幅 → コンプ（スレッショルド・レシオ）→ ゲイン → 先読みリミッター（上限 CEIL）。ON / OFF で聴き比べ、再生中はゲインリダクションを表示。試聴・WAV 書き出し・`UniDAWPlayer` のすべてに効く（ステムには掛けない）
+  - 解析：曲を 1 周レンダリングして統合ラウドネス（BS.1770 / EBU R128、LUFS）・ピーク・PLR・短時間最大・帯域のバランス（低 / 中 / 高）・左右の相関・チャンネルごとのラウドネスを測り、改善のヒントを出す（`LoudnessMeter` / `MasterAnalysis`）。バックグラウンドで動くので解析中も編集できる
+  - 「ラウドネスを合わせる」：目標（-14 / -16 / -11 / -9 / -23 LUFS）に合うようにマスターのゲインを自動で決める
+- CLI：`UniDAWCli.AnalyzeSong`（`-unidawAsset` の曲を解析してログに出す。`-unidawMatch` でラウドネス合わせ後の値）
+- `ChipEngine.BypassMaster` / `MasterOverride` / `MasterReductionDb`、`OfflineRenderer.RenderSongStereo(song, rate, setup)`
+
 ## [0.28.0] - 2026-11-26
 
 ### Added

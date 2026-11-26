@@ -16,9 +16,14 @@ namespace UniDAW
         public static float[] RenderSongStereo(Song song, int sampleRate, double maxSeconds = 600) =>
             Render(song, sampleRate, 2, maxSeconds);
 
+        /// <summary>曲を 1 周レンダリング（ステレオ）。<paramref name="setup"/> で再生前のエンジンを設定できる（マスターの差し替えなど）。</summary>
+        public static float[] RenderSongStereo(Song song, int sampleRate, Action<ChipEngine> setup, double maxSeconds = 600) =>
+            Render(song, sampleRate, 2, maxSeconds, setup);
+
         /// <summary>
         /// 1 チャンネルだけを曲 1 周ぶんレンダリング（ステム。ステレオ interleaved）。
         /// フェーダー・パン・センド（ディレイ / リバーブの返り）は通常どおり乗る。曲のミキサーのソロより優先する。
+        /// マスターチェーンは通さない。
         /// </summary>
         public static float[] RenderChannelStereo(Song song, int sampleRate, int channel, double maxSeconds = 600)
         {
@@ -27,6 +32,7 @@ namespace UniDAW
             {
                 for (int c = 0; c < ChipEngine.Channels; c++) e.Mute[c] = c != channel;
                 e.Solo[channel] = true;
+                e.BypassMaster = true;
             });
         }
 

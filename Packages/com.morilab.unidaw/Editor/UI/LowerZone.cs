@@ -12,6 +12,8 @@ namespace UniDAW.Editor
         readonly SegmentedControl seg;
         readonly MixerView mixerView;
         readonly InstrumentEditor instrumentEditor;
+        readonly MasterView masterView;
+        static readonly LowerTab[] Tabs = { LowerTab.Mixer, LowerTab.Instrument, LowerTab.Master };
 
         ComposerState State => ctx.State;
 
@@ -21,7 +23,8 @@ namespace UniDAW.Editor
             AddToClassList("cd-lower");
             var bar = new VisualElement();
             bar.AddToClassList("cd-lower-bar");
-            seg = new SegmentedControl(new[] { "Mixer (F3)", "Instrument" }, i => ctx.Session.ShowLowerTab((LowerTab)i));
+            seg = new SegmentedControl(new[] { "Mixer (F3)", "Instrument", "Master" }, i => ctx.Session.ShowLowerTab(Tabs[i]));
+            seg.tooltip = "Mixer：チャンネルの音量・パン・EQ・センド / Instrument：楽器エディタ / Master：マスターチェーンと曲の解析";
             bar.Add(seg);
             var spacer = new VisualElement();
             spacer.style.flexGrow = 1;
@@ -32,18 +35,21 @@ namespace UniDAW.Editor
             Add(bar);
             Add(mixerView = new MixerView(ctx));
             Add(instrumentEditor = new InstrumentEditor(ctx));
+            Add(masterView = new MasterView(ctx));
         }
 
         public void Refresh()
         {
             var tab = State.lowerTab;
-            seg.SetIndex((int)tab);
+            seg.SetIndex(System.Math.Max(0, System.Array.IndexOf(Tabs, tab)));
             Show(mixerView, tab == LowerTab.Mixer);
             Show(instrumentEditor, tab == LowerTab.Instrument);
+            Show(masterView, tab == LowerTab.Master);
             switch (tab)
             {
                 case LowerTab.Mixer: mixerView.Refresh(); break;
                 case LowerTab.Instrument: instrumentEditor.Refresh(); break;
+                case LowerTab.Master: masterView.Refresh(); break;
             }
         }
 
@@ -52,6 +58,7 @@ namespace UniDAW.Editor
         {
             if (!State.lowerOpen) return;
             if (State.lowerTab == LowerTab.Mixer) mixerView.UpdateMeters();
+            else if (State.lowerTab == LowerTab.Master) masterView.UpdateMeters();
         }
 
         static void Show(VisualElement v, bool on) => v.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;

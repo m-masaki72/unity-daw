@@ -44,11 +44,14 @@ namespace UniDAW
         float peakL, peakR;
         float dcInL, dcOutL, dcInR, dcOutR;
         float master;
+        readonly ChipMaster chain;
+        bool chainOn;
 
         /// <summary>ブロックの始めに呼ぶ：ミキサー設定を確定し、ピークをリセットする。</summary>
         public ChipMixer(double sampleRate)
         {
             this.sampleRate = sampleRate;
+            chain = new ChipMaster(sampleRate);
             detectCoef = (float)(1.0 - Math.Exp(-2.0 * Math.PI * DetectorHz / sampleRate));
             attackCoef = (float)(1.0 - Math.Exp(-1000.0 / (AttackMs * sampleRate)));
             ResetAutomation();
@@ -99,7 +102,8 @@ namespace UniDAW
         /// <summary>今のサイドチェインのエンベロープ（テスト・表示用）。</summary>
         public float Envelope => envelope;
 
-        public void BeginBlock(Song song, bool[] mute, bool[] solo, float masterVolume, float bpm, int frames)
+        /// <param name="masterChain">マスターチェーン。null なら素通し。</param>
+        public void BeginBlock(Song song, bool[] mute, bool[] solo, float masterVolume, float bpm, int frames, SongMaster masterChain = null)
         {
             bool anySend = false;
             bool anySolo = false;
@@ -132,7 +136,12 @@ namespace UniDAW
             fxOn = fx != null && fx.Active;
             peakL = peakR = 0f;
             master = masterVolume * (song != null ? ChannelMix.DbToGain(song.masterDb) : 1f);
+            chain.Begin(masterChain);
+            chainOn = chain.Active;
         }
+
+        /// <summary>直前のブロックでマスターチェーンが下げた最大量（dB、0 以下）。</summary>
+        public float MasterReductionDb => chain.ReductionDb;
 
         /// <summary>全チャンネルを 1 サンプル進めてミックスする。</summary>
         public void Mix(ChipChannel[] channels, double sampleRate, out float left, out float right)
@@ -180,8 +189,10 @@ namespace UniDAW
             float yr = r - dcInR + DcPole * dcOutR;
             dcInR = r;
             dcOutR = yr;
-            left = Clip(yl * Headroom * master);
-            right = Clip(yr * Headroom * master);
+            float ol = yl * Headroom * master, or = yr * Headroom * master;
+            if (chainOn) chain.Process(ref ol, ref or);
+            left = Clip(ol);
+            right = Clip(or);
             float al = Math.Abs(left), ar = Math.Abs(right);
             if (al > peakL) peakL = al;
             if (ar > peakR) peakR = ar;

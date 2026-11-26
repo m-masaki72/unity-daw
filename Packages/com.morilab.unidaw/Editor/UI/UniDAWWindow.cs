@@ -32,6 +32,7 @@ namespace UniDAW.Editor
         MixerCommands mixer;
         OrderCommands order;
         AssistCommands assist;
+        MasteringCommands mastering;
         ComposerContext ctx;
 
         // ---- UI
@@ -121,8 +122,9 @@ namespace UniDAW.Editor
             mixer = new MixerCommands(session);
             order = new OrderCommands(session);
             assist = new AssistCommands(session, roll);
+            mastering = new MasteringCommands(session);
             keymap = new ComposerKeymap(session, cells, roll, order, assist.Claude);
-            ctx = new ComposerContext(session, cells, roll, files, mixer, order, assist, FocusMain);
+            ctx = new ComposerContext(session, cells, roll, files, mixer, order, assist, mastering, FocusMain);
 
             session.Changed += RefreshAll;
             session.Notified += Notify;
@@ -346,6 +348,7 @@ namespace UniDAW.Editor
         {
             tooltips?.Tick();
             statusBar?.Tick();
+            mastering?.Tick();
             bool moved = transport.Poll(out bool patternChanged);
             var e = transport.Engine;
             if (e == null) return;

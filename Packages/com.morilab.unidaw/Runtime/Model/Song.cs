@@ -35,6 +35,8 @@ namespace UniDAW
         public float masterDb;
         /// <summary>センドエフェクト（ディレイ・リバーブ）。</summary>
         public SongEffects effects = new SongEffects();
+        /// <summary>マスターチェーン（EQ・コンプ・リミッターなど）。</summary>
+        public SongMaster master = new SongMaster();
         /// <summary>キーの主音（0..11）とスケール。Chromatic = 指定なし（補正・色分けをしない）。</summary>
         public int keyRoot;
         public ScaleMode scaleMode;
@@ -57,6 +59,7 @@ namespace UniDAW
             mixer = DefaultMixer();
             masterDb = 0f;
             effects = new SongEffects();
+            master = new SongMaster();
         }
 
         public static List<ChannelMix> DefaultMixer()
@@ -161,6 +164,8 @@ namespace UniDAW
             }
             if (effects == null) effects = new SongEffects();
             effects.Validate();
+            if (master == null) master = new SongMaster();
+            master.Validate();
             masterDb = ChannelMix.ClampDb(masterDb);
             var key = Key;
             keyRoot = key.root;
