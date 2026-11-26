@@ -33,6 +33,12 @@ namespace UniDAW.Editor
                 "Alt+C : メトロノーム\n" +
                 "F3 : ミキサー   Ctrl+Alt+E : 下ゾーン\n" +
                 "Num- / Num+ : 前/次の順序\n" +
+                "\n順序表（どのビューでも）\n" +
+                "Alt+Ins : 追加   Alt+Del : 外す\n" +
+                "Alt+PgUp / PgDn : 前後へ移動\n" +
+                "Alt+[ ] : パターン番号 ±1\n" +
+                "Ctrl+Alt+↑↓ : 移調 (+Shift 1oct)\n" +
+                "Ctrl+Alt+←→ : Claude 候補の切替\n" +
                 "\nトラッカー / ステップ\n" +
                 "Z〜M / Q〜P : ノート入力（2段鍵盤）\n" +
                 "1 : ノートオフ   Del : 消去\n" +
@@ -58,12 +64,16 @@ namespace UniDAW.Editor
         readonly ComposerSession s;
         readonly CellCommands cells;
         readonly RollEditor roll;
+        readonly OrderCommands order;
+        readonly ClaudeAssist claude;
 
-        public ComposerKeymap(ComposerSession session, CellCommands cells, RollEditor roll)
+        public ComposerKeymap(ComposerSession session, CellCommands cells, RollEditor roll, OrderCommands order = null, ClaudeAssist claude = null)
         {
             s = session;
             this.cells = cells;
             this.roll = roll;
+            this.order = order;
+            this.claude = claude;
         }
 
         /// <summary>鍵盤キーなら半音オフセット（0..28）、それ以外は -1。</summary>
@@ -96,7 +106,8 @@ namespace UniDAW.Editor
         public bool HandleKey(KeyCode k, bool ctrl, bool shift, bool alt = false)
         {
             if (s.Song == null) return false;
-            if (HandleZone(k, ctrl, alt) || HandleTransport(k) || HandleGlobal(k, shift)) return true;
+            if (HandleZone(k, ctrl, alt) || alt && HandleOrder(k, ctrl, shift)) return true;
+            if (HandleTransport(k) || HandleGlobal(k, shift)) return true;
             if (s.State.view == PatternViewKind.PianoRoll) return HandleRoll(k, ctrl, shift, alt);
             return ctrl ? HandleCtrl(k, shift) : HandleCursor(k) || HandleEdit(k);
         }
@@ -120,6 +131,39 @@ namespace UniDAW.Editor
             {
                 s.Transport.ToggleMetronome();
                 return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Alt 付き：順序表（アレンジ）の編集と Claude 候補の切替。どのビューでも同じキーで、
+        /// トラッカーの入力キーやピアノロールのナッジ（Ctrl / Alt+←→）とは修飾キーの組で区別する。
+        /// </summary>
+        bool HandleOrder(KeyCode k, bool ctrl, bool shift)
+        {
+            if (ctrl)
+            {
+                switch (k)
+                {
+                    case KeyCode.UpArrow: order?.TransposeSelected(shift ? 12 : 1); return order != null;
+                    case KeyCode.DownArrow: order?.TransposeSelected(shift ? -12 : -1); return order != null;
+                    case KeyCode.LeftArrow:
+                    case KeyCode.RightArrow:
+                        if (claude == null) return false;
+                        claude.Choose(claude.Chosen + (k == KeyCode.LeftArrow ? -1 : 1));
+                        return true;
+                }
+                return false;
+            }
+            if (order == null) return false;
+            switch (k)
+            {
+                case KeyCode.Insert: order.Insert(); return true;
+                case KeyCode.Delete: order.RemoveSelected(); return true;
+                case KeyCode.PageUp: order.MoveSelected(-1); return true;
+                case KeyCode.PageDown: order.MoveSelected(1); return true;
+                case KeyCode.LeftBracket: order.ShiftSelectedPattern(-1); return true;
+                case KeyCode.RightBracket: order.ShiftSelectedPattern(1); return true;
             }
             return false;
         }

@@ -108,12 +108,12 @@ namespace UniDAW.Editor
             session = new ComposerSession(state, transport);
             cells = new CellCommands(session);
             roll = new RollEditor(session);
-            keymap = new ComposerKeymap(session, cells, roll);
             recorder = new MidiRecorder(session);
             files = new SongFileCommands(session);
             mixer = new MixerCommands(session);
             order = new OrderCommands(session);
             assist = new AssistCommands(session, roll);
+            keymap = new ComposerKeymap(session, cells, roll, order, assist.Claude);
             ctx = new ComposerContext(session, cells, roll, files, mixer, order, assist, FocusMain);
 
             session.Changed += RefreshAll;

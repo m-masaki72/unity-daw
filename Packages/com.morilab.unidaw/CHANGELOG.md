@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0] - 2026-11-26
+
+### Added
+- 順序表のキー操作（どのビューでも）：Alt+Insert 追加 / Alt+Delete 外す / Alt+PageUp・PageDown 移動 / Alt+[ ] パターン番号 / Ctrl+Alt+↑↓ 移調
+- Claude の提案候補を Ctrl+Alt+←→ で切り替え（以前の「←→ で切り替え」という記述は誤りでボタンのみでした）
+- `PanelLayout.Fit`：ウィンドウが狭いときに周辺パネルを畳む規則（UI 刷新の下準備。表示はまだ変わりません）
+
 ## [0.16.0] - 2026-11-26
 
 ### Added
