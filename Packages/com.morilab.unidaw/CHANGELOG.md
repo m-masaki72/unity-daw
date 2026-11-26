@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.22.0] - 2026-11-26
+
+### Changed
+- 右ゾーンを Inspector / Assist のタブに。上にカーソル位置の要約（チャンネル・行・音・楽器）を常に表示
+- Assist を下ゾーンから右ゾーンへ移動し、セクションを縦に並べた。下ゾーンは Mixer / Instrument のみ（以前に保存された Assist タブは Mixer で開く）
+- Assist の Key / Scale からキー選択を外し（Inspector の Song に一本化）、スケール補正ボタンを Conform / Whole Pattern に
+
+### Added
+- `ComposerSession.ShowRightTab` / `RightTab`
+
 ## [0.21.0] - 2026-11-26
 
 ### Added

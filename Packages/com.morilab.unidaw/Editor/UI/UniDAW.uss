@@ -263,6 +263,19 @@
     border-left-width: 1px;
     border-color: rgb(50, 50, 60);
 }
+.cd-right-summary {
+    padding: 3px 6px;
+    margin-bottom: 4px;
+    background-color: rgb(24, 24, 31);
+    border-radius: 3px;
+    color: rgb(255, 210, 90);
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.cd-right-tabs { margin-bottom: 4px; }
+.cd-right-page { flex-grow: 1; min-height: 0; }
 .cd-right Label { min-width: 0; }
 .cd-right .unity-base-field__label { min-width: 90px; width: 90px; }
 
@@ -488,8 +501,8 @@
 .cd-insted-info { width: 260px; flex-shrink: 0; white-space: normal; font-size: 10px; color: rgb(150, 150, 165); }
 
 /* ---- 入力支援（下ゾーン） */
-.cd-assist { flex-direction: row; flex-grow: 1; min-height: 0; padding: 4px; }
-.cd-assist-sec { flex-grow: 1; flex-basis: 0; min-width: 0; margin-right: 8px; padding: 4px 6px; background-color: rgb(30, 30, 39); border-radius: 3px; }
+.cd-assist { flex-direction: column; }
+.cd-assist-sec { min-width: 0; margin-bottom: 6px; padding: 4px 6px; background-color: rgb(30, 30, 39); border-radius: 3px; }
 .cd-assist-row { flex-direction: row; flex-wrap: wrap; align-items: center; margin-bottom: 4px; }
 .cd-assist-row > * { margin-right: 4px; margin-bottom: 2px; }
 .cd-assist-chords { margin: 0 0 4px 0; }

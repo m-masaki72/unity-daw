@@ -148,6 +148,26 @@ namespace UniDAW.Tests
         }
 
         [Test]
+        public void Assist_MovesToRightTab()
+        {
+            WithWindow((w, song) =>
+            {
+                w.State.rightOpen = false;
+                w.Session.ShowLowerTab(LowerTab.Assist);
+                Assert.IsTrue(w.State.rightOpen, "右ゾーンを開く");
+                Assert.AreEqual(RightTab.Assist, w.State.rightTab);
+                Assert.AreNotEqual(LowerTab.Assist, w.State.lowerTab, "下ゾーンには Assist タブがない");
+                w.Session.ShowRightTab(RightTab.Inspector);
+                Assert.AreEqual(RightTab.Inspector, w.State.rightTab);
+                w.State.lowerTab = LowerTab.Assist; // 以前の版で保存された状態
+                w.State.rightTab = (RightTab)7;
+                w.State.Clamp();
+                Assert.AreEqual(LowerTab.Mixer, w.State.lowerTab);
+                Assert.AreEqual(RightTab.Inspector, w.State.rightTab);
+            });
+        }
+
+        [Test]
         public void PlainKeys_StillEditCells()
         {
             WithWindow((w, song) =>

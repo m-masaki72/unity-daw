@@ -10,7 +10,11 @@ namespace UniDAW.Editor
     public enum RollTool { Select = 0, Draw = 1, Erase = 2 }
 
     /// <summary>下ゾーン（Cubase の Lower Zone）のタブ（int としてシリアライズされるので値は固定）。Arrange は上部の帯に移った（読み込み時は Mixer に読み替え）。</summary>
+    /// <summary>下ゾーンのタブ。Assist（右ゾーンへ移動）と Arrange（上部の帯）は以前の版で保存された値の読み込み用。</summary>
     public enum LowerTab { Mixer = 0, Instrument = 1, Assist = 2, Arrange = 3 }
+
+    /// <summary>右ゾーンのタブ。</summary>
+    public enum RightTab { Inspector = 0, Assist = 1 }
 
     /// <summary>
     /// コンポーザーの編集状態（ウィンドウにシリアライズされ、ドメインリロードを越えて残る）。
@@ -47,6 +51,7 @@ namespace UniDAW.Editor
         /// <summary>下ゾーン（ミキサー / 楽器エディタ）を開いているか。</summary>
         public bool lowerOpen = true;
         public LowerTab lowerTab;
+        public RightTab rightTab;
         /// <summary>左（パターン一覧）・右（インスペクター）パネルの開閉と、ドラッグで決めた大きさ。</summary>
         public bool leftOpen = true, rightOpen = true;
         public float leftWidth = 150f, rightWidth = 270f, lowerHeight = 230f;
@@ -95,7 +100,8 @@ namespace UniDAW.Editor
             cursorCol = Mathf.Clamp(cursorCol, 0, TrackerColumns - 1);
             octave = Mathf.Clamp(octave, 0, MaxOctave);
             editStep = Mathf.Clamp(editStep, 0, MaxEditStep);
-            if (lowerTab == LowerTab.Arrange) lowerTab = LowerTab.Mixer;
+            if (lowerTab == LowerTab.Arrange || lowerTab == LowerTab.Assist) lowerTab = LowerTab.Mixer;
+            if (rightTab != RightTab.Assist) rightTab = RightTab.Inspector;
         }
     }
 }

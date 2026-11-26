@@ -5,13 +5,14 @@ using UnityEngine.UIElements;
 namespace UniDAW.Editor
 {
     /// <summary>
-    /// 入力支援（下ゾーン）：キーとスケール補正 / コード進行から伴奏生成 / メロディの続きの提案。
+    /// 入力支援（右ゾーンの Assist タブ）：スケール補正 / コード進行から伴奏生成 / メロディの続きの提案 / Claude。
+    /// キー（主音・スケール）は Inspector タブの Song で決める。
     /// 操作はすべて <see cref="AssistCommands"/> に渡す。
     /// </summary>
     public sealed class AssistPanel : VisualElement
     {
         readonly ComposerContext ctx;
-        readonly MenuChip rootChip, modeChip, bassChip, chordChip, drumChip;
+        readonly MenuChip bassChip, chordChip, drumChip;
         readonly ToggleChip fillChip;
         readonly TextField chordField;
         readonly Label chordInfo;
@@ -20,7 +21,7 @@ namespace UniDAW.Editor
         readonly MenuChip aiTargetChip, aiModelChip, aiBackendChip;
         readonly TextField aiPrompt, keyField;
         readonly Button aiSend, aiCancel;
-        readonly Label aiStatus, keyInfo;
+        readonly Label aiStatus, keyInfo, scaleInfo;
         readonly Button[] candButtons = new Button[ClaudePrompt.CandidateCount + 1];
         readonly VisualElement candRow;
         readonly VisualElement keyRow;
@@ -32,16 +33,14 @@ namespace UniDAW.Editor
             this.ctx = ctx;
             AddToClassList("cd-assist");
 
-            // ---- キー
-            var key = Section("Key / Scale");
-            var keyRow = Row(key);
-            rootChip = new MenuChip(a => ShowMenu(a, Scale.RootNames, A.Key.root, i => A.SetKey(i, A.Key.IsChromatic ? ScaleMode.Major : A.Key.mode)), "主音");
-            modeChip = new MenuChip(a => ShowMenu(a, Scale.ModeNames, (int)A.Key.mode, i => A.SetKey(A.Key.root, (ScaleMode)i)), "スケール（Chromatic = 指定なし）");
-            keyRow.Add(rootChip);
-            keyRow.Add(modeChip);
+            // ---- スケール補正（キーは Inspector タブの Song で選ぶ）
+            var key = Section("Scale");
+            scaleInfo = new Label();
+            scaleInfo.AddToClassList("cd-assist-info");
+            key.Add(scaleInfo);
             key.Add(ComposerContext.ButtonRow(
-                new Button(() => { A.ConformToScale(false); ctx.FocusMain(); }) { text = "スケールに合わせる", tooltip = "ピアノロールの選択（なければカーソルのチャンネル）のスケール外の音を最寄りの音へ" },
-                new Button(() => { A.ConformToScale(true); ctx.FocusMain(); }) { text = "パターン全体", tooltip = "パターンの全チャンネル（ノイズ以外）をスケールに合わせる" }));
+                new Button(() => { A.ConformToScale(false); ctx.FocusMain(); }) { text = "Conform", tooltip = "ピアノロールの選択（なければカーソルのチャンネル）のスケール外の音を最寄りの音へ" },
+                new Button(() => { A.ConformToScale(true); ctx.FocusMain(); }) { text = "Whole Pattern", tooltip = "パターンの全チャンネル（ノイズ以外）をスケールに合わせる" }));
 
             // ---- コード・伴奏
             var acc = Section("Chords → 伴奏");
@@ -163,8 +162,9 @@ namespace UniDAW.Editor
             bool has = st.song != null && st.CurrentPattern != null;
             SetEnabled(has);
             var key = A.Key;
-            rootChip.Text = key.IsChromatic ? "—" : Scale.RootNames[key.root];
-            modeChip.Text = Scale.ModeNames[(int)key.mode];
+            scaleInfo.text = key.IsChromatic
+                ? "キー未指定（Chromatic）。Inspector タブの Song でキーを選ぶとスケール外の音を直せます"
+                : $"キー: {Scale.RootNames[key.root]} {Scale.ModeNames[(int)key.mode]}（Inspector タブの Song で変更）";
             bassChip.Text = "Bass: " + Accompaniment.BassNames[(int)st.assistBass];
             chordChip.Text = "Chord: " + Accompaniment.ChordNames[(int)st.assistChord];
             drumChip.Text = "Drums: " + Accompaniment.DrumNames[(int)st.assistDrums];

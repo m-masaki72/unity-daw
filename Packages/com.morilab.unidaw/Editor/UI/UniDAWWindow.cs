@@ -41,14 +41,11 @@ namespace UniDAW.Editor
         EditorHeader editorHeader;
         ArrangeView arrangeBand;
         Splitter bandSplit;
-        SongPanel songPanel;
-        CellInspector inspector;
-        InstrumentPanel instrumentPanel;
-        VisualElement body, center, rightPanel;
+        RightPanel rightPanel;
+        VisualElement body, center;
         Splitter leftSplit, rightSplit, lowerSplit;
         LowerZone lowerZone;
         StatusBar statusBar;
-        Label help;
         IPatternView[] views;
         IPatternView CurrentView => views[Mathf.Clamp((int)state.view, 0, views.Length - 1)];
         readonly HashSet<KeyCode> held = new HashSet<KeyCode>();
@@ -274,17 +271,7 @@ namespace UniDAW.Editor
 
         void BuildRightPanel()
         {
-            var panel = rightPanel = new ScrollView();
-            panel.AddToClassList("cd-right");
-            inspector = new CellInspector(ctx);
-            panel.Add(inspector);
-            instrumentPanel = new InstrumentPanel(ctx);
-            panel.Add(instrumentPanel);
-            songPanel = new SongPanel(ctx);
-            panel.Add(songPanel);
-            help = new Label();
-            help.AddToClassList("cd-help");
-            panel.Add(help);
+            rightPanel = new RightPanel(ctx);
         }
 
         // =====================================================================
@@ -296,7 +283,6 @@ namespace UniDAW.Editor
             if (toolbar == null) return;
             bool has = state.song != null;
             toolbar.Refresh();
-            help.text = ComposerKeymap.Help(DawKeys.Preset);
             mainArea.SetEnabled(has);
             readOnlyBanner.style.display = session.IsReadOnly ? DisplayStyle.Flex : DisplayStyle.None;
             var cur = CurrentView;
@@ -309,12 +295,7 @@ namespace UniDAW.Editor
             if (visible.band) arrangeBand.Refresh();
             if (visible.left) patternList.Refresh();
             cur.Refresh();
-            if (visible.right)
-            {
-                inspector.Refresh();
-                instrumentPanel.Refresh();
-                songPanel.Refresh();
-            }
+            if (visible.right) rightPanel.Refresh();
         }
 
         void OnEditorUpdate()

@@ -200,6 +200,14 @@ namespace UniDAW.Editor
             Changed?.Invoke();
         }
 
+        /// <summary>右ゾーンを開いてタブを切り替える。</summary>
+        public void ShowRightTab(RightTab tab)
+        {
+            State.rightOpen = true;
+            State.rightTab = tab;
+            Changed?.Invoke();
+        }
+
         /// <summary>
         /// 境界ドラッグで決まった大きさを覚える。ドラッグ中の見た目は UI が直接変えるので、
         /// 全体の再描画（Changed）は起こさない。
@@ -229,6 +237,11 @@ namespace UniDAW.Editor
             {
                 State.bandOpen = true;
                 Changed?.Invoke();
+                return;
+            }
+            if (tab == LowerTab.Assist)
+            {
+                ShowRightTab(RightTab.Assist);
                 return;
             }
             State.lowerOpen = true;
