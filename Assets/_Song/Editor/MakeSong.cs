@@ -12,7 +12,8 @@ namespace UniDAW.Editor.SongMaker
     public static class MakeSong
     {
         const string AssetPath = "Assets/UniDAW/Songs/NeonDash.asset";
-        const string S = "C:/Users/memen/AppData/Local/Temp/claude/b2bf0c2f2095c5b4/471a08f3-bd89-406a-b4a5-f090e619ba7c/scratchpad/";
+        /// <summary>Claude への依頼文と返答を置く作業フォルダ（Library 配下なのでコミットされない）。</summary>
+        const string S = "Library/NeonDash/";
 
         static void Put(Pattern p, int ch, int row, string note, int inst = -1, int vol = -1, string fx1 = null, string fx2 = null, int prob = 100)
         {
@@ -198,6 +199,7 @@ namespace UniDAW.Editor.SongMaker
                 AssetDatabase.DeleteAsset(AssetPath);
                 AssetDatabase.CreateAsset(s, AssetPath);
                 AssetDatabase.SaveAssets();
+                Directory.CreateDirectory(S);
                 File.WriteAllText(S + "mixmsg.txt", ClaudeMix.BuildUserMessage(s, "疾走感のあるチップチューン。サビでしっかりポンプさせ、リードは埋もれないように"));
                 Debug.Log("SONG step1 ok");
                 EditorApplication.Exit(0);
