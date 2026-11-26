@@ -162,6 +162,7 @@ namespace UniDAW.Editor
             Item(m, "Import MIDI.../Auto", true, () => f.ImportMidi(VoiceAssignMode.Auto));
             Item(m, "Import MIDI.../By Track", true, () => f.ImportMidi(VoiceAssignMode.ByTrack));
             Item(m, "Import MIDI.../Split By Pitch", true, () => f.ImportMidi(VoiceAssignMode.SplitByPitch));
+            Item(m, "Import FamiTracker Text (.txt)...", true, f.ImportFamiTracker);
             m.AddSeparator("");
             Item(m, "Export WAV...", has, f.ExportWav);
             Item(m, "Export Stems (WAV per channel)...", has, f.ExportStems);

@@ -36,6 +36,7 @@ Unity をエディタとして使う音楽制作向けの DAW です。ステッ
 - MIDI
   - `.mid` を Assets に置くと読み取り専用の Song として自動インポート（Inspector で割り当て方式などを変更可）
   - File > Import MIDI（Auto / By Track / Split By Pitch）、Export MIDI / WAV
+  - File > Import FamiTracker Text (.txt)：FamiTracker / 0CC の「Export text」を Song に変換。2A03 の 4ch（DPCM・拡張音源は無視）、先頭の曲、2A03 楽器のマクロ（音量・アルペジオ・ピッチ・デューティ）を読む。チャンネルごとのパターンは順序表の行ごとに 1 パターンへまとめ、同じ意味のエフェクト（0 1 2 3 4 A V F S G Q R）だけ持ち込む（B / C / D などは落とす）。テンポは tempo × 6 ÷ speed を BPM にする
   - MIDI 入力（Windows / WinMM）：ツールバーの MIDI In からデバイスを選ぶ。● Rec がオンのとき、停止中はステップ入力、再生中はリアルタイム録音
 - 映像連携：`UniDAWPlayer`（AudioSource）＋`UniDAWVisualizer`、`onNote` UnityEvent
 

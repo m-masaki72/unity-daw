@@ -122,6 +122,32 @@ namespace UniDAW.Editor
             }
         }
 
+        /// <summary>FamiTracker の「Export text」（.txt）を読み、Song アセットとして保存して開く。</summary>
+        public void ImportFamiTracker()
+        {
+            var path = EditorUtility.OpenFilePanel("Import FamiTracker Text", "", "txt");
+            if (string.IsNullOrEmpty(path)) return;
+            try
+            {
+                var name = Path.GetFileNameWithoutExtension(path);
+                var song = FamiTrackerImport.Import(File.ReadAllText(path), name, out var report);
+                var dst = EditorUtility.SaveFilePanelInProject("Save Imported Song", name, "asset", "変換した Song の保存先");
+                if (string.IsNullOrEmpty(dst))
+                {
+                    UnityEngine.Object.DestroyImmediate(song);
+                    return;
+                }
+                s.SetSong(UniDAWAssets.SaveSong(song, dst));
+                Debug.Log($"[UniDAW] FamiTracker import {Path.GetFileName(path)}: {report}");
+                s.Notify("インポート完了: " + report);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+                EditorUtility.DisplayDialog("UniDAW", "FamiTracker テキストの読み込みに失敗しましたわ…\n" + ex.Message, "OK");
+            }
+        }
+
         string DefaultFileName(string ext) => (s.Song.title ?? s.Song.name) + ext;
 
         public void ExportWav()

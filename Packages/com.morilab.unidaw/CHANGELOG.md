@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.34.0] - 2026-11-26
+
+### Added
+- FamiTracker テキスト（File > Export text の .txt）の取り込み：File > Import FamiTracker Text。2A03 の Pulse1 / Pulse2 / Triangle / Noise、先頭の曲、2A03 楽器のマクロを Song にする。順序表の行ごとにパターンを作り（同じ組は使い回し）、意味が同じエフェクトだけ持ち込む（`FamiTrackerImport`）
+
 ## [0.33.0] - 2026-11-26
 
 ### Changed
