@@ -21,3 +21,11 @@
 crashlytics-buildid.txt
 sysinfo.txt
 .DS_Store
+
+# ローカルの生成物・作業用（パッケージには含めない）
+*.wav.meta
+/Assets/Samples/
+/Assets/Samples.meta
+/Assets/_Smoke/
+/Assets/_Smoke.meta
+/ProjectSettings/PackageManagerSettings.asset
