@@ -142,6 +142,11 @@ namespace UniDAW.Editor
 
         void FocusMain() => mainArea?.Focus();
 
+        void KeepFocus()
+        {
+            if (rootVisualElement.focusController?.focusedElement == null) FocusMain();
+        }
+
         // =====================================================================
         // レイアウト
         // =====================================================================
@@ -189,6 +194,9 @@ namespace UniDAW.Editor
             // キーマップが処理したキー（Space の再生など）で、フォーカスが残った Button（▶ Audition 等）まで
             // Submit で押されると、再生が切り替わらず「無反応」に見える。キーマップが使ったキーの Submit だけ止める
             root.RegisterCallback<NavigationSubmitEvent>(OnSubmit, TrickleDown.TrickleDown);
+            // フォーカスを持てない所（アレンジ帯のブロック等）をクリックするとフォーカスが外れ、キーはこの root より外へ
+            // 送られて Space 等が効かなくなる。クリックの処理が終わってもフォーカスが無ければ編集面に戻す
+            root.RegisterCallback<PointerDownEvent>(_ => root.schedule.Execute(KeepFocus), TrickleDown.TrickleDown);
             root.RegisterCallback<DragUpdatedEvent>(OnDragUpdated);
             root.RegisterCallback<DragPerformEvent>(OnDragPerform);
 

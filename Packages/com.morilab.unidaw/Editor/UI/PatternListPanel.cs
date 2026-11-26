@@ -7,7 +7,7 @@ namespace UniDAW.Editor
 {
     /// <summary>
     /// 左パネル：パターン一覧（番号・名前・行数・曲中で使われている回数）。
-    /// クリックで編集対象にし、上のアレンジ帯へドラッグするとその位置に並べる。並び自体の編集はアレンジ帯で行う。
+    /// クリックで編集対象にし、ダブルクリックで曲中のその位置から再生、上のアレンジ帯へドラッグするとその位置に並べる。並び自体の編集はアレンジ帯で行う。
     /// ドラッグはポインタのキャプチャで行い、ウィンドウの MIDI / Song ファイルのドロップ（DragAndDrop）とは混ぜない。
     /// </summary>
     public sealed class PatternListPanel : VisualElement
@@ -33,7 +33,7 @@ namespace UniDAW.Editor
             this.band = band;
             AddToClassList("cd-left");
             var title = ComposerContext.Title("Patterns");
-            title.tooltip = "クリックで編集、上のアレンジ帯へドラッグで曲に並べる、右クリックでメニュー";
+            title.tooltip = "クリックで編集、ダブルクリックで曲中のその位置から再生、上のアレンジ帯へドラッグで曲に並べる、右クリックでメニュー";
             Add(title);
             var sv = new ScrollView();
             sv.style.flexGrow = 1;
@@ -96,7 +96,7 @@ namespace UniDAW.Editor
             meta.AddToClassList("cd-patitem-meta");
             v.Add(meta);
             v.EnableInClassList("unused", uses == 0);
-            v.tooltip = $"パターン {index:X2} {p.name}：{p.length} 行、曲中で {uses} 回使用\nクリック：編集   アレンジ帯へドラッグ：並べる   右クリック：メニュー";
+            v.tooltip = $"パターン {index:X2} {p.name}：{p.length} 行、曲中で {uses} 回使用\nクリック：編集   ダブルクリック：そこから再生   アレンジ帯へドラッグ：並べる   右クリック：メニュー";
             v.RegisterCallback<PointerDownEvent>(e => OnDown(e, v, index));
             v.RegisterCallback<PointerMoveEvent>(e => OnMove(e, v));
             v.RegisterCallback<PointerUpEvent>(e => OnUp(e, v, index));
@@ -114,6 +114,13 @@ namespace UniDAW.Editor
                 return;
             }
             if (e.button != 0) return;
+            if (e.clickCount == 2)
+            {
+                S.PlayFromPattern(index);
+                ctx.FocusMain();
+                e.StopPropagation();
+                return;
+            }
             dragPattern = index;
             dragStart = e.position;
             dragging = false;

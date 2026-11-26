@@ -84,6 +84,27 @@ namespace UniDAW.Editor
             Changed?.Invoke();
         }
 
+        /// <summary>
+        /// パターン一覧のダブルクリック：曲中でそのパターンが出る位置（選択中のエントリ、無ければ最初の位置）から曲を再生する。
+        /// 曲に並べていなければパターンをループ再生。
+        /// </summary>
+        public void PlayFromPattern(int idx)
+        {
+            if (Song == null || idx < 0 || idx >= Song.patterns.Count) return;
+            int order = State.orderIndex >= 0 && State.orderIndex < Song.order.Count && Song.order[State.orderIndex] == idx
+                ? State.orderIndex : Song.order.IndexOf(idx);
+            if (order >= 0)
+            {
+                SelectOrder(order);
+                Transport.PlayFromOrder(order);
+            }
+            else
+            {
+                SelectPattern(idx);
+                Transport.PlayPattern();
+            }
+        }
+
         public void SelectOrder(int idx)
         {
             if (Song == null) return;
