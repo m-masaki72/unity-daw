@@ -49,24 +49,29 @@ namespace UniDAW.Editor
 
         RollEditor Roll => ctx.Roll;
 
+        public VisualElement HeaderTools { get; }
+
         public PianoRollView(ComposerContext context)
         {
             ctx = context;
             style.flexGrow = 1;
 
-            var head = new VisualElement();
-            head.AddToClassList("cd-chhead");
+            // チャンネルとツールはエディタ見出しに並べる（HeaderTools）
+            HeaderTools = new VisualElement();
+            HeaderTools.AddToClassList("cd-roll-headtools");
             for (int c = 0; c < Song.ChannelCount; c++)
             {
                 int ch = c;
                 var b = new Button(() => { ctx.Session.SetCursor(ctx.State.cursorRow, ch, 0); ctx.FocusMain(); }) { text = Song.ChannelNames[c] };
                 b.AddToClassList("cd-ms");
                 chButtons[c] = b;
-                head.Add(b);
+                HeaderTools.Add(b);
             }
             toolSeg = new SegmentedControl(ToolNames, i => { ctx.Session.SetRollTool((RollTool)i); ctx.FocusMain(); });
             toolSeg.AddToClassList("cd-roll-tools");
-            head.Add(toolSeg);
+            HeaderTools.Add(toolSeg);
+            var head = new VisualElement();
+            head.AddToClassList("cd-chhead");
             info = new Label();
             info.AddToClassList("cd-chinfo");
             head.Add(info);

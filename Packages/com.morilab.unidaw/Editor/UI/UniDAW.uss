@@ -296,6 +296,21 @@
     flex-shrink: 0;
     background-color: rgb(32, 32, 40);
 }
+.cd-edhead {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 2px 4px;
+    flex-shrink: 0;
+    background-color: rgb(32, 32, 40);
+    border-bottom-width: 1px;
+    border-color: rgb(50, 50, 62);
+}
+.cd-edhead-group { flex-direction: row; align-items: center; margin-right: 8px; }
+.cd-roll-headtools { flex-direction: row; align-items: center; }
+.cd-lcd-link:hover { background-color: rgba(120, 160, 255, 0.15); }
+.cd-songpanel { margin-top: 6px; }
+.cd-songpanel-cap { width: 90px; min-width: 90px; padding-left: 3px; }
 .cd-patlabel { -unity-font-style: bold; margin: 0 6px; }
 .cd-patname { width: 140px; }
 

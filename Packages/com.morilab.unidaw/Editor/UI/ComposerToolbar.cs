@@ -6,21 +6,19 @@ using UnityEngine.UIElements;
 namespace UniDAW.Editor
 {
     /// <summary>
-    /// 上部のトランスポートバー：メニュー・曲・再生操作・位置表示・テンポ・表示切替・入力設定・レベル・MIDI 入力。
+    /// 上部のトランスポートバー：メニュー・曲・再生操作・位置表示（BPM・キー）・レベル・MIDI 入力・ゾーンの開閉。
+    /// 編集中のパターンに関する操作は <see cref="EditorHeader"/>、曲の設定は右パネルの <see cref="SongPanel"/> に置く。
     /// Unity 標準のツールバー部品は使わず、<c>Controls/</c> の自作部品で組む。
     /// </summary>
     public sealed class ComposerToolbar : VisualElement
     {
-        static readonly string[] ViewNames = { "Tracker", "Step", "Piano" };
 
         readonly ComposerContext ctx;
         readonly MenuChip songChip, midiChip;
         readonly IconButton playButton, recButton, loopButton;
-        readonly Label lcdState, lcdOrder, lcdPattern, lcdRow;
+        readonly Label lcdState, lcdOrder, lcdPattern, lcdRow, lcdBpm, lcdKey;
         readonly VisualElement lcd;
-        readonly NumberBox bpmBox, rpbBox, speedBox, octaveBox, stepBox;
-        readonly SegmentedControl viewSeg;
-        readonly ToggleChip followChip, clickChip, preChip, leftChip, lowerChip, rightChip;
+        readonly ToggleChip clickChip, preChip, leftChip, lowerChip, rightChip;
         readonly LevelMeter meter;
 
         public ComposerToolbar(ComposerContext ctx)
@@ -76,31 +74,17 @@ namespace UniDAW.Editor
             lcdOrder = LcdField("ORDER");
             lcdPattern = LcdField("PATTERN");
             lcdRow = LcdField("ROW");
+            lcdBpm = LcdField("BPM");
+            lcdKey = LcdField("KEY");
+            // BPM・キーはクリックで右パネルの Song 欄を開いて編集
+            foreach (var f in new[] { lcdBpm.parent, lcdKey.parent })
+            {
+                f.AddToClassList("cd-lcd-link");
+                f.tooltip = "クリックで右パネルの Song 欄を開く（BPM / Rows/Beat / Speed / キー）";
+                f.AddManipulator(new Clickable(s.ShowRightZone));
+            }
             Add(lcd);
-
-            // ---- テンポ ----
-            var tempo = Group();
-            bpmBox = new NumberBox("BPM", 20, 400, 1, "0.0", v => { s.SetBpm(v); ctx.FocusMain(); });
-            bpmBox.AddToClassList("wide");
-            rpbBox = new NumberBox("ROWS/BEAT", 1, 16, 1, "0", v => s.SetRowsPerBeat((int)v));
-            speedBox = new NumberBox("SPEED", 1, 31, 1, "0", v => s.SetSpeed((int)v), "1 行あたりの tick 数（エフェクトの細かさ）");
-            tempo.Add(bpmBox);
-            tempo.Add(rpbBox);
-            tempo.Add(speedBox);
-            Add(tempo);
             Add(Separator());
-
-            // ---- 表示・入力設定 ----
-            var edit = Group();
-            viewSeg = new SegmentedControl(ViewNames, i => { s.SetView((PatternViewKind)i); ctx.FocusMain(); });
-            edit.Add(viewSeg);
-            followChip = new ToggleChip("FOLLOW", v => s.SetFollow(v), "再生位置に表示を追従");
-            edit.Add(followChip);
-            octaveBox = new NumberBox("OCT", 0, ComposerState.MaxOctave, 1, "0", v => s.SetOctave((int)v), "ノート入力のオクターブ（[ ]）");
-            stepBox = new NumberBox("STEP", 0, ComposerState.MaxEditStep, 1, "0", v => s.SetEditStep((int)v), "ノート入力後に進む行数");
-            edit.Add(octaveBox);
-            edit.Add(stepBox);
-            Add(edit);
 
             var spacer = new VisualElement();
             spacer.AddToClassList("cd-tb-spacer");
@@ -237,8 +221,6 @@ namespace UniDAW.Editor
             var st = ctx.State;
             songChip.Text = st.song != null ? st.song.name : "Song を選択";
             songChip.EnableInClassList("empty", st.song == null);
-            viewSeg.SetIndex((int)st.view);
-            followChip.Value = st.follow;
             recButton.Active = st.recording;
             loopButton.Active = st.loop;
             clickChip.Value = st.metronome;
@@ -246,15 +228,13 @@ namespace UniDAW.Editor
             leftChip.Value = st.leftOpen;
             lowerChip.Value = st.lowerOpen;
             rightChip.Value = st.rightOpen;
-            octaveBox.SetValueWithoutNotify(st.octave);
-            stepBox.SetValueWithoutNotify(st.editStep);
             midiChip.Text = MidiInput.IsOpen ? "MIDI  " + MidiInput.OpenDeviceName : "MIDI  —";
             midiChip.EnableInClassList("on", MidiInput.IsOpen);
             if (st.song != null)
             {
-                bpmBox.SetValueWithoutNotify(st.song.bpm);
-                rpbBox.SetValueWithoutNotify(st.song.rowsPerBeat);
-                speedBox.SetValueWithoutNotify(st.song.speed);
+                Set(lcdBpm, st.song.bpm.ToString("0.#"));
+                var key = st.song.Key;
+                Set(lcdKey, key.IsChromatic ? "—" : Scale.RootNames[key.root] + " " + Scale.ModeNames[(int)key.mode]);
             }
             UpdatePlayhead();
         }

@@ -156,6 +156,8 @@ namespace UniDAW.Editor
             UpdatePlayhead();
         }
 
+        public VisualElement HeaderTools => null;
+
         public void UpdatePlayhead()
         {
             var p = ctx.State.CurrentPattern;

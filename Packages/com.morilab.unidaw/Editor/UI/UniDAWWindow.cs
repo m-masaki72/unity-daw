@@ -38,7 +38,8 @@ namespace UniDAW.Editor
         ComposerToolbar toolbar;
         VisualElement readOnlyBanner, mainArea;
         OrderPanel orderPanel;
-        PatternBar patternBar;
+        EditorHeader editorHeader;
+        SongPanel songPanel;
         CellInspector inspector;
         InstrumentPanel instrumentPanel;
         VisualElement body, center, rightPanel;
@@ -203,8 +204,8 @@ namespace UniDAW.Editor
         {
             center = new VisualElement();
             center.AddToClassList("cd-center");
-            patternBar = new PatternBar(ctx);
-            center.Add(patternBar);
+            editorHeader = new EditorHeader(ctx);
+            center.Add(editorHeader);
             mainArea = new VisualElement { focusable = true };
             mainArea.AddToClassList("cd-main");
             mainArea.RegisterCallback<PointerDownEvent>(_ => FocusMain());
@@ -238,7 +239,7 @@ namespace UniDAW.Editor
         void ApplyLayout()
         {
             if (body == null) return;
-            float h = center.resolvedStyle.height - patternBar.resolvedStyle.height;
+            float h = center.resolvedStyle.height - editorHeader.resolvedStyle.height;
             visible = PanelLayout.Fit(body.resolvedStyle.width, h, new PanelVisibility(state.leftOpen, state.rightOpen, false, state.lowerOpen),
                 state.leftWidth + SplitterSize, state.rightWidth + SplitterSize, 0, state.lowerHeight + SplitterSize, state.view);
             orderPanel.style.width = state.leftWidth;
@@ -266,6 +267,8 @@ namespace UniDAW.Editor
             panel.Add(inspector);
             instrumentPanel = new InstrumentPanel(ctx);
             panel.Add(instrumentPanel);
+            songPanel = new SongPanel(ctx);
+            panel.Add(songPanel);
             help = new Label();
             help.AddToClassList("cd-help");
             panel.Add(help);
@@ -285,7 +288,7 @@ namespace UniDAW.Editor
             readOnlyBanner.style.display = session.IsReadOnly ? DisplayStyle.Flex : DisplayStyle.None;
             var cur = CurrentView;
             foreach (var v in views) ((VisualElement)v).style.display = v == cur ? DisplayStyle.Flex : DisplayStyle.None;
-            patternBar.Refresh();
+            editorHeader.Refresh(cur);
             statusBar.Refresh();
             ApplyLayout();
             if (!has) return;
@@ -296,6 +299,7 @@ namespace UniDAW.Editor
             {
                 inspector.Refresh();
                 instrumentPanel.Refresh();
+                songPanel.Refresh();
             }
         }
 

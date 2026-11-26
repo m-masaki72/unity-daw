@@ -186,6 +186,13 @@ namespace UniDAW.Editor
             Changed?.Invoke();
         }
 
+        public void ShowRightZone()
+        {
+            if (State.rightOpen) return;
+            State.rightOpen = true;
+            Changed?.Invoke();
+        }
+
         /// <summary>
         /// 境界ドラッグで決まった大きさを覚える。ドラッグ中の見た目は UI が直接変えるので、
         /// 全体の再描画（Changed）は起こさない。

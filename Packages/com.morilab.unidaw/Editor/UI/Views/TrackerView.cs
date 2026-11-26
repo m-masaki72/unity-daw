@@ -165,6 +165,8 @@ namespace UniDAW.Editor
             Set(p, e ? ".." : fx.param.ToString("X2"), e, ghost);
         }
 
+        public VisualElement HeaderTools => null;
+
         public void UpdatePlayhead() => UpdatePlayhead(ctx.Transport.PlayheadRow);
 
         public void UpdatePlayhead(int playRow)
