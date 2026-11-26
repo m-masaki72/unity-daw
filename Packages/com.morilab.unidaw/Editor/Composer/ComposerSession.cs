@@ -394,13 +394,22 @@ namespace UniDAW.Editor
             });
         }
 
-        /// <summary>カーソルのチャンネルの楽器を試聴する。</summary>
-        public void Audition() => Transport.PreviewNote(State.cursorCh, AuditionNote, ChannelInstrument(State.cursorCh), 0.4);
+        /// <summary>カーソルのチャンネルの楽器を試聴する。鳴らすチャンネルは楽器に合わせる（<see cref="AuditionTarget"/>）。</summary>
+        public void Audition()
+        {
+            int idx = ChannelInstrument(State.cursorCh);
+            int ch = AuditionTarget.Channel(Song, idx, Song?.GetInstrument(idx), State.cursorCh);
+            Transport.PreviewNote(ch, AuditionNote(ch), idx, 0.4);
+        }
 
-        /// <summary>プリセットを曲に入れずにカーソルのチャンネルで試聴する。</summary>
-        public void AuditionPreset(Instrument inst) => Transport.PreviewInstrument(State.cursorCh, AuditionNote, inst, 0.6);
+        /// <summary>プリセットを曲に入れずに、分類に合うチャンネル（Drum は Noise、リードは矩形波…）で試聴する。</summary>
+        public void AuditionPreset(InstrumentPreset preset)
+        {
+            int ch = AuditionTarget.Channel(null, -1, preset.instrument, State.cursorCh, preset.category);
+            Transport.PreviewInstrument(ch, AuditionNote(ch), preset.instrument, 0.6);
+        }
 
-        int AuditionNote => Song.Kinds[State.cursorCh] == ChannelKind.Noise ? 9 : (State.octave + 1) * 12;
+        int AuditionNote(int ch) => Song.Kinds[ch] == ChannelKind.Noise ? 9 : (State.octave + 1) * 12;
 
         /// <summary>入力に使う楽器の中身をプリセットで置き換える（Undo 可）。</summary>
         public void LoadPreset(Instrument preset)

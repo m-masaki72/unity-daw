@@ -80,7 +80,7 @@ namespace UniDAW.Editor
             head.Add(nameField);
             macroSeg = new SegmentedControl(MacroNames, i => s.SetMacro((MacroKind)i));
             head.Add(macroSeg);
-            var audition = new Button(s.Audition) { text = "▶ Audition", tooltip = "カーソルのチャンネルで試聴" };
+            var audition = new Button(s.Audition) { text = "▶ Audition", tooltip = "楽器を試聴（曲で使っているチャンネル、無ければ楽器に合う音源で鳴らす）" };
             head.Add(audition);
             right.Add(head);
 
@@ -165,7 +165,7 @@ namespace UniDAW.Editor
                         if (e.button != 0) return;
                         presetSel = idx;
                         if (e.clickCount >= 2) ctx.Session.LoadPreset(presets[idx].instrument);
-                        else ctx.Session.AuditionPreset(presets[idx].instrument);
+                        else ctx.Session.AuditionPreset(presets[idx]);
                         Refresh();
                     });
                     presetList.Add(row);

@@ -186,6 +186,9 @@ namespace UniDAW.Editor
 
             root.RegisterCallback<KeyDownEvent>(OnKeyDown, TrickleDown.TrickleDown);
             root.RegisterCallback<KeyUpEvent>(OnKeyUp, TrickleDown.TrickleDown);
+            // キーマップが処理したキー（Space の再生など）で、フォーカスが残った Button（▶ Audition 等）まで
+            // Submit で押されると、再生が切り替わらず「無反応」に見える。キーマップが使ったキーの Submit だけ止める
+            root.RegisterCallback<NavigationSubmitEvent>(OnSubmit, TrickleDown.TrickleDown);
             root.RegisterCallback<DragUpdatedEvent>(OnDragUpdated);
             root.RegisterCallback<DragPerformEvent>(OnDragPerform);
 
@@ -347,15 +350,26 @@ namespace UniDAW.Editor
         // 入力
         // =====================================================================
 
-        bool IsTypingInField()
+        /// <summary>
+        /// フォーカス中の部品にキーを譲るか。文字入力欄はすべて、スライダー等の操作部品は Space（再生/停止）以外を譲る。
+        /// </summary>
+        bool FocusTakesKey(KeyCode key)
         {
             var f = rootVisualElement.focusController?.focusedElement as VisualElement;
             for (var v = f; v != null; v = v.parent)
             {
                 if (v == mainArea) return false;
-                if (v is TextField || v is IntegerField || v is FloatField || v is SliderInt || v is ObjectField || v is DropdownField) return true;
+                if (v is TextField || v is IntegerField || v is FloatField) return true;
+                if (v is SliderInt || v is ObjectField || v is DropdownField) return key != KeyCode.Space;
             }
             return false;
+        }
+
+        void OnSubmit(NavigationSubmitEvent ev)
+        {
+            // held = キーマップが処理して押されたままのキー
+            if (held.Contains(KeyCode.Space) || held.Contains(KeyCode.Return) || held.Contains(KeyCode.KeypadEnter))
+                ev.StopImmediatePropagation();
         }
 
         void OnKeyUp(KeyUpEvent ev)
@@ -366,7 +380,7 @@ namespace UniDAW.Editor
 
         void OnKeyDown(KeyDownEvent ev)
         {
-            if (ev.keyCode == KeyCode.None || IsTypingInField()) return;
+            if (ev.keyCode == KeyCode.None || FocusTakesKey(ev.keyCode)) return;
             if (HandleKey(ev.keyCode, ev.actionKey, ev.shiftKey, ev.altKey))
             {
                 held.Add(ev.keyCode);
