@@ -329,7 +329,7 @@ namespace UniDAW.Editor
             SetDisplay(mainArea, has);
             if (SetDisplay(startScreen, !has) && !has) startScreen.Refresh();
             SetDisplay(keyHelp, state.keyHelpOpen);
-            if (state.keyHelpOpen) keyHelp.Refresh(ComposerKeymap.Help(DawKeys.Preset));
+            if (state.keyHelpOpen) keyHelp.Refresh(DawKeys.Preset, state.view);
             readOnlyBanner.style.display = session.IsReadOnly ? DisplayStyle.Flex : DisplayStyle.None;
             var cur = CurrentView;
             foreach (var v in views) ((VisualElement)v).style.display = v == cur ? DisplayStyle.Flex : DisplayStyle.None;

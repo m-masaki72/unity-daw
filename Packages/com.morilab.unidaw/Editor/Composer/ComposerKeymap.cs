@@ -22,44 +22,7 @@ namespace UniDAW.Editor
         };
 
         /// <summary>画面に出すキー操作の説明（ピアノロールの割り当てはプリセットで変わる）。</summary>
-        public static string Help(DawKeyPreset preset)
-        {
-            bool s1 = preset == DawKeyPreset.StudioOne;
-            return
-                "キー操作（" + DawKeys.DisplayName(preset) + " 準拠）\n" +
-                "Space : 再生/停止   Enter : 再生\n" +
-                "Num0 / Esc : 停止   Num. : 先頭へ\n" +
-                "Num/ : サイクル   Num* : 録音\n" +
-                "Alt+C : メトロノーム   F1 : この一覧\n" +
-                "F3 : ミキサー   Ctrl+Alt+E : 下ゾーン   Ctrl+Alt+A : アレンジ帯\n" +
-                "Ctrl+Alt+L / R : 左 / 右ゾーン\n" +
-                "Num- / Num+ : 前/次の順序\n" +
-                "\n順序表（どのビューでも）\n" +
-                "Alt+Ins : 追加   Alt+Del : 外す\n" +
-                "Alt+PgUp / PgDn : 前後へ移動\n" +
-                "Alt+[ ] : パターン番号 ±1\n" +
-                "Ctrl+Alt+↑↓ : 移調 (+Shift 1oct)\n" +
-                "Ctrl+Alt+←→ : Claude 候補の切替\n" +
-                "\nトラッカー / ステップ\n" +
-                "Z〜M / Q〜P : ノート入力（2段鍵盤）\n" +
-                "1 : ノートオフ   Del : 消去\n" +
-                "0-9 A-F : 数値列（16進）\n" +
-                "Fx列: 0 1 2 3 4 A V F S\n" +
-                "[ ] : オクターブ   Tab : 次ch\n" +
-                "Ctrl+↑↓ : 半音移調 (+Shift 1oct)\n" +
-                "Ctrl+C / Ctrl+V : トラックコピー\n" +
-                "Ctrl+I : 補間（音量列・Fx列の上下の値の間を直線で）\n" +
-                "\nピアノロール\n" +
-                "ダブルクリック : 作成 / 削除\n" +
-                "ドラッグ : 移動（Alt で複製）・右端で長さ\n" +
-                "空き地ドラッグ : 範囲選択\n" +
-                (s1 ? "1 矢印 / 4 消しゴム / 5 ペイント\n" : "1 選択 / 5 消しゴム / 8 鉛筆\n") +
-                "↑↓ : 移調 (+Shift 1oct)   ←→ : 前後のノート\n" +
-                (s1 ? "Alt+←→ : ナッジ   D : 複製   Ctrl+D : 選択解除\n" : "Ctrl+←→ : ナッジ   Ctrl+D : 複製\n") +
-                "Ctrl+A / C / X / V   Del : 削除\n" +
-                "\n.mid をドロップでインポート\n" +
-                "再生・テンキー・F1 / F3・Alt+C・Ctrl+Alt+E / A / L / R は\nウィンドウ内のどこでも効く（Edit > Shortcuts の UniDAW で変更可）";
-        }
+        public static string Help(DawKeyPreset preset) => KeyHelp.Text(preset);
 
         const int PageRows = 16;
 
