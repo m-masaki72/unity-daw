@@ -419,9 +419,11 @@
 /* =====================================================================
    下ゾーン（ミキサー / 楽器エディタ）
    ===================================================================== */
-.cd-split { flex-grow: 1; min-height: 0; }
-.cd-split > .unity-two-pane-split-view__dragline-anchor { background-color: rgb(44, 44, 56); }
-.cd-lower { flex-grow: 1; min-height: 0; background-color: rgb(26, 26, 33); border-top-width: 1px; border-color: rgb(50, 50, 62); }
+.cd-splitter { flex-shrink: 0; background-color: rgb(44, 44, 56); }
+.cd-splitter:hover, .cd-splitter.drag { background-color: rgb(80, 110, 170); }
+.cd-splitter-v { width: 4px; cursor: resize-horizontal; }
+.cd-splitter-h { height: 4px; cursor: resize-vertical; }
+.cd-lower { flex-grow: 0; flex-shrink: 0; min-height: 0; background-color: rgb(26, 26, 33); border-top-width: 1px; border-color: rgb(50, 50, 62); }
 .cd-lower-bar { flex-direction: row; align-items: center; padding: 2px 4px; flex-shrink: 0; background-color: rgb(32, 32, 40); }
 .cd-lower-close { width: 22px; height: 18px; padding: 0; margin: 0; }
 

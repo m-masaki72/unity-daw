@@ -172,6 +172,34 @@ namespace UniDAW.Editor
             Changed?.Invoke();
         }
 
+        /// <summary>左ゾーン（順序表）の開閉（Cubase: Ctrl+Alt+L）。</summary>
+        public void ToggleLeftZone()
+        {
+            State.leftOpen = !State.leftOpen;
+            Changed?.Invoke();
+        }
+
+        /// <summary>右ゾーン（インスペクター）の開閉（Cubase: Ctrl+Alt+R）。</summary>
+        public void ToggleRightZone()
+        {
+            State.rightOpen = !State.rightOpen;
+            Changed?.Invoke();
+        }
+
+        /// <summary>
+        /// 境界ドラッグで決まった大きさを覚える。ドラッグ中の見た目は UI が直接変えるので、
+        /// 全体の再描画（Changed）は起こさない。
+        /// </summary>
+        public void SetPanelSize(PanelEdge edge, float size)
+        {
+            switch (edge)
+            {
+                case PanelEdge.Left: State.leftWidth = Mathf.Clamp(size, ComposerState.MinSideWidth, ComposerState.MaxSideWidth); break;
+                case PanelEdge.Right: State.rightWidth = Mathf.Clamp(size, ComposerState.MinSideWidth, ComposerState.MaxSideWidth); break;
+                case PanelEdge.Lower: State.lowerHeight = Mathf.Clamp(size, ComposerState.MinLowerHeight, ComposerState.MaxLowerHeight); break;
+            }
+        }
+
         /// <summary>下ゾーンのタブを表示。すでにそのタブが開いていれば閉じる（F3 のミキサー切替と同じ挙動）。</summary>
         public void ToggleLowerTab(LowerTab tab)
         {

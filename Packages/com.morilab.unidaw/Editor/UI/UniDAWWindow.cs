@@ -41,9 +41,9 @@ namespace UniDAW.Editor
         PatternBar patternBar;
         CellInspector inspector;
         InstrumentPanel instrumentPanel;
-        TwoPaneSplitView split;
+        VisualElement body, center, rightPanel;
+        Splitter leftSplit, rightSplit, lowerSplit;
         LowerZone lowerZone;
-        bool lowerCollapsed;
         StatusBar statusBar;
         Label help;
         IPatternView[] views;
@@ -157,12 +157,21 @@ namespace UniDAW.Editor
             readOnlyBanner.Add(new Button(files.MakeEditableCopy) { text = "編集用に複製" });
             root.Add(readOnlyBanner);
 
-            var body = new VisualElement();
+            body = new VisualElement();
             body.AddToClassList("cd-body");
             orderPanel = new OrderPanel(ctx);
             body.Add(orderPanel);
-            body.Add(BuildCenter());
-            body.Add(BuildRightPanel());
+            BuildCenter();
+            BuildRightPanel();
+            leftSplit = new Splitter(orderPanel, PanelEdge.Left, () => ComposerState.MinSideWidth, () => MaxSide(rightPanel),
+                w => session.SetPanelSize(PanelEdge.Left, w), session.ToggleLeftZone, "ドラッグで幅を変更・ダブルクリックで閉じる（Ctrl+Alt+L）");
+            rightSplit = new Splitter(rightPanel, PanelEdge.Right, () => ComposerState.MinSideWidth, () => MaxSide(orderPanel),
+                w => session.SetPanelSize(PanelEdge.Right, w), session.ToggleRightZone, "ドラッグで幅を変更・ダブルクリックで閉じる（Ctrl+Alt+R）");
+            body.Add(leftSplit);
+            body.Add(center);
+            body.Add(rightSplit);
+            body.Add(rightPanel);
+            body.RegisterCallback<GeometryChangedEvent>(_ => ApplyLayout());
             root.Add(body);
 
             statusBar = new StatusBar(ctx);
@@ -190,9 +199,9 @@ namespace UniDAW.Editor
             if (ss != null) root.styleSheets.Add(ss);
         }
 
-        VisualElement BuildCenter()
+        void BuildCenter()
         {
-            var center = new VisualElement();
+            center = new VisualElement();
             center.AddToClassList("cd-center");
             patternBar = new PatternBar(ctx);
             center.Add(patternBar);
@@ -204,29 +213,54 @@ namespace UniDAW.Editor
             foreach (var v in views) mainArea.Add((VisualElement)v);
 
             // Cubase の Lower Zone：上 = パターン編集、下 = ミキサー / 楽器エディタ（境界はドラッグで調整）
-            split = new TwoPaneSplitView(1, 230, TwoPaneSplitViewOrientation.Vertical);
-            split.AddToClassList("cd-split");
-            split.Add(mainArea);
-            split.Add(lowerZone = new LowerZone(ctx));
-            center.Add(split);
-            return center;
+            center.Add(mainArea);
+            lowerZone = new LowerZone(ctx);
+            lowerSplit = new Splitter(lowerZone, PanelEdge.Lower, () => ComposerState.MinLowerHeight,
+                () => Mathf.Min(ComposerState.MaxLowerHeight, mainArea.resolvedStyle.height + lowerZone.resolvedStyle.height - PanelLayout.EditorMinHeight),
+                h => session.SetPanelSize(PanelEdge.Lower, h), session.ToggleLowerZone, "ドラッグで高さを変更・ダブルクリックで閉じる（Ctrl+Alt+E）");
+            center.Add(lowerSplit);
+            center.Add(lowerZone);
         }
 
-        void RefreshLowerZone()
+        /// <summary>左右パネルの最大幅：編集エリアの最小幅を残す。</summary>
+        float MaxSide(VisualElement other)
         {
-            bool open = state.lowerOpen;
-            if (open == lowerCollapsed)
-            {
-                lowerCollapsed = !open;
-                if (open) split.UnCollapse();
-                else split.CollapseChild(1);
-            }
-            if (open) lowerZone.Refresh();
+            float w = body.resolvedStyle.width;
+            if (float.IsNaN(w)) return ComposerState.MaxSideWidth;
+            float rest = w - (other.style.display == DisplayStyle.None ? 0 : other.resolvedStyle.width) - PanelLayout.MinEditorWidth(state.view);
+            return Mathf.Min(ComposerState.MaxSideWidth, rest);
         }
 
-        VisualElement BuildRightPanel()
+        /// <summary>覚えている開閉・大きさを当てはめ、狭いときは <see cref="PanelLayout.Fit"/> に従って畳む。</summary>
+        PanelVisibility visible = new PanelVisibility(true, true, false, true);
+        const float SplitterSize = 4f;
+
+        void ApplyLayout()
         {
-            var panel = new ScrollView();
+            if (body == null) return;
+            float h = center.resolvedStyle.height - patternBar.resolvedStyle.height;
+            visible = PanelLayout.Fit(body.resolvedStyle.width, h, new PanelVisibility(state.leftOpen, state.rightOpen, false, state.lowerOpen),
+                state.leftWidth + SplitterSize, state.rightWidth + SplitterSize, 0, state.lowerHeight + SplitterSize, state.view);
+            orderPanel.style.width = state.leftWidth;
+            rightPanel.style.width = state.rightWidth;
+            lowerZone.style.height = state.lowerHeight;
+            Show(orderPanel, leftSplit, visible.left);
+            Show(rightPanel, rightSplit, visible.right);
+            bool lowerWas = lowerZone.style.display != DisplayStyle.None;
+            Show(lowerZone, lowerSplit, visible.lower);
+            if (visible.lower && !lowerWas && state.song != null) lowerZone.Refresh();
+        }
+
+        static void Show(VisualElement panel, VisualElement splitter, bool on)
+        {
+            var d = on ? DisplayStyle.Flex : DisplayStyle.None;
+            if (panel.style.display != d) panel.style.display = d;
+            if (splitter.style.display != d) splitter.style.display = d;
+        }
+
+        void BuildRightPanel()
+        {
+            var panel = rightPanel = new ScrollView();
             panel.AddToClassList("cd-right");
             inspector = new CellInspector(ctx);
             panel.Add(inspector);
@@ -235,7 +269,6 @@ namespace UniDAW.Editor
             help = new Label();
             help.AddToClassList("cd-help");
             panel.Add(help);
-            return panel;
         }
 
         // =====================================================================
@@ -254,12 +287,16 @@ namespace UniDAW.Editor
             foreach (var v in views) ((VisualElement)v).style.display = v == cur ? DisplayStyle.Flex : DisplayStyle.None;
             patternBar.Refresh();
             statusBar.Refresh();
+            ApplyLayout();
             if (!has) return;
-            RefreshLowerZone();
-            orderPanel.Refresh();
+            if (visible.lower) lowerZone.Refresh();
+            if (visible.left) orderPanel.Refresh();
             cur.Refresh();
-            inspector.Refresh();
-            instrumentPanel.Refresh();
+            if (visible.right)
+            {
+                inspector.Refresh();
+                instrumentPanel.Refresh();
+            }
         }
 
         void OnEditorUpdate()

@@ -20,7 +20,7 @@ namespace UniDAW.Editor
         readonly VisualElement lcd;
         readonly NumberBox bpmBox, rpbBox, speedBox, octaveBox, stepBox;
         readonly SegmentedControl viewSeg;
-        readonly ToggleChip followChip, clickChip, preChip;
+        readonly ToggleChip followChip, clickChip, preChip, leftChip, lowerChip, rightChip;
         readonly LevelMeter meter;
 
         public ComposerToolbar(ComposerContext ctx)
@@ -112,6 +112,16 @@ namespace UniDAW.Editor
             midiChip = new MenuChip(ShowMidiMenu, "MIDI 入力デバイス");
             midiChip.AddToClassList("cd-midichip");
             Add(midiChip);
+
+            // ---- ゾーンの開閉（Cubase の Left / Lower / Right Zone）----
+            var zones = Group();
+            leftChip = new ToggleChip("LEFT", _ => s.ToggleLeftZone(), "左ゾーン：順序表（Ctrl+Alt+L）");
+            lowerChip = new ToggleChip("LOWER", _ => s.ToggleLowerZone(), "下ゾーン：ミキサーなど（Ctrl+Alt+E）");
+            rightChip = new ToggleChip("RIGHT", _ => s.ToggleRightZone(), "右ゾーン：インスペクター（Ctrl+Alt+R）");
+            zones.Add(leftChip);
+            zones.Add(lowerChip);
+            zones.Add(rightChip);
+            Add(zones);
         }
 
         static VisualElement Group()
@@ -233,6 +243,9 @@ namespace UniDAW.Editor
             loopButton.Active = st.loop;
             clickChip.Value = st.metronome;
             preChip.Value = st.countIn;
+            leftChip.Value = st.leftOpen;
+            lowerChip.Value = st.lowerOpen;
+            rightChip.Value = st.rightOpen;
             octaveBox.SetValueWithoutNotify(st.octave);
             stepBox.SetValueWithoutNotify(st.editStep);
             midiChip.Text = MidiInput.IsOpen ? "MIDI  " + MidiInput.OpenDeviceName : "MIDI  —";

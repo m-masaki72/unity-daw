@@ -47,6 +47,10 @@ namespace UniDAW.Editor
         /// <summary>下ゾーン（ミキサー / 楽器エディタ）を開いているか。</summary>
         public bool lowerOpen = true;
         public LowerTab lowerTab;
+        /// <summary>左（順序表）・右（インスペクター）パネルの開閉と、ドラッグで決めた大きさ。</summary>
+        public bool leftOpen = true, rightOpen = true;
+        public float leftWidth = 150f, rightWidth = 270f, lowerHeight = 230f;
+        public const float MinSideWidth = 120f, MaxSideWidth = 480f, MinLowerHeight = 90f, MaxLowerHeight = 600f;
         /// <summary>楽器エディタで編集中のマクロ。</summary>
         public MacroKind macro;
         /// <summary>入力支援：伴奏の型・メロディ提案の長さ / ばらつき / 乱数の種。</summary>

@@ -90,6 +90,25 @@ namespace UniDAW.Tests
         }
 
         [Test]
+        public void ZoneKeys_ToggleSidePanels_SizesAreClamped()
+        {
+            WithWindow((w, song) =>
+            {
+                Assert.IsTrue(w.HandleKey(KeyCode.L, true, false, true));
+                Assert.IsFalse(w.State.leftOpen, "Ctrl+Alt+L で左ゾーン");
+                Assert.IsTrue(w.HandleKey(KeyCode.R, true, false, true));
+                Assert.IsFalse(w.State.rightOpen, "Ctrl+Alt+R で右ゾーン");
+                Assert.IsTrue(w.HandleKey(KeyCode.L, true, false, true));
+                Assert.IsTrue(w.State.leftOpen);
+
+                w.Session.SetPanelSize(PanelEdge.Left, 10);
+                Assert.AreEqual(ComposerState.MinSideWidth, w.State.leftWidth);
+                w.Session.SetPanelSize(PanelEdge.Lower, 300);
+                Assert.AreEqual(300, w.State.lowerHeight);
+            });
+        }
+
+        [Test]
         public void PlainKeys_StillEditCells()
         {
             WithWindow((w, song) =>

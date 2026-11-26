@@ -2,6 +2,9 @@ using System;
 
 namespace UniDAW.Editor
 {
+    /// <summary>ドラッグで大きさを変えられる境界。</summary>
+    public enum PanelEdge { Left, Right, Lower }
+
     /// <summary>周辺パネル（左・右・上のアレンジ帯・下ゾーン）の開閉。</summary>
     [Serializable]
     public struct PanelVisibility
