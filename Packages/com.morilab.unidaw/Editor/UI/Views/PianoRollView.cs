@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -308,11 +307,11 @@ namespace UniDAW.Editor
             var s = ctx.Session;
             bool hasSel = Roll.Selection.Count > 0;
             var preset = DawKeys.Preset;
-            var m = new GenericMenu();
+            var m = new DawMenu();
             foreach (RollTool t in Enum.GetValues(typeof(RollTool)))
             {
                 var tool = t;
-                m.AddItem(new GUIContent("Tool/" + DawKeys.ToolLabel(preset, tool)), ctx.State.rollTool == tool, () => s.SetRollTool(tool));
+                m.AddItem("Tool/" + DawKeys.ToolLabel(preset, tool), ctx.State.rollTool == tool, () => s.SetRollTool(tool));
             }
             m.AddSeparator("");
             Item(m, "Cut  (Ctrl+X)", hasSel, Roll.Cut);
@@ -326,10 +325,10 @@ namespace UniDAW.Editor
             m.DropDown(new Rect(canvas.LocalToWorld(local), Vector2.zero));
         }
 
-        static void Item(GenericMenu m, string label, bool enabled, GenericMenu.MenuFunction action)
+        static void Item(DawMenu m, string label, bool enabled, System.Action action)
         {
-            if (enabled) m.AddItem(new GUIContent(label), false, action);
-            else m.AddDisabledItem(new GUIContent(label));
+            if (enabled) m.AddItem(label, false, action);
+            else m.AddDisabledItem(label);
         }
     }
 }

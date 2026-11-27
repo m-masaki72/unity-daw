@@ -1,5 +1,4 @@
 using System;
-using UnityEditor;
 using UnityEngine;
 
 namespace UniDAW.Editor
@@ -318,9 +317,9 @@ namespace UniDAW.Editor
         bool Edit(string undoName, Action change)
         {
             if (!CanEdit()) return false;
-            Undo.RecordObject(Song, undoName);
+            DawPlatform.Current.RecordUndo(Song, undoName);
             change();
-            EditorUtility.SetDirty(Song);
+            DawPlatform.Current.MarkDirty(Song);
             State.Clamp();
             Changed?.Invoke();
             return true;

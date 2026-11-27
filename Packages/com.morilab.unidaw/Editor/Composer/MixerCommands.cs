@@ -1,5 +1,4 @@
 using System;
-using UnityEditor;
 
 namespace UniDAW.Editor
 {
@@ -72,7 +71,7 @@ namespace UniDAW.Editor
 
         void Touched()
         {
-            if (!session.IsReadOnly) EditorUtility.SetDirty(Song);
+            if (!session.IsReadOnly) DawPlatform.Current.MarkDirty(Song);
             session.NotifyChanged();
         }
 

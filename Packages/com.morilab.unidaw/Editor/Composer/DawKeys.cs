@@ -1,9 +1,8 @@
-using UnityEditor;
 using UnityEngine;
 
 namespace UniDAW.Editor
 {
-    /// <summary>キー操作をどの DAW に合わせるか（EditorPrefs に int で保存されるので値は固定）。</summary>
+    /// <summary>キー操作をどの DAW に合わせるか（ホストの設定に int で保存されるので値は固定）。</summary>
     public enum DawKeyPreset { Cubase = 0, StudioOne = 1 }
 
     /// <summary>
@@ -20,11 +19,11 @@ namespace UniDAW.Editor
         /// <summary>選択中のプリセット（ユーザー設定としてプロジェクトをまたいで保存）。</summary>
         public static DawKeyPreset Preset
         {
-            get => cached ??= (DawKeyPreset)EditorPrefs.GetInt(PrefKey, (int)DawKeyPreset.Cubase);
+            get => cached ??= (DawKeyPreset)DawPlatform.Current.GetInt(PrefKey, (int)DawKeyPreset.Cubase);
             set
             {
                 cached = value;
-                EditorPrefs.SetInt(PrefKey, (int)value);
+                DawPlatform.Current.SetInt(PrefKey, (int)value);
             }
         }
 

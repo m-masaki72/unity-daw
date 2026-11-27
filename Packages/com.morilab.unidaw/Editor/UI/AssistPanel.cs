@@ -1,5 +1,4 @@
 using System;
-using UnityEditor;
 using UnityEngine.UIElements;
 
 namespace UniDAW.Editor
@@ -195,11 +194,11 @@ namespace UniDAW.Editor
 
         static void ShowMenu(VisualElement anchor, string[] names, int current, Action<int> pick)
         {
-            var m = new GenericMenu();
+            var m = new DawMenu();
             for (int i = 0; i < names.Length; i++)
             {
                 int k = i;
-                m.AddItem(new UnityEngine.GUIContent(names[i]), i == current, () => pick(k));
+                m.AddItem(names[i], i == current, () => pick(k));
             }
             m.DropDown(anchor.worldBound);
         }

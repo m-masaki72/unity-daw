@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -164,12 +163,12 @@ namespace UniDAW.Editor
         void ShowMenu(int index)
         {
             var song = ctx.State.song;
-            var m = new GenericMenu();
-            m.AddItem(new GUIContent("アレンジの選択中エントリの後ろに並べる"), false, ctx.Order.Insert);
-            m.AddItem(new GUIContent("曲の最後に並べる"), false, () => ctx.Order.InsertPattern(song.order.Count, index));
+            var m = new DawMenu();
+            m.AddItem("アレンジの選択中エントリの後ろに並べる", false, ctx.Order.Insert);
+            m.AddItem("曲の最後に並べる", false, () => ctx.Order.InsertPattern(song.order.Count, index));
             m.AddSeparator("");
-            m.AddItem(new GUIContent("複製"), false, S.ClonePattern);
-            m.AddItem(new GUIContent("新規パターン"), false, S.NewPattern);
+            m.AddItem("複製", false, S.ClonePattern);
+            m.AddItem("新規パターン", false, S.NewPattern);
             m.ShowAsContext();
         }
     }

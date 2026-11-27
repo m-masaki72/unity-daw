@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UniDAW.Midi;
 using UnityEditor;
 using UnityEngine;
@@ -10,11 +12,27 @@ namespace UniDAW.Editor
     /// ファイル操作（新規・デモ・MIDI 入出力・WAV 書き出し・複製）。保存先ダイアログを出し、
     /// 実処理は <see cref="UniDAWAssets"/> に任せ、結果の曲をセッションに渡す。
     /// </summary>
-    public sealed class SongFileCommands
+    public sealed class SongFileCommands : ISongFiles
     {
         readonly ComposerSession s;
 
         public SongFileCommands(ComposerSession session) => s = session;
+
+        public IReadOnlyList<SongEntry> ListSongs() =>
+            UniDAWAssets.FindSongPaths()
+                .Select(p => new SongEntry(p, Path.GetFileNameWithoutExtension(p), Path.GetDirectoryName(p).Replace('\\', '/')))
+                .ToList();
+
+        public void Open(string id) => s.SetSong(AssetDatabase.LoadAssetAtPath<Song>(id));
+
+        public string IdOf(Song song)
+        {
+            var path = song != null ? AssetDatabase.GetAssetPath(song) : null;
+            return string.IsNullOrEmpty(path) ? null : path;
+        }
+
+        public bool CanReveal => true;
+        public void Reveal(Song song) => EditorGUIUtility.PingObject(song);
 
         public static bool IsMidiPath(string path) =>
             path != null && (path.EndsWith(".mid", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".midi", StringComparison.OrdinalIgnoreCase));

@@ -1,6 +1,4 @@
-using System.IO;
 using UniDAW.Midi;
-using UnityEditor;
 using UnityEngine.UIElements;
 
 namespace UniDAW.Editor
@@ -145,17 +143,17 @@ namespace UniDAW.Editor
         // メニュー
         // =====================================================================
 
-        static void Item(GenericMenu m, string path, bool enabled, GenericMenu.MenuFunction action, bool on = false)
+        static void Item(DawMenu m, string path, bool enabled, System.Action action, bool on = false)
         {
-            if (enabled) m.AddItem(new UnityEngine.GUIContent(path), on, action);
-            else m.AddDisabledItem(new UnityEngine.GUIContent(path), on);
+            if (enabled) m.AddItem(path, on, action);
+            else m.AddDisabledItem(path, on);
         }
 
         void ShowFileMenu(VisualElement anchor)
         {
             var f = ctx.Files;
             bool has = ctx.Session.Song != null;
-            var m = new GenericMenu();
+            var m = new DawMenu();
             Item(m, "New Song...", true, f.NewSong);
             Item(m, "Import Demo Songs", true, f.OpenSamples);
             m.AddSeparator("");
@@ -180,27 +178,28 @@ namespace UniDAW.Editor
         {
             var s = ctx.Session;
             var current = s.Song;
-            var m = new GenericMenu();
-            var paths = UniDAWAssets.FindSongPaths();
-            if (paths.Length == 0) Item(m, "(Song がありません)", false, null);
-            foreach (var p in paths)
+            var m = new DawMenu();
+            var f = ctx.Files;
+            var songs = f.ListSongs();
+            if (songs.Count == 0) Item(m, "(Song がありません)", false, null);
+            string currentId = f.IdOf(current);
+            foreach (var e in songs)
             {
-                string path = p;
+                string id = e.id;
                 // メニューの区切り文字 "/" を避けて「名前  —  フォルダ」の形で出す
-                string label = Path.GetFileNameWithoutExtension(path) + "   —   " + Path.GetDirectoryName(path).Replace('\\', '∕').Replace('/', '∕');
-                bool on = current != null && AssetDatabase.GetAssetPath(current) == path;
-                Item(m, label, true, () => s.SetSong(AssetDatabase.LoadAssetAtPath<Song>(path)), on);
+                string label = e.name + "   —   " + e.folder.Replace('/', '∕');
+                Item(m, label, true, () => f.Open(id), currentId == id);
             }
             m.AddSeparator("");
-            Item(m, "Ping in Project", current != null, () => EditorGUIUtility.PingObject(current));
-            Item(m, "New Song...", true, ctx.Files.NewSong);
+            if (f.CanReveal) Item(m, "Ping in Project", current != null, () => f.Reveal(current));
+            Item(m, "New Song...", true, f.NewSong);
             m.DropDown(anchor.worldBound);
         }
 
         void ShowMidiMenu(VisualElement anchor)
         {
             var s = ctx.Session;
-            var m = new GenericMenu();
+            var m = new DawMenu();
             var names = MidiInput.GetDeviceNames();
             if (names.Length == 0) Item(m, "(デバイスなし)", false, null);
             for (int i = 0; i < names.Length; i++)

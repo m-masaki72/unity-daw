@@ -1,5 +1,4 @@
 using System;
-using UnityEditor;
 
 namespace UniDAW.Editor
 {
@@ -163,7 +162,7 @@ namespace UniDAW.Editor
             var e = Engine;
             if (e == null || e.IsPlaying || state.song == null) return;
             Prepare().NoteOn(ch, note, 15, inst);
-            previewOff[ch] = EditorApplication.timeSinceStartup + seconds;
+            previewOff[ch] = DawPlatform.Current.Now + seconds;
         }
 
         /// <summary>曲に入っていない楽器（プリセット）を一定時間だけ鳴らす。</summary>
@@ -179,7 +178,7 @@ namespace UniDAW.Editor
         public void ReleasePreview(int ch)
         {
             var e = Engine;
-            if (e != null && !e.IsPlaying) previewOff[ch] = EditorApplication.timeSinceStartup + ReleaseDelay;
+            if (e != null && !e.IsPlaying) previewOff[ch] = DawPlatform.Current.Now + ReleaseDelay;
         }
 
         /// <summary>
@@ -197,7 +196,7 @@ namespace UniDAW.Editor
             e.Metronome = state.metronome;
             host.DispatchEvents();
 
-            double now = EditorApplication.timeSinceStartup;
+            double now = DawPlatform.Current.Now;
             for (int c = 0; c < Song.ChannelCount; c++)
             {
                 if (previewOff[c] > 0 && now >= previewOff[c])

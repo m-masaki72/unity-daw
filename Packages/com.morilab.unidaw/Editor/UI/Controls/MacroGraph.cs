@@ -1,5 +1,4 @@
 using System;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -191,7 +190,7 @@ namespace UniDAW.Editor
 
         void ShowMenu(int col, Vector2 pos)
         {
-            var m = new GenericMenu();
+            var m = new DawMenu();
             bool inside = col < Length;
             Item(m, $"ここで終わる（長さ {col + 1}）", true, () => { SetLength(col + 1); Commit(); });
             Item(m, $"ループ開始をここに（{col}）", inside, () => { seq.loop = col; Commit(); });
@@ -203,10 +202,10 @@ namespace UniDAW.Editor
             m.DropDown(new Rect(this.LocalToWorld(pos), Vector2.zero));
         }
 
-        static void Item(GenericMenu m, string label, bool enabled, GenericMenu.MenuFunction action)
+        static void Item(DawMenu m, string label, bool enabled, System.Action action)
         {
-            if (enabled) m.AddItem(new GUIContent(label), false, action);
-            else m.AddDisabledItem(new GUIContent(label));
+            if (enabled) m.AddItem(label, false, action);
+            else m.AddDisabledItem(label);
         }
 
         // ---- 描画 --------------------------------------------------------------------

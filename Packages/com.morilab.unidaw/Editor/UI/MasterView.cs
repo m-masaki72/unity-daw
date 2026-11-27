@@ -153,11 +153,11 @@ namespace UniDAW.Editor
 
         void ShowTargetMenu(VisualElement anchor)
         {
-            var menu = new UnityEditor.GenericMenu();
+            var menu = new DawMenu();
             for (int i = 0; i < SongMaster.TargetChoices.Length; i++)
             {
                 float v = SongMaster.TargetChoices[i];
-                menu.AddItem(new GUIContent(SongMaster.TargetNames[i]), Mathf.Approximately(M.TargetLufs, v), () => M.SetTarget(v));
+                menu.AddItem(SongMaster.TargetNames[i], Mathf.Approximately(M.TargetLufs, v), () => M.SetTarget(v));
             }
             menu.DropDown(anchor.worldBound);
         }

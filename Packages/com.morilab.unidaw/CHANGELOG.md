@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.35.2] - 2026-11-28
+
+### Changed
+- ゲーム内 DAW に向けた下準備（段階 1）。時計・設定の保存・Undo・ポップアップメニューを `IDawPlatform`（`DawPlatform.Current`）越しに、曲ファイルの操作を `ISongFiles` 越しに呼ぶようにしました。動作は変わりません
+- `GenericMenu` を自前の `DawMenu` に置き換え、`SongFileCommands` を `Editor/UI/Host/` へ移動
+
 ## [0.35.1] - 2026-11-28
 
 ### Fixed

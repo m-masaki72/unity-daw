@@ -1,6 +1,4 @@
-using System.IO;
 using UniDAW.Midi;
-using UnityEditor;
 using UnityEngine.UIElements;
 
 namespace UniDAW.Editor
@@ -43,28 +41,28 @@ namespace UniDAW.Editor
         public void Refresh()
         {
             list.Clear();
-            var paths = UniDAWAssets.FindSongPaths();
-            if (paths.Length == 0)
+            var songs = ctx.Files.ListSongs();
+            if (songs.Count == 0)
             {
                 var none = new Label("（まだ Song がありません）");
                 none.AddToClassList("cd-start-sub");
                 list.Add(none);
                 return;
             }
-            for (int i = 0; i < paths.Length && i < MaxListed; i++)
+            for (int i = 0; i < songs.Count && i < MaxListed; i++)
             {
-                string path = paths[i];
-                var b = new Button(() => ctx.Session.SetSong(AssetDatabase.LoadAssetAtPath<Song>(path)))
+                var e = songs[i];
+                var b = new Button(() => ctx.Files.Open(e.id))
                 {
-                    text = Path.GetFileNameWithoutExtension(path) + "   " + Path.GetDirectoryName(path).Replace('\\', '/'),
-                    tooltip = path,
+                    text = e.name + "   " + e.folder,
+                    tooltip = e.id,
                 };
                 b.AddToClassList("cd-start-song");
                 list.Add(b);
             }
-            if (paths.Length > MaxListed)
+            if (songs.Count > MaxListed)
             {
-                var more = new Label($"ほか {paths.Length - MaxListed} 曲は Open… から");
+                var more = new Label($"ほか {songs.Count - MaxListed} 曲は Open… から");
                 more.AddToClassList("cd-start-sub");
                 list.Add(more);
             }

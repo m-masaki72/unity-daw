@@ -1,6 +1,6 @@
 {
   "name": "com.morilab.unidaw",
-  "version": "0.35.1",
+  "version": "0.35.2",
   "displayName": "UniDAW",
   "description": "Chiptune DAW inside the Unity Editor: step sequencer + tracker hybrid, 4ch (2 pulse / triangle / noise), parameter locks, tracker effects, MIDI file import/export and MIDI input (Windows).",
   "unity": "6000.0",

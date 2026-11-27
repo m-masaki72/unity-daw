@@ -12,7 +12,7 @@ namespace UniDAW.Editor
         public ComposerSession Session { get; }
         public CellCommands Cells { get; }
         public RollEditor Roll { get; }
-        public SongFileCommands Files { get; }
+        public ISongFiles Files { get; }
         public MixerCommands Mixer { get; }
         public OrderCommands Order { get; }
         public AssistCommands Assist { get; }
@@ -22,7 +22,7 @@ namespace UniDAW.Editor
 
         readonly Action focusMain;
 
-        public ComposerContext(ComposerSession session, CellCommands cells, RollEditor roll, SongFileCommands files, MixerCommands mixer, OrderCommands order, AssistCommands assist, MasteringCommands mastering, Action focusMain)
+        public ComposerContext(ComposerSession session, CellCommands cells, RollEditor roll, ISongFiles files, MixerCommands mixer, OrderCommands order, AssistCommands assist, MasteringCommands mastering, Action focusMain)
         {
             Session = session;
             Cells = cells;

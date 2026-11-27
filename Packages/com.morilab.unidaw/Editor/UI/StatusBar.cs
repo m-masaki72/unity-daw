@@ -1,4 +1,3 @@
-using UnityEditor;
 using UnityEngine.UIElements;
 
 namespace UniDAW.Editor
@@ -34,13 +33,13 @@ namespace UniDAW.Editor
         {
             message.text = text ?? "";
             message.EnableInClassList("error", error);
-            messageUntil = EditorApplication.timeSinceStartup + MessageSeconds;
+            messageUntil = DawPlatform.Current.Now + MessageSeconds;
         }
 
         /// <summary>毎フレーム：時間が来たらメッセージを消す。</summary>
         public void Tick()
         {
-            if (messageUntil > 0 && EditorApplication.timeSinceStartup >= messageUntil)
+            if (messageUntil > 0 && DawPlatform.Current.Now >= messageUntil)
             {
                 messageUntil = 0;
                 message.text = "";

@@ -64,6 +64,9 @@ UniDAW は曲そのものが譜面なので、ノート・拍・小節・セク�
   - `EditorApplication.update` / `timeSinceStartup`：MonoBehaviour の Update と `Time.realtimeSinceStartup` に置き換える。
   - プレビュー音声（`Transport`）：ランタイムでは `UniDAWPlayer` と同じ `OnAudioFilterRead` の経路で鳴らす。
   - Claude 連携：API キー方式だけにする（`claude -p` はエディタ専用）。キーの扱いはゲームごとに決める。
+- **進捗**
+  - 2026-11-28（0.35.2）：段階 1 済み。時計・設定・Undo・メニューを `IDawPlatform`（`DawPlatform.Current`）、曲ファイルの操作を `ISongFiles` に分けた。GenericMenu は `DawMenu` に置き換え。エディタ実装は `Editor/UI/Host/`（`EditorDawPlatform`・`SongFileCommands`）。
+  - 残り（段階 2 で分ける）：Composer / UI から Editor/Services への依存（`ClaudeClient`・`UniDAWAssets.IsReadOnly`・`UniDAWMidiBridge`・`UniDAWPreview.AudioHost`）。
 - **進め方**
   1. Composer と UI を新しい asmdef（例：`UniDAW.Composer`、Editor 限定にしない）へ移す。
   2. 上のエディタ専用 API を、インターフェース越しに呼ぶ形に変える。

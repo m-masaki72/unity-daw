@@ -53,7 +53,7 @@ namespace UniDAW.Editor
             }, TrickleDown.TrickleDown);
         }
 
-        static double Now => UnityEditor.EditorApplication.timeSinceStartup;
+        static double Now => DawPlatform.Current.Now;
 
         /// <summary>ポインタ位置の説明と、その持ち主（同じ持ち主・同じ文なら出し直さない）。</summary>
         public static string Find(IPanel panel, Vector2 worldPos, out object owner)

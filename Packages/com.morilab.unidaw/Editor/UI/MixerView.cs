@@ -196,11 +196,11 @@ namespace UniDAW.Editor
         void ShowSourceMenu(VisualElement anchor)
         {
             var m = ctx.Mixer;
-            var menu = new UnityEditor.GenericMenu();
+            var menu = new DawMenu();
             for (int c = 0; c < Song.ChannelCount; c++)
             {
                 int ch = c;
-                menu.AddItem(new GUIContent(Song.ChannelNames[c]), m.SidechainSource == c, () => m.SetSidechainSource(ch));
+                menu.AddItem(Song.ChannelNames[c], m.SidechainSource == c, () => m.SetSidechainSource(ch));
             }
             menu.DropDown(anchor.worldBound);
         }
@@ -230,11 +230,11 @@ namespace UniDAW.Editor
         void ShowDelayMenu(VisualElement anchor)
         {
             var m = ctx.Mixer;
-            var menu = new UnityEditor.GenericMenu();
+            var menu = new DawMenu();
             for (int i = 0; i < SongEffects.DelayBeatNames.Length; i++)
             {
                 int idx = i;
-                menu.AddItem(new GUIContent(SongEffects.DelayBeatNames[i]), m.DelayChoice == i, () => m.SetDelayChoice(idx));
+                menu.AddItem(SongEffects.DelayBeatNames[i], m.DelayChoice == i, () => m.SetDelayChoice(idx));
             }
             menu.DropDown(anchor.worldBound);
         }

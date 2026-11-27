@@ -130,7 +130,7 @@ namespace UniDAW.Editor
             session.Notified += Notify;
             transport.Changed += RefreshAll;
             EditorApplication.update += OnEditorUpdate;
-            Undo.undoRedoPerformed += session.OnUndoRedo;
+            DawPlatform.Current.UndoRedoPerformed += session.OnUndoRedo;
             shortcutContext = new UniDAWShortcuts.Context(this);
             UnityEditor.ShortcutManagement.ShortcutManager.RegisterContext(shortcutContext);
         }
@@ -141,7 +141,7 @@ namespace UniDAW.Editor
             session.Notified -= Notify;
             transport.Changed -= RefreshAll;
             EditorApplication.update -= OnEditorUpdate;
-            Undo.undoRedoPerformed -= session.OnUndoRedo;
+            DawPlatform.Current.UndoRedoPerformed -= session.OnUndoRedo;
             UnityEditor.ShortcutManagement.ShortcutManager.UnregisterContext(shortcutContext);
             transport.Engine?.Stop();
         }

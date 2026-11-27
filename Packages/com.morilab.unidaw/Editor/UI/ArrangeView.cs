@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -423,29 +422,29 @@ namespace UniDAW.Editor
         {
             var song = ctx.State.song;
             int cur = song.order[index];
-            var m = new GenericMenu();
-            m.AddItem(new GUIContent("ここから再生"), false, () => ctx.Transport.PlayFromOrder(index));
+            var m = new DawMenu();
+            m.AddItem("ここから再生", false, () => ctx.Transport.PlayFromOrder(index));
             m.AddSeparator("");
-            m.AddItem(new GUIContent("後ろに挿入（編集中のパターン）"), false, O.Insert);
-            m.AddItem(new GUIContent("複製"), false, () => O.Duplicate(index));
-            if (song.order.Count > 1) m.AddItem(new GUIContent("削除"), false, () => O.Remove(index));
-            else m.AddDisabledItem(new GUIContent("削除"));
-            m.AddItem(new GUIContent("固有化（パターンを複製）"), false, () => O.MakeUnique(index));
+            m.AddItem("後ろに挿入（編集中のパターン）", false, O.Insert);
+            m.AddItem("複製", false, () => O.Duplicate(index));
+            if (song.order.Count > 1) m.AddItem("削除", false, () => O.Remove(index));
+            else m.AddDisabledItem("削除");
+            m.AddItem("固有化（パターンを複製）", false, () => O.MakeUnique(index));
             m.AddSeparator("");
-            if (cur > 0) m.AddItem(new GUIContent("前のパターン（Alt+[）"), false, () => O.SetPattern(index, cur - 1));
-            else m.AddDisabledItem(new GUIContent("前のパターン（Alt+[）"));
-            if (cur < song.patterns.Count - 1) m.AddItem(new GUIContent("次のパターン（Alt+]）"), false, () => O.SetPattern(index, cur + 1));
-            else m.AddDisabledItem(new GUIContent("次のパターン（Alt+]）"));
+            if (cur > 0) m.AddItem("前のパターン（Alt+[）", false, () => O.SetPattern(index, cur - 1));
+            else m.AddDisabledItem("前のパターン（Alt+[）");
+            if (cur < song.patterns.Count - 1) m.AddItem("次のパターン（Alt+]）", false, () => O.SetPattern(index, cur + 1));
+            else m.AddDisabledItem("次のパターン（Alt+]）");
             for (int i = 0; i < song.patterns.Count; i++)
             {
                 int pi = i;
-                m.AddItem(new GUIContent($"パターン/{i:X2} {song.patterns[i].name}"), cur == i, () => O.SetPattern(index, pi));
+                m.AddItem($"パターン/{i:X2} {song.patterns[i].name}", cur == i, () => O.SetPattern(index, pi));
             }
-            m.AddItem(new GUIContent("移調/+1"), false, () => O.Transpose(index, 1));
-            m.AddItem(new GUIContent("移調/-1"), false, () => O.Transpose(index, -1));
-            m.AddItem(new GUIContent("移調/+12"), false, () => O.Transpose(index, 12));
-            m.AddItem(new GUIContent("移調/-12"), false, () => O.Transpose(index, -12));
-            m.AddItem(new GUIContent("移調/リセット"), false, () => O.Transpose(index, null));
+            m.AddItem("移調/+1", false, () => O.Transpose(index, 1));
+            m.AddItem("移調/-1", false, () => O.Transpose(index, -1));
+            m.AddItem("移調/+12", false, () => O.Transpose(index, 12));
+            m.AddItem("移調/-12", false, () => O.Transpose(index, -12));
+            m.AddItem("移調/リセット", false, () => O.Transpose(index, null));
             m.ShowAsContext();
         }
     }
