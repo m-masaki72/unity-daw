@@ -1,0 +1,16 @@
+{
+    "name": "UniDAW.Composer",
+    "rootNamespace": "UniDAW.Composer",
+    "references": [
+        "UniDAW.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

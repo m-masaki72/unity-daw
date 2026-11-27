@@ -1,5 +1,6 @@
 using System.Linq;
 using NUnit.Framework;
+using UniDAW.Composer;
 using UniDAW.Editor;
 
 namespace UniDAW.Tests

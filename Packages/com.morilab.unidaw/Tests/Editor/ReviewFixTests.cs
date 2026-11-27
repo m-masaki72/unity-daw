@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
+using UniDAW.Composer;
 using UniDAW.Editor;
 using UniDAW.Midi;
 using UnityEngine;

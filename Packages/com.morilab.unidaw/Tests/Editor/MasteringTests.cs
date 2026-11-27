@@ -1,5 +1,6 @@
 using System;
 using NUnit.Framework;
+using UniDAW.Composer;
 using UnityEngine;
 using Object = UnityEngine.Object;
 

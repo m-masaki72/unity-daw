@@ -4,7 +4,7 @@
 Package Manager の「Add package from git URL」で次を指定します：
 `<リポジトリURL>.git?path=Packages/com.morilab.unidaw`
 
-アセンブリ：`UniDAW.Runtime`（モデル・音源・MIDI・再生コンポーネント）／`UniDAW.Editor`（エディタウィンドウ・MIDI インポーター）
+アセンブリ：`UniDAW.Runtime`（モデル・音源・MIDI・再生コンポーネント）／`UniDAW.Composer`（作曲画面の状態・操作・UI。エディタ限定ではなくプレイヤーにも入る）／`UniDAW.Editor`（エディタウィンドウ・アセット入出力・MIDI インポーター）
 
 Unity をエディタとして使う音楽制作向けの DAW です。ステップシーケンサーとトラッカーのよいところを組み合わせ、曲データはアセットとしてシーン・映像表現から直接参照できます。
 
@@ -41,7 +41,7 @@ Unity をエディタとして使う音楽制作向けの DAW です。ステッ
 - 映像連携：`UniDAWPlayer`（AudioSource）＋`UniDAWVisualizer`、`onNote` UnityEvent
 
 ## コードの層構成
-依存は上から下への一方向のみ。フォルダ＝将来 asmdef を分けるときの境界です。
+依存は上から下への一方向のみ。`Runtime/`・`Composer/`・`Editor/` がそれぞれ asmdef（`UniDAW.Runtime`・`UniDAW.Composer`・`UniDAW.Editor`）の境界で、その中のフォルダが層の境界です。`UniDAW.Composer` は UnityEditor を使えない（プレイヤー用にもコンパイルされる）ので、エディタの機能は `IDawPlatform` / `ISongFiles` の実装として `Editor/UI/Host/` に置きます。
 
 | 層 | フォルダ | 役割 | 依存してよい先 |
 |---|---|---|---|
@@ -49,9 +49,11 @@ Unity をエディタとして使う音楽制作向けの DAW です。ステッ
 | Audio | `Runtime/Audio` | `ChipEngine`（シーケンサー）・`ChipChannel`（発音）・`ChipMixer`・`TriggerConditions`・`OfflineRenderer`・WAV | Model（UnityEngine 非依存） |
 | Midi | `Runtime/Midi` | SMF 読み書き・Song 変換・MIDI 入力（`UniDAW.Midi`） | Model |
 | Unity | `Runtime/Unity` | `UniDAWPlayer` / `UniDAWVisualizer`（シーン用コンポーネント） | Model・Audio |
-| Services | `Editor/Services` | アセット入出力・インポーター・CLI・プレビュー音声（`IAudioHost`）・MIDI 入力の橋渡し | Runtime 全体 |
-| Composer | `Editor/Composer` | エディタの状態と操作。UIElements に依存しない（`ComposerState`・`ComposerSession`・`Transport`・`CellCommands`・`ComposerKeymap`・`MidiRecorder`）。ホスト依存の機能は `Platform/` の `IDawPlatform`（時計・設定・Undo・メニュー）と `ISongFiles`（曲ファイル）越しに呼ぶ | Services |
-| UI | `Editor/UI` | `UniDAWWindow`（配置と配線のみ）、`Host/`（エディタ実装：`EditorDawPlatform`・`SongFileCommands`）、パネル、`Views/`（トラッカー・ステップ・ピアノロール）、`Controls/`（自作部品：`IconButton`・`NumberBox`・`SegmentedControl`・`LevelMeter` など。Composer に依存しない） | Composer（`ComposerContext` 経由） |
+| Composer Services | `Composer/Services` | Claude への送信（`ClaudeClient`・`ClaudeCodeClient`）・楽器プリセット・MIDI 入力の橋渡し | Runtime 全体・`Platform/` |
+| Composer | `Composer/Core` | 作曲の状態と操作。UIElements に依存しない（`ComposerState`・`ComposerSession`・`Transport`・`CellCommands`・`ComposerKeymap`・`MidiRecorder`）。ホスト依存の機能は `Platform/` の `IDawPlatform`（時計・毎フレーム・設定・Undo・メニュー・音の出口）と `ISongFiles`（曲ファイル）越しに呼ぶ | Composer Services |
+| UI | `Composer/UI` | パネル、`Views/`（トラッカー・ステップ・ピアノロール）、`Controls/`（自作部品：`IconButton`・`NumberBox`・`SegmentedControl`・`LevelMeter` など。Composer に依存しない）、`UniDAW.uss` | Composer（`ComposerContext` 経由） |
+| Editor Services | `Editor/Services` | アセット入出力・インポーター・CLI・プレビュー音声（`UniDAWPreview`） | Runtime・Composer |
+| Editor Host | `Editor/UI` | `UniDAWWindow`（EditorWindow に UI を載せて配線するだけ）、`UniDAWShortcuts`、`Host/`（`EditorDawPlatform`・`SongFileCommands`：`IDawPlatform` / `ISongFiles` のエディタ実装） | すべて |
 
 - 新しい編集操作は Composer に足し、UI からは呼ぶだけにする（Undo・読み取り専用チェックは `ComposerSession` が一括で行う）
 - 新しい表示は `IPatternView` を実装して `UniDAWWindow.BuildCenter` に並べ、`PatternViewKind` に値を**追記**する
@@ -217,8 +219,10 @@ player.SetLayer(3, false);     // ノイズを抜く
 Unity.exe -batchmode -projectPath . -executeMethod UniDAW.Editor.UniDAWCli.RenderMidi -unidawMidi in.mid -unidawWav out.wav
 Unity.exe -batchmode -projectPath . -executeMethod UniDAW.Editor.UniDAWCli.AnalyzeSong -unidawAsset Assets/x.asset [-unidawMatch]
 Unity.exe -batchmode -projectPath . -executeMethod UniDAW.Editor.UniDAWCli.AiSmoke [-unidawBrief 概要] [-unidawAsset Assets/UniDAW/AiSmoke.asset] [-unidawModel 0|1]
+Unity.exe -batchmode -projectPath . -executeMethod UniDAW.Editor.UniDAWCli.CompilePlayer [-unidawOut Temp/UniDAWPlayerCompile]
 ```
 `AiSmoke` はローカルの Claude Code（`claude -p`）で AI 支援を一通り試す（下書き → 固定付きメロディ → 直す → 音色 → 講評 → 次の一手）。送った依頼と返答をログに出し、曲を保存する。
+`CompilePlayer` はプレイヤー用（UNITY_EDITOR なし）にスクリプトだけをコンパイルし、`UniDAW.Composer` がエディタ API なしで通るかを確かめる（失敗で終了コード 1）。
 
 ## テスト
 `Unity.exe -batchmode -projectPath . -runTests -testPlatform EditMode -testResults results.xml`（利用側プロジェクトでは manifest.json の `testables` に `com.morilab.unidaw` を追加）

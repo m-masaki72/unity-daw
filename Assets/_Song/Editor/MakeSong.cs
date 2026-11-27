@@ -3,6 +3,7 @@ using System.IO;
 using UnityEditor;
 using UnityEngine;
 using UniDAW;
+using UniDAW.Composer;
 using UniDAW.Editor;
 using UniDAW.Midi;
 

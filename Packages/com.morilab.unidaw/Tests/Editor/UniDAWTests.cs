@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UniDAW.Composer;
 using UniDAW.Midi;
 using NUnit.Framework;
 using UnityEngine;
@@ -476,8 +477,8 @@ namespace UniDAW.Tests
                 w.CreateGUI();
                 w.SetSong(song);
                 var root = w.rootVisualElement;
-                Assert.IsNotNull(root.Q<UniDAW.Editor.TrackerView>());
-                Assert.IsNotNull(root.Q<UniDAW.Editor.StepView>());
+                Assert.IsNotNull(root.Q<UniDAW.Composer.TrackerView>());
+                Assert.IsNotNull(root.Q<UniDAW.Composer.StepView>());
                 Assert.Greater(root.Query(className: "cd-trow").ToList().Count, 32);
                 w.HandleKey(KeyCode.DownArrow, false, false);
                 w.HandleKey(KeyCode.RightArrow, false, false);
@@ -486,7 +487,7 @@ namespace UniDAW.Tests
                 w.SetTrackLength(0, 12);
                 Assert.AreEqual(12, w.CurrentPattern.TrackLength(0));
                 w.StepClick(3, 13, false);
-                root.Q<UniDAW.Editor.StepView>().Refresh();
+                root.Q<UniDAW.Composer.StepView>().Refresh();
                 Assert.Greater(root.Query(className: "cd-step").ToList().Count, 4 * 31);
             }
             finally
@@ -586,12 +587,12 @@ namespace UniDAW.Tests
         [Test]
         public void PicksChannelFromUsageThenPreset()
         {
-            Assert.AreEqual(0, UniDAW.Editor.AuditionTarget.Channel(null, -1, new Instrument("Square Lead", "15", "", "2"), 3, "Lead"), "カーソルが Noise でもリードは Pulse 1");
-            Assert.AreEqual(1, UniDAW.Editor.AuditionTarget.Channel(null, -1, new Instrument("Square Lead", "15", "", "2"), 1, "Lead"), "Pulse 2 にいればそのまま");
-            Assert.AreEqual(3, UniDAW.Editor.AuditionTarget.Channel(null, -1, new Instrument("Kick", "15 0", "", "0"), 0, "Drum"));
-            Assert.AreEqual(2, UniDAW.Editor.AuditionTarget.Channel(null, -1, new Instrument("Triangle Bass", "15", "", ""), 0, "Bass"));
-            Assert.AreEqual(3, UniDAW.Editor.AuditionTarget.Channel(null, -1, new Instrument("My Snare", "15 0", "", ""), 0), "名前から推定");
-            Assert.AreEqual(0, UniDAW.Editor.AuditionTarget.Channel(null, -1, new Instrument("Phat Custom", "15", "", "2"), 3), "単語の一部は無視");
+            Assert.AreEqual(0, UniDAW.Composer.AuditionTarget.Channel(null, -1, new Instrument("Square Lead", "15", "", "2"), 3, "Lead"), "カーソルが Noise でもリードは Pulse 1");
+            Assert.AreEqual(1, UniDAW.Composer.AuditionTarget.Channel(null, -1, new Instrument("Square Lead", "15", "", "2"), 1, "Lead"), "Pulse 2 にいればそのまま");
+            Assert.AreEqual(3, UniDAW.Composer.AuditionTarget.Channel(null, -1, new Instrument("Kick", "15 0", "", "0"), 0, "Drum"));
+            Assert.AreEqual(2, UniDAW.Composer.AuditionTarget.Channel(null, -1, new Instrument("Triangle Bass", "15", "", ""), 0, "Bass"));
+            Assert.AreEqual(3, UniDAW.Composer.AuditionTarget.Channel(null, -1, new Instrument("My Snare", "15 0", "", ""), 0), "名前から推定");
+            Assert.AreEqual(0, UniDAW.Composer.AuditionTarget.Channel(null, -1, new Instrument("Phat Custom", "15", "", "2"), 3), "単語の一部は無視");
 
             var song = Song.CreateDefault(16);
             try
@@ -599,13 +600,13 @@ namespace UniDAW.Tests
                 song.instruments.Add(new Instrument("Mystery", "15", "", ""));
                 int idx = song.instruments.Count - 1;
                 song.patterns[0].tracks[2].cells[4] = Cell.NoteCell(36, idx);
-                Assert.AreEqual(2, UniDAW.Editor.AuditionTarget.Channel(song, idx, song.instruments[idx], 3), "曲で使っているチャンネル");
+                Assert.AreEqual(2, UniDAW.Composer.AuditionTarget.Channel(song, idx, song.instruments[idx], 3), "曲で使っているチャンネル");
                 song.patterns[0].tracks[3].cells[0] = Cell.NoteCell(9, idx);
-                Assert.AreEqual(3, UniDAW.Editor.AuditionTarget.Channel(song, idx, song.instruments[idx], 3), "カーソルのチャンネルでも使っていればそこ");
+                Assert.AreEqual(3, UniDAW.Composer.AuditionTarget.Channel(song, idx, song.instruments[idx], 3), "カーソルのチャンネルでも使っていればそこ");
                 song.patterns[0].tracks[3].cells[0] = Cell.Blank;
                 song.patterns[0].tracks[1].cells[0] = Cell.NoteCell(60, idx);
                 for (int r = 1; r < 6; r++) song.patterns[0].tracks[1].cells[r] = Cell.NoteCell(60, -1);
-                Assert.AreEqual(1, UniDAW.Editor.AuditionTarget.Channel(song, idx, song.instruments[idx], 0), "楽器番号を引き継ぐノートも数える");
+                Assert.AreEqual(1, UniDAW.Composer.AuditionTarget.Channel(song, idx, song.instruments[idx], 0), "楽器番号を引き継ぐノートも数える");
             }
             finally
             {

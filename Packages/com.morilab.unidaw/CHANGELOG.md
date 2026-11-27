@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.36.0] - 2026-11-28
+
+### Changed
+- ゲーム内 DAW に向けた段階 2。作曲画面の状態・操作・UI（旧 `Editor/Composer`・`Editor/UI`）を、エディタ限定でない新しいアセンブリ `UniDAW.Composer`（`Composer/Core`・`Composer/UI`・`Composer/Services`）へ移しました。名前空間は `UniDAW.Editor` から `UniDAW.Composer` に変わります（`using UniDAW.Composer;` を足してください）
+- Claude への送信・楽器プリセット・MIDI 入力の橋渡しもエディタ API を使わなくなり、`UniDAW.Composer` に入りました。毎フレームの呼び出し・再読み込み前の後始末・ユーザーデータの置き場所・読み取り専用の判定・音の出口（`IAudioHost`）は `IDawPlatform` から受け取ります
+- `IPatternView` を public に
+
+### Added
+- CLI `UniDAWCli.CompilePlayer`：プレイヤー用（UNITY_EDITOR なし）にスクリプトをコンパイルし、`UniDAW.Composer` がエディタ API なしで通るかを確かめる
+
 ## [0.35.2] - 2026-11-28
 
 ### Changed

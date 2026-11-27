@@ -4,6 +4,7 @@
     "references": [
         "UniDAW.Runtime",
         "UniDAW.Editor",
+        "UniDAW.Composer",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

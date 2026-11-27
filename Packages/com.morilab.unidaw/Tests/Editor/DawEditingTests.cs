@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
+using UniDAW.Composer;
 using UniDAW.Editor;
 using UnityEngine;
 
@@ -222,7 +223,7 @@ namespace UniDAW.Tests
         [Test]
         public void ShortcutsMatchWindowCommands()
         {
-            var type = typeof(ComposerKeymap).Assembly.GetType("UniDAW.Editor.UniDAWShortcuts");
+            var type = typeof(UniDAWWindow).Assembly.GetType("UniDAW.Editor.UniDAWShortcuts");
             Assert.IsNotNull(type);
             var found = new List<(KeyCode, bool, bool)>();
             foreach (var m in type.GetMethods(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic))

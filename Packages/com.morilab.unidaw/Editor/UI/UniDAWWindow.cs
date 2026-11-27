@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using UniDAW.Composer;
 using UniDAW.Midi;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -17,7 +18,7 @@ namespace UniDAW.Editor
     public class UniDAWWindow : EditorWindow
     {
         public const string PackageRoot = "Packages/com.morilab.unidaw";
-        const string StyleSheetPath = PackageRoot + "/Editor/UI/UniDAW.uss";
+        const string StyleSheetPath = PackageRoot + "/Composer/UI/UniDAW.uss";
 
         [SerializeField] ComposerState state = new ComposerState();
 

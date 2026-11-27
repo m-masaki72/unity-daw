@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using UniDAW.Composer;
 using UniDAW.Midi;
 using UnityEditor;
 using UnityEngine;
@@ -199,6 +200,24 @@ namespace UniDAW.Editor
             }
             double rms = mono.Length > 0 ? Math.Sqrt(sum / mono.Length) : 0;
             return $"duration {mono.Length / (double)rate:F2}s, peak {peak:F3}, rms {rms:F4}";
+        }
+
+        /// <summary>
+        /// プレイヤー用（UNITY_EDITOR なし）にスクリプトだけコンパイルし、UniDAW.Composer が通るか確かめる。
+        ///   -executeMethod UniDAW.Editor.UniDAWCli.CompilePlayer [-unidawOut Temp/UniDAWPlayerCompile]
+        /// </summary>
+        public static void CompilePlayer()
+        {
+            var dir = Arg("-unidawOut") ?? "Temp/UniDAWPlayerCompile";
+            var settings = new UnityEditor.Build.Player.ScriptCompilationSettings
+            {
+                group = BuildTargetGroup.Standalone,
+                target = BuildTarget.StandaloneWindows64,
+            };
+            var result = UnityEditor.Build.Player.PlayerBuildInterface.CompilePlayerScripts(settings, dir);
+            bool ok = result.assemblies != null && result.assemblies.Contains("UniDAW.Composer.dll");
+            Debug.Log("[UniDAW] CompilePlayer: " + (ok ? "OK " : "FAILED ") + (result.assemblies == null ? "" : string.Join(", ", result.assemblies)));
+            EditorApplication.Exit(ok ? 0 : 1);
         }
     }
 }

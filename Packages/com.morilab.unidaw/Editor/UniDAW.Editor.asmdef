@@ -2,7 +2,8 @@
     "name": "UniDAW.Editor",
     "rootNamespace": "UniDAW.Editor",
     "references": [
-        "UniDAW.Runtime"
+        "UniDAW.Runtime",
+        "UniDAW.Composer"
     ],
     "includePlatforms": [
         "Editor"
