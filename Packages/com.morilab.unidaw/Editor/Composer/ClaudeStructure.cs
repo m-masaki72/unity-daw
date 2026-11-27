@@ -50,6 +50,10 @@ namespace UniDAW.Editor
             "Stay in the song's key unless the request asks otherwise; make sections contrast (the chorus should lift: brighter chords, " +
             "a strong tonic arrival) and keep the whole song musically coherent.";
 
+        /// <summary>音もコードも無いパターン（新しい曲の仮置きなど）。</summary>
+        static bool IsBlank(Pattern p) =>
+            string.IsNullOrWhiteSpace(p.chords) && p.tracks.All(t => t.cells.All(c => !c.HasNote));
+
         static string ChannelSummary(Pattern p, int ch)
         {
             var notes = MelodyModel.Extract(p, ch).ToList();
@@ -80,7 +84,8 @@ namespace UniDAW.Editor
                 if (p == null) continue;
                 var parts = Enumerable.Range(0, Song.ChannelCount).Select(ch => $"{Song.ChannelNames[ch]} {ChannelSummary(p, ch)}");
                 string chords = string.IsNullOrWhiteSpace(p.chords) ? "(none)" : p.chords.Trim();
-                sb.AppendLine($"{i}: {PatternName(song, i)}, {p.length} rows ({p.length / (double)(rpb * 4):0.#} bars), chords {chords}; {string.Join("; ", parts)}");
+                string blank = IsBlank(p) ? " (blank placeholder: not material; its name and length need not be kept)" : "";
+                sb.AppendLine($"{i}: {PatternName(song, i)}, {p.length} rows ({p.length / (double)(rpb * 4):0.#} bars), chords {chords}; {string.Join("; ", parts)}{blank}");
             }
             sb.AppendLine();
             sb.AppendLine("## Current order");
@@ -131,6 +136,13 @@ namespace UniDAW.Editor
                     song.patterns.Add(p);
                     pi = song.patterns.Count - 1;
                     byName[name] = pi;
+                }
+                else if (!order.Contains(pi) && IsBlank(song.patterns[pi]))
+                {
+                    // 空の仮置きパターンは枠として使い、長さとコードは依頼に合わせる
+                    var p = song.patterns[pi];
+                    if (sec.bars > 0) p.Resize(Math.Min(Pattern.MaxRows, sec.bars * rowsPerBar));
+                    if (!string.IsNullOrWhiteSpace(sec.chords)) p.chords = sec.chords.Trim();
                 }
                 int t = Math.Max(-12, Math.Min(12, sec.transpose));
                 order.Add(pi);

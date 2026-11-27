@@ -216,7 +216,9 @@ player.SetLayer(3, false);     // ノイズを抜く
 ```
 Unity.exe -batchmode -projectPath . -executeMethod UniDAW.Editor.UniDAWCli.RenderMidi -unidawMidi in.mid -unidawWav out.wav
 Unity.exe -batchmode -projectPath . -executeMethod UniDAW.Editor.UniDAWCli.AnalyzeSong -unidawAsset Assets/x.asset [-unidawMatch]
+Unity.exe -batchmode -projectPath . -executeMethod UniDAW.Editor.UniDAWCli.AiSmoke [-unidawBrief 概要] [-unidawAsset Assets/UniDAW/AiSmoke.asset] [-unidawModel 0|1]
 ```
+`AiSmoke` はローカルの Claude Code（`claude -p`）で AI 支援を一通り試す（下書き → 固定付きメロディ → 直す → 音色 → 講評 → 次の一手）。送った依頼と返答をログに出し、曲を保存する。
 
 ## テスト
 `Unity.exe -batchmode -projectPath . -runTests -testPlatform EditMode -testResults results.xml`（利用側プロジェクトでは manifest.json の `testables` に `com.morilab.unidaw` を追加）

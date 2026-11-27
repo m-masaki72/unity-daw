@@ -189,6 +189,28 @@ namespace UniDAW.Tests
         }
 
         [Test]
+        public void ClaudeStructure_ReusesBlankPlaceholderAsSlot()
+        {
+            var song = Song.CreateDefault(32);
+            try
+            {
+                StringAssert.Contains("blank placeholder", ClaudeStructure.BuildUserMessage(song, ""));
+                var secs = new[]
+                {
+                    new ClaudeReply.Section { name = "A", source = -1, bars = 8, chords = "C G Am F C G F C" },
+                    new ClaudeReply.Section { name = "サビ", source = -1, bars = 4 },
+                };
+                ClaudeStructure.Build(song, secs, song.patterns.Count);
+                CollectionAssert.AreEqual(new[] { 0, 1 }, song.order);
+                Assert.AreEqual((128, "C G Am F C G F C"), (song.patterns[0].length, song.patterns[0].chords), "空の仮置きは依頼の長さに合わせる");
+            }
+            finally
+            {
+                Object.DestroyImmediate(song);
+            }
+        }
+
+        [Test]
         public void ClaudeAssist_ProposesStructureAndRestoresIt()
         {
             var song = Song.CreateDefault(16);

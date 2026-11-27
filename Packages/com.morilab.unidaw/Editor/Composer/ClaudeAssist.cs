@@ -83,6 +83,8 @@ namespace UniDAW.Editor
         public Func<Action, Task> RunBackground = a => Task.Run(a);
         /// <summary>送る依頼の種類（既定の送信関数がシステムプロンプトとスキーマを選ぶ）。</summary>
         AiTarget sendingTarget;
+        /// <summary>いま送っている依頼の種類（独自の送り手がプロンプトを選ぶため）。</summary>
+        public AiTarget SendingTarget => sendingTarget;
 
         /// <summary>候補の数（0 なら切り替えるものがない）。</summary>
         public int CandidateCount => candidates.Count;
