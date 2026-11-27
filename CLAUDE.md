@@ -8,7 +8,7 @@ Unity エディタ内で動くチップチューン DAW（NES 風 4ch：Pulse1 /
 
 - 本体は UPM パッケージ `Packages/com.morilab.unidaw`（埋め込みパッケージ）。ルートの Unity プロジェクトは開発用
 - Unity 6000.6.7f1、UI は UI Toolkit
-- 名前空間：`UniDAW`（Runtime）、`UniDAW.Editor`、`UniDAW.Midi`
+- 名前空間：`UniDAW`（Runtime）、`UniDAW.Composer`（作曲画面。Editor 限定でない asmdef）、`UniDAW.Editor`、`UniDAW.Midi`
 - `Assets/UniDAW/` 以下は生成物・作業用の曲で、パッケージには含まれない
 
 ## テスト
@@ -34,11 +34,14 @@ EditMode テストのみ（`Packages/com.morilab.unidaw/Tests/Editor`、asmdef `
 | Midi | `Runtime/Midi` | SMF 読み書き、Song ⇔ MIDI 変換、MIDI 入力（WinMM） |
 | Theory | `Runtime/Theory` | スケール・コード・伴奏・メロディ生成（Assist 用） |
 | Unity | `Runtime/Unity` | `UniDAWPlayer` / `UniDAWVisualizer`（ゲーム組み込み用コンポーネント） |
-| Services | `Editor/Services` | アセット入出力・MIDI インポーター・CLI・プレビュー音声・Claude クライアント |
-| Composer | `Editor/Composer` | エディタの状態と編集操作。UIElements 非依存 |
-| UI | `Editor/UI` | `UniDAWWindow`（配置と配線のみ）、パネル、`Views/`、`Controls/` |
+| Composer Services | `Composer/Services` | Claude クライアント・楽器プリセット・MIDI 入力の橋渡し |
+| Composer | `Composer/Core` | 作曲画面の状態と編集操作。UIElements 非依存。ホスト機能は `Platform/` の `IDawPlatform` / `ISongFiles` 越し |
+| UI | `Composer/UI` | パネル、`Views/`、`Controls/`、`UniDAW.uss` |
+| Editor Services | `Editor/Services` | アセット入出力・MIDI インポーター・CLI・プレビュー音声 |
+| Editor Host | `Editor/UI` | `UniDAWWindow`（配置と配線のみ）、`Host/`（`IDawPlatform` / `ISongFiles` のエディタ実装） |
 
 - Model / Audio / Midi は UnityEngine の実行時 API を使わない（オーディオスレッド・テスト・CLI から使うため）
+- `UniDAW.Composer` では UnityEditor を使わない（プレイヤーにも入る）。確認は `-executeMethod UniDAW.Editor.UniDAWCli.CompilePlayer`
 - 編集操作は Composer に足し、UI からは呼ぶだけ。Undo と読み取り専用チェックは `ComposerSession.ModifySong` が一括で行う
 - 新しい表示は `IPatternView` を実装して `UniDAWWindow.BuildCenter` に並べ、`PatternViewKind` に値を**追記**する
 - トラッカーエフェクトは `Cell` の `Fx`（`FxType`）。ミキサー系エフェクト（`Lxx` `Mxx` `Hxx` `Dxx`）は `Fx.TryGetMix` → `ChipMixer` のオートメーションで再生中だけ上書きし、停止でミキサー値に戻る
