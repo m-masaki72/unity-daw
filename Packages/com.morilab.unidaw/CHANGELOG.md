@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.37.0] - 2026-11-28
+
+### Added
+- **ゲーム内 DAW**（段階 3）。`UniDAWComposer`（GameObject > UniDAW > Composer (In-Game)）で、エディタと同じ作曲画面を UIDocument に出す。曲は `persistentDataPath/UniDAW/Songs` に JSON で自動保存、Undo / Redo は曲のスナップショット（Ctrl+Z / Ctrl+Y）、音は同じ GameObject の `UniDAWPlayer` から出す。取り込みは `UniDAW/Import/` のファイルを一覧から選び、書き出しは `UniDAW/Export/` へ
+- `RuntimeDawPlatform`（PlayerPrefs・スナップショット Undo・`GenericDropdownMenu` のメニュー）と `RuntimeSongFiles`（JSON の曲ファイル）。同梱のランタイムテーマ `UniDAWRuntimeTheme.tss`
+
+### Changed
+- 画面のレイアウトと配線を `UniDAWWindow` から `ComposerRoot`（`UniDAW.Composer` の VisualElement）へ移した。`UniDAWWindow` はスタイル・Shortcut Manager・ドラッグ＆ドロップだけを受け持つ
+- `FamiTrackerImport` を `UniDAW.Runtime`（名前空間 `UniDAW`）へ移し、ゲーム内でも取り込めるようにした
+- `Transport` は音の出口が無くても（`IAudioHost` が null）落ちない
+
 ## [0.36.0] - 2026-11-28
 
 ### Changed

@@ -26,7 +26,7 @@ namespace UniDAW.Composer
             for (int c = 0; c < previewOff.Length; c++) previewOff[c] = -1;
         }
 
-        public ChipEngine Engine => host.Engine;
+        public ChipEngine Engine => host?.Engine;
         public bool IsPlaying => Engine != null && Engine.IsPlaying;
 
         /// <summary>表示中パターンでの再生行（別パターン再生中・停止中は -1）。</summary>
@@ -61,7 +61,7 @@ namespace UniDAW.Composer
         ChipEngine Prepare()
         {
             var e = Engine;
-            host.EnsureRunning();
+            host?.EnsureRunning();
             e.Song = state.song;
             e.Metronome = state.metronome;
             return e;
@@ -194,7 +194,7 @@ namespace UniDAW.Composer
             if (e == null) return false;
             if (state.song != null && e.Song != state.song) e.Song = state.song;
             e.Metronome = state.metronome;
-            host.DispatchEvents();
+            host?.DispatchEvents();
 
             double now = DawPlatform.Current.Now;
             for (int c = 0; c < Song.ChannelCount; c++)

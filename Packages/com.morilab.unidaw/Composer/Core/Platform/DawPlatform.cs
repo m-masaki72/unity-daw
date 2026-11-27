@@ -64,7 +64,7 @@ namespace UniDAW.Composer
         readonly Dictionary<string, int> ints = new Dictionary<string, int>();
         readonly Dictionary<string, string> strings = new Dictionary<string, string>();
 
-        public double Now => clock.Elapsed.TotalSeconds;
+        public virtual double Now => clock.Elapsed.TotalSeconds;
         public event Action Update;
         public event Action Unloading;
         public void Tick() => Update?.Invoke();

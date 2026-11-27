@@ -41,7 +41,7 @@ Unity をエディタとして使う音楽制作向けの DAW です。ステッ
 - 映像連携：`UniDAWPlayer`（AudioSource）＋`UniDAWVisualizer`、`onNote` UnityEvent
 
 ## コードの層構成
-依存は上から下への一方向のみ。`Runtime/`・`Composer/`・`Editor/` がそれぞれ asmdef（`UniDAW.Runtime`・`UniDAW.Composer`・`UniDAW.Editor`）の境界で、その中のフォルダが層の境界です。`UniDAW.Composer` は UnityEditor を使えない（プレイヤー用にもコンパイルされる）ので、エディタの機能は `IDawPlatform` / `ISongFiles` の実装として `Editor/UI/Host/` に置きます。
+依存は上から下への一方向のみ。`Runtime/`・`Composer/`・`Editor/` がそれぞれ asmdef（`UniDAW.Runtime`・`UniDAW.Composer`・`UniDAW.Editor`）の境界で、その中のフォルダが層の境界です。`UniDAW.Composer` は UnityEditor を使えない（プレイヤー用にもコンパイルされる）ので、エディタの機能は `IDawPlatform` / `ISongFiles` の実装として `Editor/UI/Host/` に、ゲーム内の実装は `Composer/Runtime/` に置きます。
 
 | 層 | フォルダ | 役割 | 依存してよい先 |
 |---|---|---|---|
@@ -51,9 +51,10 @@ Unity をエディタとして使う音楽制作向けの DAW です。ステッ
 | Unity | `Runtime/Unity` | `UniDAWPlayer` / `UniDAWVisualizer`（シーン用コンポーネント） | Model・Audio |
 | Composer Services | `Composer/Services` | Claude への送信（`ClaudeClient`・`ClaudeCodeClient`）・楽器プリセット・MIDI 入力の橋渡し | Runtime 全体・`Platform/` |
 | Composer | `Composer/Core` | 作曲の状態と操作。UIElements に依存しない（`ComposerState`・`ComposerSession`・`Transport`・`CellCommands`・`ComposerKeymap`・`MidiRecorder`）。ホスト依存の機能は `Platform/` の `IDawPlatform`（時計・毎フレーム・設定・Undo・メニュー・音の出口）と `ISongFiles`（曲ファイル）越しに呼ぶ | Composer Services |
-| UI | `Composer/UI` | パネル、`Views/`（トラッカー・ステップ・ピアノロール）、`Controls/`（自作部品：`IconButton`・`NumberBox`・`SegmentedControl`・`LevelMeter` など。Composer に依存しない）、`UniDAW.uss` | Composer（`ComposerContext` 経由） |
+| UI | `Composer/UI` | `ComposerRoot`（画面一式のルート要素。エディタのウィンドウにもゲーム内の UIDocument にも載る）、パネル、`Views/`（トラッカー・ステップ・ピアノロール）、`Controls/`（自作部品：`IconButton`・`NumberBox`・`SegmentedControl`・`LevelMeter` など。Composer に依存しない）、`UniDAW.uss` | Composer（`ComposerContext` 経由） |
 | Editor Services | `Editor/Services` | アセット入出力・インポーター・CLI・プレビュー音声（`UniDAWPreview`） | Runtime・Composer |
-| Editor Host | `Editor/UI` | `UniDAWWindow`（EditorWindow に UI を載せて配線するだけ）、`UniDAWShortcuts`、`Host/`（`EditorDawPlatform`・`SongFileCommands`：`IDawPlatform` / `ISongFiles` のエディタ実装） | すべて |
+| Runtime Host | `Composer/Runtime` | `UniDAWComposer`（ゲーム内 DAW の MonoBehaviour）・`RuntimeDawPlatform`・`RuntimeSongFiles`：`IDawPlatform` / `ISongFiles` のゲーム内実装 | Composer・UI |
+| Editor Host | `Editor/UI` | `UniDAWWindow`（EditorWindow に `ComposerRoot` を載せ、スタイル・ショートカット・ドラッグ＆ドロップを配線するだけ）、`UniDAWShortcuts`、`Host/`（`EditorDawPlatform`・`SongFileCommands`：`IDawPlatform` / `ISongFiles` のエディタ実装） | すべて |
 
 - 新しい編集操作は Composer に足し、UI からは呼ぶだけにする（Undo・読み取り専用チェックは `ComposerSession` が一括で行う）
 - 新しい表示は `IPatternView` を実装して `UniDAWWindow.BuildCenter` に並べ、`PatternViewKind` に値を**追記**する
@@ -203,6 +204,16 @@ player.onBar.AddListener(bar => Debug.Log($"bar {bar}"));
 player.QueueSection("Boss");   // 戦闘に入ったら次の小節から Boss 区間へ
 player.SetLayer(3, false);     // ノイズを抜く
 ```
+
+## ゲーム内 DAW（UniDAWComposer）
+エディタと同じ作曲画面をゲームの中に出せます。GameObject > UniDAW > Composer (In-Game) で置き、Play で開きます（`UIDocument`・`AudioSource`・`UniDAWPlayer` が付きます）。
+
+- 曲は `persistentDataPath/UniDAW/Songs/*.json` に置き、変更から 1 秒で自動保存。起動時は前回の曲を開く（`openLastSong`）。置き場所は `dataFolder` で変えられる
+- Ctrl+Z / Ctrl+Y（Ctrl+Shift+Z）で Undo / Redo（曲全体のスナップショット、100 段。スライダーのドラッグ等の連続した操作は 1 段にまとめる）
+- ファイルダイアログは無いので、Open Song は保存済みの曲の一覧メニュー、MIDI / FamiTracker の取り込みは `UniDAW/Import/` に置いたファイルの一覧メニューから選ぶ。WAV・ステム・MIDI は `UniDAW/Export/` に書き出す
+- UIDocument に PanelSettings が無ければ、同梱のテーマ（`UniDAWRuntimeTheme.tss`）でパネルを作る。日本語フォントは `font` に入れるか、空なら OS のフォント（Yu Gothic UI / Meiryo / Hiragino Sans 等）から作る
+- ウィンドウ全体のキー（Ctrl+Alt+L 等）も画面の中で効く。Claude による提案は API キー方式を使う（`claude -p` はデスクトップでのみ動く。配布するゲームでは API キーの扱いをゲームごとに決める）
+- エディタの Play 中は `DawPlatform.Current` がゲーム内のものに替わるので、同時に開いたエディタの UniDAW ウィンドウの Undo 等もそちらに流れる
 
 ## デモ
 デモはパッケージ本体に含めず、UPM のサンプルとして同梱しています。Package Manager で UniDAW を選び、Samples の **Demo** を Import すると `Assets/Samples/UniDAW/<version>/Demo/` に入ります。File > Import Demo Songs / 開始画面の Demo Songs… でも同じ場所に取り込んでデモ曲を開きます（埋め込み・ローカルのパッケージで Package Manager に Import ボタンが出ない場合もこちらで入ります。取り込み済みなら足りないファイルだけ足します）。

@@ -31,3 +31,7 @@ sysinfo.txt
 /ProjectSettings/PackageManagerSettings.asset
 /Assets/UniDAW/AiSmoke.asset
 /Assets/UniDAW/AiSmoke.asset.meta
+
+# UIDocument 追加時に Unity が自動生成する既定テーマ
+/Assets/UI Toolkit/
+/Assets/UI Toolkit.meta

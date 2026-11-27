@@ -67,7 +67,8 @@ UniDAW は曲そのものが譜面なので、ノート・拍・小節・セク�
 - **進捗**
   - 2026-11-28（0.35.2）：段階 1 済み。時計・設定・Undo・メニューを `IDawPlatform`（`DawPlatform.Current`）、曲ファイルの操作を `ISongFiles` に分けた。GenericMenu は `DawMenu` に置き換え。エディタ実装は `Editor/UI/Host/`（`EditorDawPlatform`・`SongFileCommands`）。
   - 2026-11-28（0.36.0）：段階 2 済み。Composer と UI を `UniDAW.Composer`（`Composer/`、Editor 限定でない asmdef）へ移した。名前空間も `UniDAW.Composer`。Claude 送信・楽器プリセット・MIDI 入力の橋渡しも移し、毎フレームの呼び出し・ユーザーデータの置き場所・読み取り専用の判定・音の出口（`IAudioHost`）は `IDawPlatform` から受け取る。`UniDAWCli.CompilePlayer` でプレイヤー用のコンパイルが通ることを確かめた。
-  - 次（段階 3）：`UniDAWWindow` のレイアウト組み立てを `UniDAW.Composer` 側のルート要素へ移し、ランタイムの殻（`UIDocument`・PlayerPrefs・JSON 保存・自前 Undo・`UniDAWPlayer` を音の出口にする）とサンプルシーンを作る。`claude -p` はデスクトップのプレイヤーでも動くが、配布するゲームでは API キー方式だけにするのがよい。
+  - 2026-11-28（0.37.0）：段階 3 済み。画面一式を `ComposerRoot`（`UniDAW.Composer` の VisualElement）にまとめ、`UniDAWWindow` は載せるだけの殻になった。ゲーム内の殻 `UniDAWComposer`（UIDocument）・`RuntimeDawPlatform`（PlayerPrefs・スナップショット Undo・`GenericDropdownMenu`）・`RuntimeSongFiles`（persistentDataPath の JSON、自動保存）を作り、`UniDAWPlayer` を音の出口にした。サンプルシーンの代わりに GameObject メニューで置ける。
+  - 残り：実機での見た目の確認（フォント・テーマ）、タッチ操作、IME、WebGL（オーディオスレッド・WinMM が無い）、配布ゲームでの Claude の API キーの扱い。
 - **進め方**
   1. Composer と UI を新しい asmdef（例：`UniDAW.Composer`、Editor 限定にしない）へ移す。
   2. 上のエディタ専用 API を、インターフェース越しに呼ぶ形に変える。

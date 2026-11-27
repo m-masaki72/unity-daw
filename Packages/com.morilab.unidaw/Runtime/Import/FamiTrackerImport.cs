@@ -4,7 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 
-namespace UniDAW.Editor
+namespace UniDAW
 {
     /// <summary>FamiTracker 取り込みの結果（落とした要素の数など）。</summary>
     public struct FamiTrackerReport
