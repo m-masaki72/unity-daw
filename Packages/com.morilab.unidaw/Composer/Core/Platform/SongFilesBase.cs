@@ -36,11 +36,11 @@ namespace UniDAW.Composer
         /// <summary>取り込んだ・複製した曲を保存する。保存した曲（既存の曲に上書きしたらその曲）を返す。やめたら null。</summary>
         protected abstract Song Store(Song song, string suggestedName, string title);
 
-        /// <summary>書き出し先のファイルを決める。やめたら null。</summary>
-        protected abstract string PickExportPath(string title, string baseName, string ext);
+        /// <summary>書き出し先のファイルを決め、決まったら <paramref name="picked"/> を呼ぶ（その場でも後でもよい。やめたら呼ばない）。</summary>
+        protected abstract void PickExportPath(string title, string baseName, string ext, Action<string> picked);
 
-        /// <summary>書き出し先のフォルダを決める。やめたら null。</summary>
-        protected abstract string PickExportFolder(string title);
+        /// <summary>書き出し先のフォルダを決め、決まったら <paramref name="picked"/> を呼ぶ（やめたら呼ばない）。</summary>
+        protected abstract void PickExportFolder(string title, string baseName, Action<string> picked);
 
         /// <summary>失敗を知らせる。</summary>
         protected virtual void ReportError(string message) => s.Notify(message);
@@ -99,37 +99,44 @@ namespace UniDAW.Composer
 
         void Export(string title, string ext, string what, Action<Song, string> write)
         {
-            if (s.Song == null) return;
-            var path = PickExportPath(title, SongIO.BaseName(s.Song), ext);
-            if (string.IsNullOrEmpty(path)) return;
-            try
+            var song = s.Song;
+            if (song == null) return;
+            PickExportPath(title, SongIO.BaseName(song), ext, path =>
             {
-                RunWithProgress($"{what} を書き出しています…", () => write(s.Song, path));
-                s.Notify($"{what} を書き出しましたわ: {path}");
-            }
-            catch (Exception ex)
-            {
-                Debug.LogException(ex);
-                ReportError($"{what} を書き出せませんでしたわ… " + ex.Message);
-            }
+                if (string.IsNullOrEmpty(path)) return;
+                try
+                {
+                    RunWithProgress($"{what} を書き出しています…", () => write(song, path));
+                    s.Notify($"{what} を書き出しましたわ: {path}");
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogException(ex);
+                    ReportError($"{what} を書き出せませんでしたわ… " + ex.Message);
+                }
+            });
         }
 
         public void ExportStems()
         {
-            if (s.Song == null) return;
-            var dir = PickExportFolder("Export Stems（チャンネル別 WAV）");
-            if (string.IsNullOrEmpty(dir)) return;
-            try
+            var song = s.Song;
+            if (song == null) return;
+            var baseName = SongIO.BaseName(song);
+            PickExportFolder("Export Stems（チャンネル別 WAV）", baseName, dir =>
             {
-                string[] paths = null;
-                RunWithProgress("ステムを書き出しています…", () => paths = SongIO.ExportStems(s.Song, dir, SongIO.BaseName(s.Song)));
-                s.Notify($"ステムを {paths.Length} 本書き出しましたわ: {dir}");
-            }
-            catch (Exception ex)
-            {
-                Debug.LogException(ex);
-                ReportError("ステムを書き出せませんでしたわ… " + ex.Message);
-            }
+                if (string.IsNullOrEmpty(dir)) return;
+                try
+                {
+                    string[] paths = null;
+                    RunWithProgress("ステムを書き出しています…", () => paths = SongIO.ExportStems(song, dir, baseName));
+                    s.Notify($"ステムを {paths.Length} 本書き出しましたわ: {dir}");
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogException(ex);
+                    ReportError("ステムを書き出せませんでしたわ… " + ex.Message);
+                }
+            });
         }
 
         /// <summary>今の曲を別の曲として複製して開く（読み取り専用の曲を編集できるようにする）。</summary>

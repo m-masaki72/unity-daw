@@ -112,6 +112,25 @@ namespace UniDAW.Composer
             return path;
         }
 
+        /// <summary>
+        /// ゲームの曲（アセット）を複製して開く（元のアセットは書き換えない）。
+        /// <paramref name="keepEdits"/> なら、前に同じ名前で複製した曲があればそれを開く（プレイヤーの編集を残す）。
+        /// </summary>
+        public Song OpenCopy(Song source, string name = null, bool keepEdits = true)
+        {
+            if (source == null) return null;
+            var safe = SongIO.SafeName(string.IsNullOrWhiteSpace(name) ? SongIO.BaseName(source) : name);
+            var existing = Path.Combine(SongsFolder, safe + ".json");
+            if (keepEdits && File.Exists(existing))
+            {
+                Open(existing);
+                if (s.Song != null && IdOf(s.Song) == existing) return s.Song;
+            }
+            var stored = Store(SongIO.Clone(source), safe, null);
+            Show(stored);
+            return stored;
+        }
+
         /// <summary>前回開いていた曲を開く。無ければ何もしない。</summary>
         public void OpenLast()
         {
@@ -203,13 +222,39 @@ namespace UniDAW.Composer
             menu.ShowAsContext();
         }
 
-        /// <summary>Export フォルダに曲名で書き出す（ダイアログは無い）。</summary>
-        protected override string PickExportPath(string title, string baseName, string ext)
+        /// <summary>Export フォルダに書き出す。画面があればファイル名を聞く（既定は曲名）。</summary>
+        protected override void PickExportPath(string title, string baseName, string ext, Action<string> picked) =>
+            AskName(title, $"ファイル名（{ext}・{ExportFolder} に書き出します）", baseName, name =>
+            {
+                Directory.CreateDirectory(ExportFolder);
+                picked(Path.Combine(ExportFolder, name + ext));
+            });
+
+        /// <summary>Export フォルダの下にフォルダを作って書き出す。画面があればフォルダ名を聞く（既定は曲名）。</summary>
+        protected override void PickExportFolder(string title, string baseName, Action<string> picked) =>
+            AskName(title, $"フォルダ名（{ExportFolder} の中に作ります）", baseName,
+                name => picked(Path.Combine(ExportFolder, name)));
+
+        /// <summary>
+        /// 名前を聞く（画面が無いとき＝テスト・ヘッドレスでは既定の名前のまま）。
+        /// 名前はファイル名に使えない文字を「_」にし、フォルダの区切りは使わせない。
+        /// </summary>
+        /// <summary>Export の外を指さない名前にする（「.」だけの名前は既定の名前に戻す）。</summary>
+        static string SafeLeaf(string name, string fallback)
         {
-            Directory.CreateDirectory(ExportFolder);
-            return Path.Combine(ExportFolder, baseName + ext);
+            var n = SongIO.SafeName((name ?? "").Trim());
+            return n.Trim('.', ' ').Length == 0 ? SongIO.SafeName(fallback) : n;
         }
 
-        protected override string PickExportFolder(string title) => ExportFolder;
+        void AskName(string title, string label, string initial, Action<string> picked)
+        {
+            var root = (platform as RuntimeDawPlatform)?.MenuRoot;
+            if (root?.panel == null)
+            {
+                picked(SafeLeaf(initial, "Song"));
+                return;
+            }
+            NamePrompt.Show(root, title, label, initial, name => picked(SafeLeaf(name, initial)));
+        }
     }
 }

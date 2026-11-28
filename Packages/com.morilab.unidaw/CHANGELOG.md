@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.40.0] - 2026-11-28
+
+### Added
+- ゲーム内 DAW：書き出すときにファイル名を聞く（WAV・MIDI はファイル名、ステムはフォルダ名。既定は曲名）。`NamePrompt`（名前を 1 つ聞く画面）を追加
+- ゲーム内 DAW：拡大率 `uiScale`（0 なら DPI から自動）、タッチで右クリックを使う「右」ボタン（`touchRightClick`）
+- ゲーム内 DAW：ゲームから使う API（`OpenSong`・`OpenFile`・`PlaySong`・`PlayPattern`・`Stop`・`IsPlaying`・`CurrentSong`・`SongModified`・`Visible`・`Save`）と起動時に開く曲 `startSong`。`RuntimeSongFiles.OpenCopy`
+
+### Changed
+- `SongFilesBase.PickExportPath` / `PickExportFolder` は決まったら呼ぶコールバック形式にした（あとから名前を聞くホストのため）
+
 ## [0.39.0] - 2026-11-28
 
 ### Added

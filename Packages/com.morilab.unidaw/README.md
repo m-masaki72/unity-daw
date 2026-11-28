@@ -212,12 +212,26 @@ player.SetLayer(3, false);     // ノイズを抜く
 ## ゲーム内 DAW（UniDAWComposer）
 エディタと同じ作曲画面をゲームの中に出せます。GameObject > UniDAW > Composer (In-Game) で置き、Play で開きます（`UIDocument`・`AudioSource`・`UniDAWPlayer` が付きます）。
 
-- 曲は `persistentDataPath/UniDAW/Songs/*.json` に置き、変更から 1 秒で自動保存。起動時は前回の曲を開く（`openLastSong`）。置き場所は `dataFolder` で変えられる
+- 曲は `persistentDataPath/UniDAW/Songs/*.json` に置き、変更から 1 秒で自動保存。起動時は前回の曲を開く（`openLastSong`。`startSong` を入れればその曲を複製して開く）。置き場所は `dataFolder` で変えられる
 - Ctrl+Z / Ctrl+Y（Ctrl+Shift+Z）で Undo / Redo（曲全体のスナップショット、100 段。スライダーのドラッグ等の連続した操作は 1 段にまとめる）
-- ファイルダイアログは無いので、Open Song は保存済みの曲の一覧メニュー、MIDI / FamiTracker の取り込みは `UniDAW/Import/` に置いたファイルの一覧メニューから選ぶ。WAV・ステム・MIDI は `UniDAW/Export/` に書き出す
+- ファイルダイアログは無いので、Open Song は保存済みの曲の一覧メニュー、MIDI / FamiTracker の取り込みは `UniDAW/Import/` に置いたファイルの一覧メニューから選ぶ。WAV・ステム・MIDI は `UniDAW/Export/` に書き出す（書き出すときにファイル名を聞く。既定は曲名、ステムは同名のフォルダ）
+- 拡大率は `uiScale`（0 なら画面の DPI から決める。デスクトップは 96 dpi、モバイルは 160 dpi を 1 倍）。パネルを自分で指定したときはそのパネルの設定のまま
+- タッチ画面では右下の「右」ボタンを押してから触ると、その 1 回のタッチを右クリックとして扱う（ピアノロールの消去・各所のメニュー）。`touchRightClick` が Auto ならモバイルのときだけ出す
 - UIDocument に PanelSettings が無ければ、同梱のテーマ（`UniDAWRuntimeTheme.tss`）でパネルを作る。日本語フォントは `font` に入れるか、空なら OS のフォント（Yu Gothic UI / Meiryo / Hiragino Sans 等）から作る
 - ウィンドウ全体のキー（Ctrl+Alt+L 等）も画面の中で効く。Claude による提案は API キー方式を使う（`claude -p` はデスクトップでのみ動く。配布するゲームでは API キーの扱いをゲームごとに決める）
-- エディタの Play 中は `DawPlatform.Current` がゲーム内のものに替わるので、同時に開いたエディタの UniDAW ウィンドウの Undo 等もそちらに流れる
+- Undo・保存は画面ごと。エディタの Play 中にゲーム内 DAW を開いても、エディタの UniDAW ウィンドウの Undo とは混ざらない
+
+ゲームのスクリプトから：
+
+```csharp
+var daw = GetComponent<UniDAWComposer>();
+daw.OpenSong(fieldTheme);        // アセットを複製して開く（前に開いた同名の曲があればそれ＝プレイヤーの編集を残す）
+daw.PlaySong();                  // 頭から鳴らす（PlayPattern / Stop / IsPlaying）
+daw.SongModified += s => { };    // 曲が書き換えられたとき
+daw.Visible = false;             // 隠す（隠すときに保存）。Save() ですぐ保存
+```
+
+`OpenFile(path)` で保存済みの JSON を開けます。どれも Start より前に呼んでかまいません（その場合 `startSong` / 前回の曲は開きません）。
 
 ## デモ
 デモはパッケージ本体に含めず、UPM のサンプルとして同梱しています。Package Manager で UniDAW を選び、Samples の **Demo** を Import すると `Assets/Samples/UniDAW/<version>/Demo/` に入ります。File > Import Demo Songs / 開始画面の Demo Songs… でも同じ場所に取り込んでデモ曲を開きます（埋め込み・ローカルのパッケージで Package Manager に Import ボタンが出ない場合もこちらで入ります。取り込み済みなら足りないファイルだけ足します）。

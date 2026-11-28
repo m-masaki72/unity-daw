@@ -639,3 +639,14 @@
 }
 .cd-tooltip > Label { white-space: normal; color: rgb(220, 224, 232); font-size: 11px; }
 .cd-assist-cand.on { background-color: rgb(62, 86, 150); border-color: rgb(90, 124, 210); color: rgb(255, 255, 255); }
+
+/* 名前を聞く画面（ゲーム内の書き出し等） */
+.cd-prompt-card { width: 420px; max-width: 100%; }
+.cd-prompt-label { font-size: 11px; color: rgb(150, 150, 168); margin: 6px 0 4px 0; white-space: normal; }
+.cd-prompt-field { margin: 0 0 8px 0; }
+.cd-prompt-buttons { flex-direction: row; justify-content: flex-end; }
+.cd-prompt-ok { background-color: rgb(60, 90, 170); border-color: rgb(80, 112, 200); min-width: 64px; }
+
+/* タッチの右クリックモード（ゲーム内） */
+.cd-touch-right { position: absolute; right: 8px; bottom: 32px; width: 44px; height: 44px; border-radius: 22px; font-size: 18px; opacity: 0.8; }
+.cd-touch-right--on { background-color: rgb(190, 110, 40); border-color: rgb(230, 150, 70); opacity: 1; }

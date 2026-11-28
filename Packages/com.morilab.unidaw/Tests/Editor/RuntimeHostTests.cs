@@ -141,8 +141,10 @@ namespace UniDAW.Tests
                 Assert.IsNotNull(host.Composer.Session.Song);
                 Assert.DoesNotThrow(() => host.Files.OpenSong(), "曲の一覧メニューを出せる");
                 // 編集モードでは OnDestroy が呼ばれないので明示的に呼ぶ
+                var composer = host.Composer;
                 typeof(UniDAWComposer).GetMethod("OnDestroy", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(host, null);
-                Assert.IsNull(host.Composer.parent, "画面を外す");
+                Assert.IsNull(composer.parent, "画面を外す");
+                Assert.IsNull(host.Composer, "破棄の後は作り直さない");
             }
             finally
             {
@@ -150,6 +152,86 @@ namespace UniDAW.Tests
             }
             Assert.AreSame(previous, DawPlatform.Current, "破棄でもとのホストに戻る");
         }
+        [Test]
+        public void InGameComposer_OpenSongCopiesAsset_AndKeepsEdits()
+        {
+            var go = new GameObject("UniDAW Composer Api Test");
+            var asset = Song.CreateDefault(16);
+            asset.title = "Field Theme";
+            try
+            {
+                var host = go.AddComponent<UniDAWComposer>();
+                host.dataFolder = folder;
+                host.openLastSong = false;
+                host.touchRightClick = UniDAWComposer.TouchButtonMode.Always;
+                var opened = host.OpenSong(asset);
+                Assert.IsNotNull(opened, "Start より前でも開ける");
+                Assert.AreNotSame(asset, opened, "アセットは複製して開く");
+                Assert.AreSame(opened, host.CurrentSong);
+                Assert.IsNotNull(host.Touch, "タッチの右クリックボタン");
+                Modified seen = new Modified();
+                host.SongModified += seen.On;
+                host.Composer.Session.ModifySong("BPM", s => s.bpm = 140);
+                Assert.AreEqual(1, seen.count);
+                Assert.AreNotEqual(140f, asset.bpm, "元のアセットは書き換えない");
+                host.Save();
+
+                var again = host.OpenSong(asset);
+                Assert.AreEqual(140f, again.bpm, "同じ名前なら前の編集を残す");
+                var fresh = host.OpenSong(asset, keepEdits: false);
+                Assert.AreNotEqual(140f, fresh.bpm);
+                Assert.AreEqual(2, host.Files.ListSongs().Count);
+                Assert.IsTrue(host.OpenFile(host.Files.IdOf(again)));
+                Assert.AreSame(again, host.CurrentSong);
+
+                host.Visible = false;
+                Assert.AreEqual(UnityEngine.UIElements.DisplayStyle.None, host.Composer.style.display.value, "隠せる");
+                typeof(UniDAWComposer).GetMethod("OnDestroy", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(host, null);
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+                Object.DestroyImmediate(asset);
+            }
+        }
+
+        sealed class Modified
+        {
+            public int count;
+            public void On(Song _) => count++;
+        }
+
+        [Test]
+        public void RuntimeExport_UsesSongNameWithoutScreen_AndPromptReturnsName()
+        {
+            var p = new RuntimeDawPlatform(null, folder);
+            var state = new ComposerState();
+            var session = new ComposerSession(state, new Transport(state, null, p), p);
+            var files = new RuntimeSongFiles(session, p, folder);
+            try
+            {
+                files.NewSong();
+                session.Song.title = "a/b";
+                files.ExportMidi();
+                Assert.IsTrue(File.Exists(Path.Combine(files.ExportFolder, "a_b.mid")), "画面が無ければ曲名で書き出す（区切りは使わない）");
+
+                var root = new UnityEngine.UIElements.VisualElement();
+                string got = null;
+                var prompt = NamePrompt.Show(root, "Export", "name", "x", n => got = n);
+                prompt.Value = "   ";
+                prompt.Submit();
+                Assert.IsNull(got, "空の名前では決めない");
+                prompt.Value = " mysong ";
+                prompt.Submit();
+                Assert.AreEqual("mysong", got);
+                Assert.IsNull(prompt.parent, "決めたら閉じる");
+            }
+            finally
+            {
+                files.Dispose();
+            }
+        }
+
         [Test]
         public void TwoComposers_KeepSeparateHostsAndUndo()
         {

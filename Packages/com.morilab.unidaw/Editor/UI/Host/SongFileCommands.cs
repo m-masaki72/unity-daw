@@ -124,16 +124,16 @@ namespace UniDAW.Editor
             return string.IsNullOrEmpty(dst) ? null : UniDAWAssets.SaveSong(song, dst);
         }
 
-        protected override string PickExportPath(string title, string baseName, string ext)
+        protected override void PickExportPath(string title, string baseName, string ext, Action<string> picked)
         {
             var path = EditorUtility.SaveFilePanel(title, "", baseName + ext, ext.TrimStart('.'));
-            return string.IsNullOrEmpty(path) ? null : path;
+            if (!string.IsNullOrEmpty(path)) picked(path);
         }
 
-        protected override string PickExportFolder(string title)
+        protected override void PickExportFolder(string title, string baseName, Action<string> picked)
         {
             var dir = EditorUtility.SaveFolderPanel(title, "", "");
-            return string.IsNullOrEmpty(dir) ? null : dir;
+            if (!string.IsNullOrEmpty(dir)) picked(dir);
         }
 
         protected override void ReportError(string message) => EditorUtility.DisplayDialog("UniDAW", message, "OK");
