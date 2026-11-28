@@ -132,7 +132,16 @@ namespace UniDAW.Composer
                 if (finished) return;
                 finished = true;
                 host.Update -= Poll;
+                host.Unloading -= OnReload;
                 req.Dispose();
+            }
+
+            // スクリプトの再読み込みで待ち手が消えるので、通信を止めて片付ける（done は呼ばない）
+            void OnReload()
+            {
+                if (finished) return;
+                req.Abort();
+                Finish();
             }
 
             void Poll()
@@ -145,12 +154,8 @@ namespace UniDAW.Composer
             }
 
             host.Update += Poll;
-            return () =>
-            {
-                if (finished) return;
-                req.Abort();
-                Finish();
-            };
+            host.Unloading += OnReload;
+            return OnReload;
         }
     }
 }

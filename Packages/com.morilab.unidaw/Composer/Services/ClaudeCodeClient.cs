@@ -15,6 +15,7 @@ namespace UniDAW.Composer
         const int TimeoutSeconds = 600;
 
         static string cachedPath;
+        static string cachedScript;
         static double cachedAt = -100;
 
         /// <summary>claude の実行ファイル（見つからなければ null）。PATH と既定のインストール先を探す。</summary>
@@ -25,7 +26,7 @@ namespace UniDAW.Composer
                 double now = DawPlatform.Current.Now;
                 if (now - cachedAt > 10)
                 {
-                    cachedPath = Find();
+                    cachedPath = Find(out cachedScript);
                     cachedAt = now;
                 }
                 return cachedPath;
@@ -34,11 +35,18 @@ namespace UniDAW.Composer
 
         public static bool Available => ExecutablePath != null;
 
-        static string Find()
+        /// <summary>
+        /// 実行ファイルを探す。npm で入れた Windows の claude.cmd は cmd.exe を通すと引数の記号が化けるので、
+        /// 同じフォルダの node とその cli.js を直接起動する（<paramref name="script"/> が cli.js）。
+        /// </summary>
+        public static string Find(out string script) => Find(Environment.GetEnvironmentVariable("PATH"), out script);
+
+        public static string Find(string path, out string script)
         {
+            script = null;
             bool win = Path.DirectorySeparatorChar == '\\';
-            string[] names = win ? new[] { "claude.exe" } : new[] { "claude" };
-            var dirs = (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator);
+            string[] names = win ? new[] { "claude.exe", "claude.cmd" } : new[] { "claude" };
+            var dirs = (path ?? "").Split(Path.PathSeparator);
             string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             var extra = new[]
             {
@@ -53,14 +61,41 @@ namespace UniDAW.Composer
                     {
                         try
                         {
-                            var p = Path.Combine(d.Trim().Trim('"'), n);
-                            if (File.Exists(p)) return p;
+                            var dir = d.Trim().Trim('"');
+                            var p = Path.Combine(dir, n);
+                            if (!File.Exists(p)) continue;
+                            if (!n.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase)) return p;
+                            var cli = Path.Combine(dir, "node_modules", "@anthropic-ai", "claude-code", "cli.js");
+                            var node = FindNode(dir, dirs);
+                            if (!File.Exists(cli) || node == null) continue;
+                            script = cli;
+                            return node;
                         }
                         catch (ArgumentException) { }
                     }
                 }
             return null;
         }
+
+        static string FindNode(string first, string[] dirs)
+        {
+            var p = Path.Combine(first, "node.exe");
+            if (File.Exists(p)) return p;
+            foreach (var d in dirs)
+            {
+                if (string.IsNullOrWhiteSpace(d)) continue;
+                try
+                {
+                    p = Path.Combine(d.Trim().Trim('"'), "node.exe");
+                    if (File.Exists(p)) return p;
+                }
+                catch (ArgumentException) { }
+            }
+            return null;
+        }
+
+        /// <summary>これより長いシステムプロンプトはファイルで渡す（Windows のコマンドラインは 32K 文字まで）。</summary>
+        public const int InlinePromptLimit = 12000;
 
         /// <summary>
         /// 送る。done(結果 JSON, エラー) はメインスレッドで 1 回だけ呼ばれる。戻り値を呼ぶと中止（done は呼ばれない）。
@@ -69,6 +104,7 @@ namespace UniDAW.Composer
         {
             var host = platform ?? DawPlatform.Current;
             string exe = ExecutablePath;
+            string script = cachedScript;
             if (exe == null)
             {
                 done(null, "Claude Code（claude コマンド）が見つかりませんわ。インストールしてログインするか、API キーを使ってくださいまし");
@@ -78,18 +114,24 @@ namespace UniDAW.Composer
             // 作業フォルダは空の一時フォルダ（プロジェクトの CLAUDE.md などを読ませない）
             string work = Path.Combine(Path.GetTempPath(), "UniDAW-claude");
             Directory.CreateDirectory(work);
+            string promptFile = null;
+            if ((systemPrompt?.Length ?? 0) > InlinePromptLimit)
+            {
+                promptFile = Path.Combine(work, "system-" + Guid.NewGuid().ToString("N") + ".txt");
+                File.WriteAllText(promptFile, systemPrompt, new UTF8Encoding(false));
+            }
 
             var psi = new ProcessStartInfo
             {
                 FileName = exe,
-                Arguments = string.Join(" ",
+                Arguments = (script != null ? Quote(script) + " " : "") + string.Join(" ",
                     "-p", "--output-format", "json",
                     "--model", Quote(model),
                     "--effort", "high",
                     "--tools", Quote(""),
                     "--setting-sources", Quote(""),
                     "--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence",
-                    "--system-prompt", Quote(systemPrompt),
+                    promptFile != null ? "--system-prompt-file" : "--system-prompt", Quote(promptFile ?? systemPrompt),
                     "--json-schema", Quote(schema)),
                 WorkingDirectory = work,
                 UseShellExecute = false,
@@ -108,6 +150,7 @@ namespace UniDAW.Composer
             }
             catch (Exception ex)
             {
+                DeletePrompt();
                 done(null, "Claude Code を起動できませんでした: " + ex.Message);
                 return () => { };
             }
@@ -132,6 +175,15 @@ namespace UniDAW.Composer
                 finished = true;
                 host.Update -= Poll;
                 host.Unloading -= OnReload;
+                DeletePrompt();
+            }
+
+            void DeletePrompt()
+            {
+                if (promptFile == null) return;
+                try { File.Delete(promptFile); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
             }
 
             // スクリプトの再読み込みで待ち手（update の購読）が消えるので、プロセスを残さず止める

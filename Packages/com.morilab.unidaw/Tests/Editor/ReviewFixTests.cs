@@ -38,6 +38,67 @@ namespace UniDAW.Tests
         }
 
         [Test]
+        public void Render_ExceptionBecomesSilence_AndIsReportedOnce()
+        {
+            var e = new ChipEngine(Rate) { Song = MakeSong() };
+            e.Play();
+            var data = new float[64];
+            for (int i = 0; i < data.Length; i++) data[i] = 1f;
+            Assert.DoesNotThrow(() => e.Render(data, 0, 4096, 2), "オーディオスレッドに例外を投げない");
+            Assert.IsNotNull(e.LastError);
+            Assert.IsTrue(data.All(v => v == 0f), "落ちたブロックは無音");
+            var first = e.LastError;
+            e.Render(new float[64], 0, 4096, 2);
+            Assert.AreSame(first, e.LastError, "取り出すまでは最初の例外を残す");
+            e.LastError = null;
+            Assert.DoesNotThrow(() => e.Render(new float[512], 0, 256, 2), "次のブロックは普通に鳴る");
+            Assert.IsNull(e.LastError);
+        }
+
+        [Test]
+        public void PatternRemovedWhilePlaying_StopsLikeStop()
+        {
+            var song = MakeSong();
+            var e = new ChipEngine(Rate) { Song = song };
+            e.PlayPattern(0);
+            var buf = new float[1024];
+            e.Render(buf, 0, 512, 2);
+            e.Queue(0);
+            e.Render(buf, 0, 16, 2);
+            Assert.AreEqual(0, e.Queued);
+            song.patterns.Clear();
+            for (int i = 0; i < 20; i++) e.Render(buf, 0, 512, 2);
+            Assert.IsFalse(e.IsPlaying);
+            Assert.AreEqual(-1, e.Queued, "予約も消す");
+            Assert.AreEqual(-1, e.PlayingPattern);
+            Assert.IsNull(e.LastError);
+        }
+
+        [Test]
+        public void ClaudeCodeFind_UsesNodeForNpmShim()
+        {
+            if (System.IO.Path.DirectorySeparatorChar != '\\') Assert.Ignore("Windows だけ");
+            var dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "UniDAW-findtest-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                var cliDir = System.IO.Path.Combine(dir, "node_modules", "@anthropic-ai", "claude-code");
+                System.IO.Directory.CreateDirectory(cliDir);
+                System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "claude.cmd"), "@echo off");
+                var none = ClaudeCodeClient.Find(dir, out var noScript);
+                Assert.IsFalse(none != null && none.StartsWith(dir), "cli.js と node が無ければ使わない");
+                System.IO.File.WriteAllText(System.IO.Path.Combine(cliDir, "cli.js"), "");
+                System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "node.exe"), "");
+                var exe = ClaudeCodeClient.Find(dir, out var script);
+                Assert.AreEqual(System.IO.Path.Combine(dir, "node.exe"), exe, "cmd.exe を通さず node で起動");
+                Assert.AreEqual(System.IO.Path.Combine(cliDir, "cli.js"), script);
+            }
+            finally
+            {
+                System.IO.Directory.Delete(dir, true);
+            }
+        }
+
+        [Test]
         public void MidiBridge_NoteOffGoesToChannelThatSounded()
         {
             var prevTarget = UniDAWMidiBridge.TargetChannel;

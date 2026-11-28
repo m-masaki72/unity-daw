@@ -99,6 +99,17 @@ namespace UniDAW
             var e = Engine;
             e.Song = old.Song;
             e.RandomSeed = old.RandomSeed;
+            e.MasterVolume = old.MasterVolume;
+            e.PreviewInstrument = old.PreviewInstrument;
+            e.Loudness = old.Loudness;
+            e.MasterOverride = old.MasterOverride;
+            e.BypassMaster = old.BypassMaster;
+            e.Metronome = old.Metronome;
+            e.MetronomeVolume = old.MetronomeVolume;
+            e.AuditionBypass = old.AuditionBypass;
+            e.AuditionGainDb = old.AuditionGainDb;
+            e.EmitNoteEvents = old.EmitNoteEvents;
+            e.EmitBeatEvents = old.EmitBeatEvents;
             for (int c = 0; c < ChipEngine.Channels; c++)
             {
                 e.Mute[c] = old.Mute[c];
@@ -106,7 +117,8 @@ namespace UniDAW
             }
             if (old.IsPlaying)
             {
-                if (old.IsPatternMode) e.PlayPattern(old.PlayingPattern, old.PlayingRow);
+                // プリカウント中は PlayingPattern が -1 なので、ループしているパターンを使う
+                if (old.IsPatternMode) e.PlayPattern(old.LoopPatternIndex, old.CountingIn ? 0 : old.PlayingRow);
                 else e.Play(old.PlayingOrder, old.PlayingRow);
             }
             old.Stop();
@@ -162,6 +174,12 @@ namespace UniDAW
         public void DispatchEvents()
         {
             if (Engine == null) return;
+            var err = Engine.LastError;
+            if (err != null)
+            {
+                Engine.LastError = null;
+                Debug.LogException(err, this);
+            }
             while (Engine.NoteEvents.TryDequeue(out var e))
             {
                 NoteTriggered?.Invoke(e);

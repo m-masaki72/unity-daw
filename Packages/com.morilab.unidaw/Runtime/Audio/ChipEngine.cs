@@ -208,6 +208,26 @@ namespace UniDAW
         /// </summary>
         public void Render(float[] data, int offset, int frames, int outChannels)
         {
+            try
+            {
+                RenderBlock(data, offset, frames, outChannels);
+            }
+            catch (Exception ex)
+            {
+                // 曲の差し替え途中などで落ちても、オーディオスレッドには投げず無音にする（次のブロックでやり直す）
+                Array.Clear(data, offset, Math.Min(data.Length - offset, frames * outChannels));
+                if (LastError == null) LastError = ex;
+            }
+        }
+
+        /// <summary>オーディオスレッドで起きた最初の例外（メインスレッドで取り出してログに出す。出したら null に戻す）。</summary>
+        public volatile Exception LastError;
+
+        /// <summary>パターンループで鳴らしているパターン（曲再生なら -1）。</summary>
+        public int LoopPatternIndex => loopPattern ? loopPatternIndex : -1;
+
+        void RenderBlock(float[] data, int offset, int frames, int outChannels)
+        {
             DrainCommands();
             var s = song;
             mixer.BeginBlock(s, Mute, Solo, MasterVolume, CurrentBpm(s), frames, BypassMaster ? null : (MasterOverride ?? s?.master));
@@ -255,14 +275,7 @@ namespace UniDAW
                         StartPlayback(true, cmd.a, cmd.b, cmd.c);
                         break;
                     case CmdType.Stop:
-                        playing = false;
-                        IsPlaying = false;
-                        PlayingPattern = -1;
-                        countInRows = 0;
-                        Queued = -1;
-                        click.Silence();
-                        CutAll();
-                        mixer.ResetAutomation();
+                        StopNow();
                         break;
                     case CmdType.NoteOn:
                         if (cmd.a >= 0 && cmd.a < Channels)
@@ -311,6 +324,18 @@ namespace UniDAW
             countInRows = countInTotal;
             if (countInRows > 0) PlayingPattern = -1;
             samplesToTick = 1; // 最初のサンプルで tick → 以降ちょうど SamplesPerTick 間隔
+        }
+
+        void StopNow()
+        {
+            playing = false;
+            IsPlaying = false;
+            PlayingPattern = -1;
+            countInRows = 0;
+            Queued = -1;
+            click.Silence();
+            CutAll();
+            mixer.ResetAutomation();
         }
 
         void CutAll()
@@ -394,9 +419,8 @@ namespace UniDAW
                 var p = s.GetPattern(pi);
                 if (p == null)
                 {
-                    playing = false;
-                    IsPlaying = false;
-                    CutAll();
+                    // パターンが消えた：停止と同じ後始末（予約・オートメーションも外す）
+                    StopNow();
                     return;
                 }
                 if (row >= p.length) row = 0;

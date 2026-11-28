@@ -193,7 +193,7 @@ Fx はエフェクトの種類（V デューティ、4 ビブラートなど）�
 
 - 「接続」チップで経路を選べます。**自動**（既定）は API キーがあれば API、なければローカルの Claude Code を使います
 - **Claude Code**：インストール済みの `claude` コマンドを `claude -p` で呼び出します。API キーは不要で、Claude Code にログインしているアカウント（サブスクリプション等）を使います。
-  ツール・設定・MCP を読み込まない一回きりの呼び出しで、作業フォルダは空の一時フォルダです
+  ツール・設定・MCP を読み込まない一回きりの呼び出しで、作業フォルダは空の一時フォルダです。npm で入れた Windows の `claude.cmd` は、同じフォルダの node で直接起動します
 - **API**：API キーは Assist タブの「API キー…」で入力（この PC の EditorPrefs に保存）するか、環境変数 `ANTHROPIC_API_KEY` に設定。プロジェクトのファイルには書きません
 - 送るのは曲の音符・コード・テンポ・頼みごとの文章だけです。料金は API なら Anthropic の API 利用料、Claude Code ならそのアカウントの利用枠として扱われます
 - 断られたとき・途中で切れたとき・通信エラーはステータスに表示し、曲は変更しません
@@ -202,6 +202,7 @@ Fx はエフェクトの種類（V デューティ、4 ビブラートなど）�
 - `onBeat(bar, beatInBar)` / `onBar(bar)` / `onSection(order)`（UnityEvent）と `BeatTriggered`（C# event）で拍・小節・区間の頭を受け取れる（4/4 として数える）
 - `QueueSection(order)` / `QueueSection("B")`：次の小節の頭で別の区間へ移る。`atNextBar: false` なら今のパターンの終わりで移る。`-1` で取り消し
 - `SetLayer(channel, on)`：パートの抜き差し（曲のミキサー設定はそのまま）
+- 再生中に音声デバイスが替わっても、再生位置・ミュート・メトロノーム等の設定を引き継ぐ。音声の処理で例外が出たらそのブロックは無音にして、Console に 1 度だけ出す
 
 ```csharp
 player.onBar.AddListener(bar => Debug.Log($"bar {bar}"));

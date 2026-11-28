@@ -128,7 +128,7 @@ namespace UniDAW.Composer
                 if (!byName.TryGetValue(name, out int pi))
                 {
                     var src = sec.source >= 0 && sec.source < sourceCount ? song.patterns[sec.source] : null;
-                    int len = sec.bars > 0 ? Math.Min(Pattern.MaxRows, sec.bars * rowsPerBar) : src?.length ?? song.patterns[0].length;
+                    int len = sec.bars > 0 ? Math.Min(Pattern.MaxRows, Math.Min(sec.bars, Pattern.MaxRows) * rowsPerBar) : src?.length ?? song.patterns[0].length;
                     var p = src != null ? src.Clone() : new Pattern(len);
                     if (p.length != len) p.Resize(len);
                     p.name = name;
@@ -141,7 +141,7 @@ namespace UniDAW.Composer
                 {
                     // 空の仮置きパターンは枠として使い、長さとコードは依頼に合わせる
                     var p = song.patterns[pi];
-                    if (sec.bars > 0) p.Resize(Math.Min(Pattern.MaxRows, sec.bars * rowsPerBar));
+                    if (sec.bars > 0) p.Resize(Math.Min(Pattern.MaxRows, Math.Min(sec.bars, Pattern.MaxRows) * rowsPerBar));
                     if (!string.IsNullOrWhiteSpace(sec.chords)) p.chords = sec.chords.Trim();
                 }
                 int t = Math.Max(-12, Math.Min(12, sec.transpose));
