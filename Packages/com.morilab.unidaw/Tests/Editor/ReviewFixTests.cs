@@ -38,6 +38,18 @@ namespace UniDAW.Tests
         }
 
         [Test]
+        public void StyleSheet_UsesBundledFonts()
+        {
+            const string dir = "Packages/com.morilab.unidaw/";
+            var deps = UnityEditor.AssetDatabase.GetDependencies(dir + "Composer/UI/UniDAW.uss", false);
+            foreach (var f in new[] { "Fonts/BIZUDPGothic-Regular.ttf", "Fonts/JetBrainsMono-Regular.ttf" })
+            {
+                CollectionAssert.Contains(deps, dir + f, "USS の url が同梱フォントを指す");
+                Assert.IsNotNull(UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(dir + f));
+            }
+        }
+
+        [Test]
         public void SnapshotUndo_StoresDeltas_AndRestoresExactly()
         {
             var song = MakeSong(64);

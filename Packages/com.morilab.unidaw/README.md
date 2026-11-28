@@ -218,7 +218,7 @@ player.SetLayer(3, false);     // ノイズを抜く
 - ファイルダイアログは無いので、Open Song は保存済みの曲の一覧メニュー、MIDI / FamiTracker の取り込みは `UniDAW/Import/` に置いたファイルの一覧メニューから選ぶ。WAV・ステム・MIDI は `UniDAW/Export/` に書き出す（書き出すときにファイル名を聞く。既定は曲名、ステムは同名のフォルダ）
 - 拡大率は `uiScale`（0 なら画面の DPI から決める。デスクトップは 96 dpi、モバイルは 160 dpi を 1 倍）。パネルを自分で指定したときはそのパネルの設定のまま
 - タッチ画面では右下の「右」ボタンを押してから触ると、その 1 回のタッチを右クリックとして扱う（ピアノロールの消去・各所のメニュー）。`touchRightClick` が Auto ならモバイルのときだけ出す
-- UIDocument に PanelSettings が無ければ、同梱のパネル（`UniDAWPanel.asset`。日本語の改行に使う ICU データ入り）を複製し、テーマ（`UniDAWRuntimeTheme.tss`）を当てて使う。日本語フォントは `font` に入れるか、空なら OS のフォント（Yu Gothic UI / Meiryo / Hiragino Sans 等）から作る
+- UIDocument に PanelSettings が無ければ、同梱のパネル（`UniDAWPanel.asset`。日本語の改行に使う ICU データ入り）を複製し、テーマ（`UniDAWRuntimeTheme.tss`）を当てて使う。フォントは同梱のもの（下記）を使い、`font` に入れればそれに差し替える
 - ウィンドウ全体のキー（Ctrl+Alt+L 等）も画面の中で効く。Claude による提案は API キー方式を使う（`claude -p` はデスクトップでのみ動く。配布するゲームでは API キーの扱いをゲームごとに決める）
 - Undo・保存は画面ごと。エディタの Play 中にゲーム内 DAW を開いても、エディタの UniDAW ウィンドウの Undo とは混ざらない
 
@@ -233,6 +233,17 @@ daw.Visible = false;             // 隠す（隠すときに保存）。Save() �
 ```
 
 `OpenFile(path)` で保存済みの JSON を開けます。どれも Start より前に呼んでかまいません（その場合 `startSong` / 前回の曲は開きません）。
+
+## フォント
+
+エディタのウィンドウとゲーム内 DAW は同じフォントで表示します（`UniDAW.uss` で指定。OS のフォントには頼らないので、モバイルでも日本語が欠けません）。
+
+| 用途 | フォント | ファイル |
+|---|---|---|
+| 画面全体 | BIZ UDPGothic（Morisawa） | `Fonts/BIZUDPGothic-Regular.ttf` |
+| トラッカーの数字・音名（等幅） | JetBrains Mono | `Fonts/JetBrainsMono-Regular.ttf` |
+
+どちらも SIL Open Font License 1.1 で、ゲームに同梱して配布できます（ライセンス文は `Fonts/OFL-*.txt`。配布物にも添えてください）。ゲーム内 DAW の `font` に FontAsset を入れると画面全体をそれに差し替えます（トラッカーは等幅のまま）。
 
 ## デモ
 デモはパッケージ本体に含めず、UPM のサンプルとして同梱しています。Package Manager で UniDAW を選び、Samples の **Demo** を Import すると `Assets/Samples/UniDAW/<version>/Demo/` に入ります。File > Import Demo Songs / 開始画面の Demo Songs… でも同じ場所に取り込んでデモ曲を開きます（埋め込み・ローカルのパッケージで Package Manager に Import ボタンが出ない場合もこちらで入ります。取り込み済みなら足りないファイルだけ足します）。

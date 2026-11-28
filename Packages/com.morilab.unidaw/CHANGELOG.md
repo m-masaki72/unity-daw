@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.44.0] - 2026-11-28
+
+### Added
+- フォントを同梱：画面全体は BIZ UDPGothic、トラッカーの数字・音名は等幅の JetBrains Mono（どちらも SIL OFL 1.1、`Fonts/`）。エディタのウィンドウとゲーム内 DAW の両方で同じ見た目になる
+
+### Changed
+- ゲーム内 DAW は OS のフォント（Yu Gothic UI / Meiryo 等）を探さず、同梱フォントを使う。`font` は差し替えたいときだけ指定する
+
 ## [0.43.0] - 2026-11-28
 
 ### Changed

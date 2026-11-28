@@ -29,7 +29,7 @@ namespace UniDAW.Composer
         public ThemeStyleSheet theme;
         [Tooltip("UIDocument に PanelSettings が無いときに複製する元（日本語の改行に使う ICU データ入り）。空なら素のパネルを作る")]
         public PanelSettings panelTemplate;
-        [Tooltip("日本語を表示できるフォント。空なら OS のフォント（Yu Gothic UI / Meiryo / Hiragino Sans 等）から作る")]
+        [Tooltip("画面全体のフォントを差し替えるとき。空なら同梱の BIZ UDPGothic（トラッカーは JetBrains Mono）")]
         public FontAsset font;
         [Tooltip("曲・取り込み・書き出しの置き場所。空なら persistentDataPath/UniDAW")]
         public string dataFolder;
@@ -41,8 +41,6 @@ namespace UniDAW.Composer
         [Min(0f)] public float uiScale;
         [Tooltip("タッチで右クリックを使うボタン。Auto はモバイルのときだけ出す")]
         public TouchButtonMode touchRightClick = TouchButtonMode.Auto;
-
-        static readonly string[] SystemFonts = { "Yu Gothic UI", "Meiryo UI", "Meiryo", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans CJK JP", "Noto Sans JP" };
 
         RuntimeDawPlatform platform;
         IDawPlatform previous;
@@ -120,8 +118,8 @@ namespace UniDAW.Composer
 
             var ui = doc.rootVisualElement;
             if (styleSheet != null) ui.styleSheets.Add(styleSheet);
-            var f = font != null ? font : FindSystemFont();
-            if (f != null) ui.style.unityFontDefinition = new StyleFontDefinition(FontDefinition.FromSDFFont(f));
+            // 既定のフォントは UniDAW.uss が同梱のものを指定する
+            if (font != null) ui.style.unityFontDefinition = new StyleFontDefinition(FontDefinition.FromSDFFont(font));
             ui.Add(composer);
             // メニューの基準は画面そのもの（破棄で先に外れ、開いているメニューも一緒に閉じる）
             platform.MenuRoot = composer;
@@ -216,16 +214,6 @@ namespace UniDAW.Composer
 
         /// <summary>保存し残しをすぐ書く（シーンを切り替える前など）。</summary>
         public void Save() => files?.SaveAll();
-
-        static FontAsset FindSystemFont()
-        {
-            foreach (var name in SystemFonts)
-            {
-                var fa = FontAsset.CreateFontAsset(name, "Regular");
-                if (fa != null) return fa;
-            }
-            return null;
-        }
 
         void OnKeyDown(KeyDownEvent ev)
         {
