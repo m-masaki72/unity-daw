@@ -38,6 +38,50 @@ namespace UniDAW.Tests
         }
 
         [Test]
+        public void SnapshotUndo_StoresDeltas_AndRestoresExactly()
+        {
+            var song = MakeSong(64);
+            double t = 0;
+            var h = new SnapshotUndo(() => t += 1);
+            var states = new List<string>();
+            for (int i = 0; i < 40; i++)
+            {
+                states.Add(JsonUtility.ToJson(song));
+                h.Record(song, "edit");
+                song.patterns[0].tracks[i % 4].cells[i].note = 40 + i;
+            }
+            var last = JsonUtility.ToJson(song);
+            Assert.Less(h.StoredChars, last.Length * 3L, "古い段は差分だけ持つ");
+            for (int i = states.Count - 1; i >= 0; i--)
+            {
+                Assert.IsTrue(h.Undo());
+                Assert.AreEqual(states[i], JsonUtility.ToJson(song), $"{i} 段目に戻る");
+            }
+            Assert.IsFalse(h.Undo());
+            for (int i = 1; i < states.Count; i++)
+            {
+                Assert.IsTrue(h.Redo());
+                Assert.AreEqual(states[i], JsonUtility.ToJson(song));
+            }
+            Assert.IsTrue(h.Redo());
+            Assert.AreEqual(last, JsonUtility.ToJson(song));
+            Assert.IsFalse(h.Redo());
+
+            // 途中まで戻して別の編集をすると Redo は消え、上限を超えた古い段は捨てる
+            h.Undo();
+            h.Record(song, "other");
+            Assert.IsFalse(h.CanRedo);
+            for (int i = 0; i < SnapshotUndo.MaxUndo + 10; i++)
+            {
+                h.Record(song, "bpm");
+                song.bpm = 100 + i;
+            }
+            int n = 0;
+            while (h.Undo()) n++;
+            Assert.AreEqual(SnapshotUndo.MaxUndo, n);
+        }
+
+        [Test]
         public void Render_ExceptionBecomesSilence_AndIsReportedOnce()
         {
             var e = new ChipEngine(Rate) { Song = MakeSong() };

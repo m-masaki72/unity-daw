@@ -214,7 +214,7 @@ player.SetLayer(3, false);     // ノイズを抜く
 エディタと同じ作曲画面をゲームの中に出せます。GameObject > UniDAW > Composer (In-Game) で置き、Play で開きます（`UIDocument`・`AudioSource`・`UniDAWPlayer` が付きます）。
 
 - 曲は `persistentDataPath/UniDAW/Songs/*.json` に置き、変更から 1 秒で自動保存。起動時は前回の曲を開く（`openLastSong`。`startSong` を入れればその曲を複製して開く）。置き場所は `dataFolder` で変えられる
-- Ctrl+Z / Ctrl+Y（Ctrl+Shift+Z）で Undo / Redo（曲全体のスナップショット、100 段。スライダーのドラッグ等の連続した操作は 1 段にまとめる）
+- Ctrl+Z / Ctrl+Y（Ctrl+Shift+Z）で Undo / Redo（曲全体のスナップショット、100 段。古い段は差分で持つ。スライダーのドラッグ等の連続した操作は 1 段にまとめる）
 - ファイルダイアログは無いので、Open Song は保存済みの曲の一覧メニュー、MIDI / FamiTracker の取り込みは `UniDAW/Import/` に置いたファイルの一覧メニューから選ぶ。WAV・ステム・MIDI は `UniDAW/Export/` に書き出す（書き出すときにファイル名を聞く。既定は曲名、ステムは同名のフォルダ）
 - 拡大率は `uiScale`（0 なら画面の DPI から決める。デスクトップは 96 dpi、モバイルは 160 dpi を 1 倍）。パネルを自分で指定したときはそのパネルの設定のまま
 - タッチ画面では右下の「右」ボタンを押してから触ると、その 1 回のタッチを右クリックとして扱う（ピアノロールの消去・各所のメニュー）。`touchRightClick` が Auto ならモバイルのときだけ出す

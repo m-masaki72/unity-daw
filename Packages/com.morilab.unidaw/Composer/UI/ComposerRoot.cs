@@ -320,24 +320,40 @@ namespace UniDAW.Composer
         // 入力
         // =====================================================================
 
+        enum FocusKind { None, Control, Text }
+
+        // 部品の型ではなく USS のクラスで見分ける（Integer/Long/Float/Double 等の入力欄・各種スライダーをまとめて拾える）
+        static readonly string TextFieldClass = TextInputBaseField<string>.ussClassName;
+        static readonly string[] ControlClasses =
+        {
+            BaseSlider<float>.ussClassName, BasePopupField<string, string>.ussClassName, EnumField.ussClassName,
+            "unity-object-field", // エディタの ObjectField
+        };
+
+        /// <summary>フォーカス中の部品の種類（作曲画面の本体にフォーカスがあれば None）。</summary>
+        FocusKind FocusedKind()
+        {
+            for (var v = focusController?.focusedElement as VisualElement; v != null; v = v.parent)
+            {
+                if (v == mainArea) return FocusKind.None;
+                if (v.ClassListContains(TextFieldClass)) return FocusKind.Text;
+                foreach (var c in ControlClasses)
+                    if (v.ClassListContains(c)) return FocusKind.Control;
+            }
+            return FocusKind.None;
+        }
+
         /// <summary>
         /// フォーカス中の部品にキーを譲るか。文字入力欄はすべて、スライダー等の操作部品は Space（再生/停止）以外を譲る。
         /// </summary>
         bool FocusTakesKey(KeyCode key)
         {
-            var f = focusController?.focusedElement as VisualElement;
-            for (var v = f; v != null; v = v.parent)
-            {
-                if (v == mainArea) return false;
-                if (v is TextField || v is IntegerField || v is FloatField) return true;
-                // BaseField<Object> はエディタの ObjectField
-                if (v is SliderInt || v is BaseField<UnityEngine.Object> || v is DropdownField) return key != KeyCode.Space;
-            }
-            return false;
+            var kind = FocusedKind();
+            return kind == FocusKind.Text || (kind == FocusKind.Control && key != KeyCode.Space);
         }
 
         /// <summary>文字入力欄にフォーカスがある（キーはすべて入力欄へ渡す）。</summary>
-        public bool IsTyping => FocusTakesKey(KeyCode.Space);
+        public bool IsTyping => FocusedKind() == FocusKind.Text;
 
         void OnSubmit(NavigationSubmitEvent ev)
         {
