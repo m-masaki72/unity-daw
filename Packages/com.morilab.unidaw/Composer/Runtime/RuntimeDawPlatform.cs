@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -14,16 +12,13 @@ namespace UniDAW.Composer
     public class RuntimeDawPlatform : BasicDawPlatform
     {
         const string PrefPrefix = "UniDAW.";
-        /// <summary>Undo の段数の上限。</summary>
-        public const int MaxUndo = 100;
-        /// <summary>同じ名前の記録がこの秒数以内に続いたら 1 段にまとめる（スライダーのドラッグ等）。</summary>
-        const double MergeSeconds = 0.5;
 
         readonly IAudioHost audio;
         readonly string dataFolder;
 
         public RuntimeDawPlatform(IAudioHost audio, string dataFolder = null)
         {
+            history = new SnapshotUndo(() => Now);
             this.audio = audio;
             this.dataFolder = dataFolder ?? Path.Combine(Application.persistentDataPath, "UniDAW");
         }
@@ -41,56 +36,20 @@ namespace UniDAW.Composer
         public override IAudioHost AudioHost => audio;
 
         // ---- Undo（曲全体の JSON スナップショット）
-        readonly List<string> undo = new List<string>(), redo = new List<string>();
-        Song undoSong;
-        string lastName;
-        double lastTime = double.NegativeInfinity;
+        readonly SnapshotUndo history;
 
-        /// <summary>曲が変わった（保存が要る）ときに呼ばれる。</summary>
-        public event Action<Song> Dirtied;
+        public bool CanUndo => history.CanUndo;
+        public bool CanRedo => history.CanRedo;
 
-        public bool CanUndo => undoSong != null && undo.Count > 0;
-        public bool CanRedo => undoSong != null && redo.Count > 0;
+        public override void RecordUndo(Song song, string name) => history.Record(song, name);
 
-        public override void RecordUndo(Song song, string name)
+        public bool Undo() => After(history.Undo());
+        public bool Redo() => After(history.Redo());
+
+        bool After(bool done)
         {
-            if (song == null) return;
-            if (song != undoSong)
-            {
-                // 別の曲に移ったら履歴は捨てる
-                undo.Clear();
-                redo.Clear();
-                undoSong = song;
-            }
-            double now = Now;
-            bool merge = name == lastName && now - lastTime < MergeSeconds && undo.Count > 0;
-            lastName = name;
-            lastTime = now;
-            if (merge) return;
-            undo.Add(JsonUtility.ToJson(song));
-            if (undo.Count > MaxUndo) undo.RemoveAt(0);
-            redo.Clear();
-        }
-
-        public override void MarkDirty(Song song)
-        {
-            if (song != null) Dirtied?.Invoke(song);
-        }
-
-        public bool Undo() => Step(undo, redo);
-        public bool Redo() => Step(redo, undo);
-
-        bool Step(List<string> from, List<string> to)
-        {
-            if (undoSong == null || from.Count == 0) return false;
-            to.Add(JsonUtility.ToJson(undoSong));
-            string json = from[from.Count - 1];
-            from.RemoveAt(from.Count - 1);
-            JsonUtility.FromJsonOverwrite(json, undoSong);
-            lastName = null;
-            MarkDirty(undoSong);
-            RaiseUndoRedo();
-            return true;
+            if (done) RaiseUndoRedo();
+            return done;
         }
 
         // ---- メニュー

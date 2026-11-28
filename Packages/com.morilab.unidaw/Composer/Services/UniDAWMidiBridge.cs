@@ -20,7 +20,11 @@ namespace UniDAW.Composer
     {
         public static volatile ChipEngine Engine;
         public static volatile int TargetChannel;
-        public static readonly int[] ChannelInstrument = { Song.InstLead, Song.InstSoft, Song.InstBass, Song.InstSnare };
+        /// <summary>チャンネルごとの入力楽器（持ち主のセッションの配列）。</summary>
+        public static volatile int[] Instruments = DefaultInstruments();
+        /// <summary>MIDI 入力を受け取るセッション（記録するのはこのセッションだけ）。</summary>
+        public static volatile object Owner;
+        public static int[] DefaultInstruments() => new[] { Song.InstLead, Song.InstSoft, Song.InstBass, Song.InstSnare };
         public static readonly ConcurrentQueue<LiveNote> Pending = new ConcurrentQueue<LiveNote>();
         static readonly int[] lastRaw = { -1, -1, -1, -1 };
         /// <summary>押されている生ノート番号ごとの発音チャンネル（押下中にチャンネルを移っても正しく離すため）。</summary>
@@ -42,7 +46,7 @@ namespace UniDAW.Composer
             if (m.IsNoteOff && !drum && heldChannel[raw] >= 0) ch = heldChannel[raw];
             if (ch < 0 || ch >= Song.ChannelCount) return;
             int note = m.data1;
-            int inst = ChannelInstrument[ch];
+            int inst = Instruments[ch];
             if (ch == 3)
             {
                 if (drum)

@@ -32,7 +32,7 @@ namespace UniDAW.Editor
                 var opt = new MidiImportOptions();
                 var mode = Arg("-unidawMode");
                 if (mode != null) opt.mode = (VoiceAssignMode)Enum.Parse(typeof(VoiceAssignMode), mode, true);
-                var song = UniDAWAssets.ImportMidiFile(midi, opt, out var report);
+                var song = SongIO.ImportMidi(midi, opt, out var report);
                 Debug.Log($"[UniDAW CLI] Import: {report}");
                 var stereo = ChipEngine.RenderSongStereo(song, 48000);
                 WavWriter.Write16(Path.GetFullPath(wav), stereo, 2, 48000);

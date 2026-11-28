@@ -11,13 +11,12 @@ namespace UniDAW.Composer
     /// ゲーム内の曲ファイル操作。曲は <c>&lt;保存先&gt;/Songs/*.json</c>（Song の JSON）に置き、変更は少し待ってから自動保存する。
     /// ファイルダイアログは無いので、取り込みは <c>Import/</c> に置いたファイルをメニューから選び、書き出しは <c>Export/</c> へ出す。
     /// </summary>
-    public sealed class RuntimeSongFiles : ISongFiles
+    public sealed class RuntimeSongFiles : SongFilesBase, IDisposable
     {
         const string LastSongKey = "LastSong";
         /// <summary>最後の変更からこの秒数たったら保存する。</summary>
         const double SaveDelay = 1.0;
 
-        readonly ComposerSession s;
         readonly IDawPlatform platform;
         readonly Dictionary<Song, string> paths = new Dictionary<Song, string>();
         readonly HashSet<Song> dirty = new HashSet<Song>();
@@ -28,9 +27,8 @@ namespace UniDAW.Composer
         public string ImportFolder => Path.Combine(Root, "Import");
         public string ExportFolder => Path.Combine(Root, "Export");
 
-        public RuntimeSongFiles(ComposerSession session, IDawPlatform platform, string root)
+        public RuntimeSongFiles(ComposerSession session, IDawPlatform platform, string root) : base(session)
         {
-            s = session;
             this.platform = platform;
             Root = root;
             Directory.CreateDirectory(SongsFolder);
@@ -38,6 +36,16 @@ namespace UniDAW.Composer
             Directory.CreateDirectory(ExportFolder);
             platform.Update += AutoSave;
             platform.Unloading += SaveAll;
+            session.SongModified += MarkDirty;
+        }
+
+        /// <summary>保存し残しを書き、購読を外す。</summary>
+        public void Dispose()
+        {
+            SaveAll();
+            platform.Update -= AutoSave;
+            platform.Unloading -= SaveAll;
+            s.SongModified -= MarkDirty;
         }
 
         // ---- 保存
@@ -79,18 +87,19 @@ namespace UniDAW.Composer
             return song;
         }
 
-        /// <summary>新しいファイルとして保存して開く。</summary>
-        Song SaveNew(Song song, string baseName)
+        /// <summary>新しいファイルとして保存する。</summary>
+        protected override Song Store(Song song, string suggestedName, string title)
         {
-            var path = UniquePath(SafeName(baseName));
+            var path = UniquePath(SongIO.SafeName(suggestedName));
             song.name = Path.GetFileNameWithoutExtension(path);
             Write(song, path);
             paths[song] = path;
-            Select(song);
             return song;
         }
 
-        void Select(Song song)
+        void SaveNew(Song song, string baseName) => Show(Store(song, baseName, null));
+
+        protected override void Show(Song song)
         {
             if (song != null && paths.TryGetValue(song, out var p)) platform.SetString(LastSongKey, p);
             s.SetSong(song);
@@ -103,13 +112,6 @@ namespace UniDAW.Composer
             return path;
         }
 
-        static string SafeName(string name)
-        {
-            if (string.IsNullOrWhiteSpace(name)) name = "Song";
-            foreach (var c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '_');
-            return name;
-        }
-
         /// <summary>前回開いていた曲を開く。無ければ何もしない。</summary>
         public void OpenLast()
         {
@@ -119,25 +121,25 @@ namespace UniDAW.Composer
 
         // ---- ISongFiles
 
-        public IReadOnlyList<SongEntry> ListSongs() =>
+        public override IReadOnlyList<SongEntry> ListSongs() =>
             Directory.GetFiles(SongsFolder, "*.json")
                 .OrderByDescending(File.GetLastWriteTimeUtc)
                 .Select(p => new SongEntry(p, Path.GetFileNameWithoutExtension(p), "Songs"))
                 .ToList();
 
-        public void Open(string id)
+        public override void Open(string id)
         {
             var loaded = paths.FirstOrDefault(kv => kv.Value == id).Key;
             if (loaded != null)
             {
-                Select(loaded);
+                Show(loaded);
                 return;
             }
             try
             {
                 var song = Read(id);
                 paths[song] = id;
-                Select(song);
+                Show(song);
             }
             catch (Exception ex)
             {
@@ -146,12 +148,9 @@ namespace UniDAW.Composer
             }
         }
 
-        public string IdOf(Song song) => song != null && paths.TryGetValue(song, out var p) ? p : null;
+        public override string IdOf(Song song) => song != null && paths.TryGetValue(song, out var p) ? p : null;
 
-        public bool CanReveal => false;
-        public void Reveal(Song song) { }
-
-        public void NewSong()
+        public override void NewSong()
         {
             var song = Song.CreateDefault(64);
             song.title = "New Song";
@@ -159,7 +158,7 @@ namespace UniDAW.Composer
         }
 
         /// <summary>保存済みの曲をメニューから選んで開く。</summary>
-        public void OpenSong()
+        public override void OpenSong()
         {
             var list = ListSongs();
             if (list.Count == 0)
@@ -167,7 +166,7 @@ namespace UniDAW.Composer
                 s.Notify("保存された曲がまだありませんわ");
                 return;
             }
-            var menu = new DawMenu();
+            var menu = new DawMenu(platform);
             foreach (var e in list)
             {
                 var id = e.id;
@@ -177,7 +176,7 @@ namespace UniDAW.Composer
         }
 
         /// <summary>デモ曲（既定の曲）を新しく作って開く。</summary>
-        public void OpenSamples()
+        public override void OpenSamples()
         {
             var song = Song.CreateDefault(64);
             song.title = "Demo";
@@ -185,101 +184,32 @@ namespace UniDAW.Composer
         }
 
         /// <summary>Import フォルダのファイルをメニューで選ばせる。無ければ置き場所を知らせる。</summary>
-        void PickImport(string what, Func<string, bool> match, Action<string> import)
+        protected override void PickImportFile(string title, string what, string[] exts, Action<string> picked)
         {
-            var files = Directory.GetFiles(ImportFolder).Where(match).OrderBy(p => p).ToArray();
+            var files = Directory.GetFiles(ImportFolder)
+                .Where(p => exts.Any(e => p.EndsWith(e, StringComparison.OrdinalIgnoreCase)))
+                .OrderBy(p => p).ToArray();
             if (files.Length == 0)
             {
                 s.Notify($"{what} を {ImportFolder} に置いてから選んでくださいませ");
                 return;
             }
-            var menu = new DawMenu();
+            var menu = new DawMenu(platform);
             foreach (var f in files)
             {
                 var path = f;
-                menu.AddItem(Path.GetFileName(path), false, () => import(path));
+                menu.AddItem(Path.GetFileName(path), false, () => picked(path));
             }
             menu.ShowAsContext();
         }
 
-        static bool HasExt(string path, params string[] exts) => exts.Any(e => path.EndsWith(e, StringComparison.OrdinalIgnoreCase));
-
-        public void ImportMidi(VoiceAssignMode mode) =>
-            PickImport("MIDI ファイル（.mid）", p => HasExt(p, ".mid", ".midi"), p => ImportMidiFrom(p, mode));
-
-        public void ImportMidiFrom(string path, VoiceAssignMode mode)
+        /// <summary>Export フォルダに曲名で書き出す（ダイアログは無い）。</summary>
+        protected override string PickExportPath(string title, string baseName, string ext)
         {
-            try
-            {
-                var name = Path.GetFileNameWithoutExtension(path);
-                var song = MidiToSong.Import(File.ReadAllBytes(path), new MidiImportOptions { mode = mode }, name, out var report);
-                SaveNew(song, name);
-                s.Notify($"インポート完了: {report.patterns} patterns, dropped {report.droppedNotes}");
-            }
-            catch (Exception ex)
-            {
-                Debug.LogException(ex);
-                s.Notify("MIDI の読み込みに失敗しましたわ… " + ex.Message);
-            }
+            Directory.CreateDirectory(ExportFolder);
+            return Path.Combine(ExportFolder, baseName + ext);
         }
 
-        public void ImportFamiTracker() =>
-            PickImport("FamiTracker の Export text（.txt）", p => HasExt(p, ".txt"), path =>
-            {
-                try
-                {
-                    var name = Path.GetFileNameWithoutExtension(path);
-                    var song = FamiTrackerImport.Import(FamiTrackerImport.Decode(File.ReadAllBytes(path)), name, out var report);
-                    SaveNew(song, name);
-                    s.Notify("インポート完了: " + report);
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogException(ex);
-                    s.Notify("FamiTracker テキストの読み込みに失敗しましたわ… " + ex.Message);
-                }
-            });
-
-        string ExportPath(string ext) => Path.Combine(ExportFolder, SafeName(s.Song.title ?? s.Song.name) + ext);
-
-        public void ExportWav()
-        {
-            if (s.Song == null) return;
-            var path = ExportPath(".wav");
-            WavWriter.Write16(path, ChipEngine.RenderSongStereo(s.Song, 48000), 2, 48000);
-            s.Notify("WAV を書き出しましたわ: " + path);
-        }
-
-        public void ExportStems()
-        {
-            if (s.Song == null) return;
-            var baseName = SafeName(s.Song.title ?? s.Song.name);
-            for (int c = 0; c < Song.ChannelCount; c++)
-            {
-                var path = Path.Combine(ExportFolder, $"{baseName}_{c + 1}_{Song.ChannelNames[c]}.wav");
-                WavWriter.Write16(path, OfflineRenderer.RenderChannelStereo(s.Song, 48000, c), 2, 48000);
-            }
-            s.Notify($"ステムを {Song.ChannelCount} 本書き出しましたわ: {ExportFolder}");
-        }
-
-        public void ExportMidi()
-        {
-            if (s.Song == null) return;
-            var path = ExportPath(".mid");
-            var tmp = path + ".tmp";
-            File.WriteAllBytes(tmp, SongToMidi.Export(s.Song));
-            AtomicFile.Commit(tmp, path);
-            s.Notify("MIDI を書き出しましたわ: " + path);
-        }
-
-        /// <summary>今の曲を別ファイルとして複製して開く。</summary>
-        public void MakeEditableCopy()
-        {
-            if (s.Song == null) return;
-            var copy = ScriptableObject.CreateInstance<Song>();
-            JsonUtility.FromJsonOverwrite(JsonUtility.ToJson(s.Song), copy);
-            copy.Validate();
-            SaveNew(copy, (s.Song.title ?? s.Song.name) + " copy");
-        }
+        protected override string PickExportFolder(string title) => ExportFolder;
     }
 }

@@ -65,8 +65,9 @@ namespace UniDAW.Composer
         /// <summary>
         /// 送る。done(結果 JSON, エラー) はメインスレッドで 1 回だけ呼ばれる。戻り値を呼ぶと中止（done は呼ばれない）。
         /// </summary>
-        public static Action Send(string model, string systemPrompt, string schema, string userMessage, Action<string, string> done)
+        public static Action Send(string model, string systemPrompt, string schema, string userMessage, Action<string, string> done, IDawPlatform platform = null)
         {
+            var host = platform ?? DawPlatform.Current;
             string exe = ExecutablePath;
             if (exe == null)
             {
@@ -122,15 +123,15 @@ namespace UniDAW.Composer
             }
             catch (IOException) { }
 
-            double deadline = DawPlatform.Current.Now + TimeoutSeconds;
+            double deadline = host.Now + TimeoutSeconds;
             bool finished = false;
 
             void Finish()
             {
                 if (finished) return;
                 finished = true;
-                DawPlatform.Current.Update -= Poll;
-                DawPlatform.Current.Unloading -= OnReload;
+                host.Update -= Poll;
+                host.Unloading -= OnReload;
             }
 
             // スクリプトの再読み込みで待ち手（update の購読）が消えるので、プロセスを残さず止める
@@ -152,7 +153,7 @@ namespace UniDAW.Composer
 
             void Poll()
             {
-                if (DawPlatform.Current.Now > deadline)
+                if (host.Now > deadline)
                 {
                     Kill();
                     Finish();
@@ -170,8 +171,8 @@ namespace UniDAW.Composer
                 else done(null, $"Claude Code がエラーで終わりました（{code}）: " + Short(string.IsNullOrEmpty(err) ? text : err));
             }
 
-            DawPlatform.Current.Update += Poll;
-            DawPlatform.Current.Unloading += OnReload;
+            host.Update += Poll;
+            host.Unloading += OnReload;
             return () =>
             {
                 if (!finished) OnReload();

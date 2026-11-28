@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.38.0] - 2026-11-28
+
+### Changed
+- ホストを画面ごとに持つようにした。`ComposerRoot` / `ComposerSession` / `Transport` が `IDawPlatform` を受け取り、Undo・dirty・時計・メニュー・Claude への送信はその画面のホストを使う（エディタ上でゲーム内 DAW を動かしても互いの Undo が混ざらない）。`UniDAWComposer` は共通のホストが未設定のときだけ `DawPlatform.Current` に入る
+- MIDI 入力は最後にカーソルを動かした画面だけが受け取る（`ComposerSession.ClaimMidiInput`）。チャンネルごとの楽器も画面ごと
+- 曲の変更は `ComposerSession.SongModified` で知らせる（`RuntimeDawPlatform.Dirtied` は廃止）。`RuntimeSongFiles` は `IDisposable` で、画面の破棄で購読を外す
+- 曲ファイルの読み書きを `SongIO`（Runtime）に、取り込み・書き出し・複製の流れを `SongFilesBase` にまとめ、`SongFileCommands` と `RuntimeSongFiles` はファイルの選び方と保存先だけを実装する。`ISongFiles.ImportMidiFrom` を追加
+- スナップショット Undo を `SnapshotUndo` に切り出した
+- `IPatternView.Kind` を追加し、表示の並び順に頼らず `PatternViewKind` で引くようにした。`ComposerContext` は `ComposerRoot` から作る
+- 共通画面の文言からエディタ固有の言い回し（アセット・Assets/Samples）を外した
+
 ## [0.37.0] - 2026-11-28
 
 ### Added

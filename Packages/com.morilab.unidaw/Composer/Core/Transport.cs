@@ -19,12 +19,17 @@ namespace UniDAW.Composer
         /// <summary>表示を更新すべき変化（停止・サイクル切替など）。</summary>
         public event Action Changed;
 
-        public Transport(ComposerState state, IAudioHost host = null)
+        /// <param name="platform">null なら作った時点の <see cref="DawPlatform.Current"/>。音の出口も既定ではここから取る。</param>
+        public Transport(ComposerState state, IAudioHost host = null, IDawPlatform platform = null)
         {
             this.state = state;
-            this.host = host ?? DawPlatform.Current.AudioHost;
+            Platform = platform ?? DawPlatform.Current;
+            this.host = host ?? Platform.AudioHost;
             for (int c = 0; c < previewOff.Length; c++) previewOff[c] = -1;
         }
+
+        /// <summary>時計を取るホスト。</summary>
+        public IDawPlatform Platform { get; }
 
         public ChipEngine Engine => host?.Engine;
         public bool IsPlaying => Engine != null && Engine.IsPlaying;
@@ -162,7 +167,7 @@ namespace UniDAW.Composer
             var e = Engine;
             if (e == null || e.IsPlaying || state.song == null) return;
             Prepare().NoteOn(ch, note, 15, inst);
-            previewOff[ch] = DawPlatform.Current.Now + seconds;
+            previewOff[ch] = Platform.Now + seconds;
         }
 
         /// <summary>曲に入っていない楽器（プリセット）を一定時間だけ鳴らす。</summary>
@@ -178,7 +183,7 @@ namespace UniDAW.Composer
         public void ReleasePreview(int ch)
         {
             var e = Engine;
-            if (e != null && !e.IsPlaying) previewOff[ch] = DawPlatform.Current.Now + ReleaseDelay;
+            if (e != null && !e.IsPlaying) previewOff[ch] = Platform.Now + ReleaseDelay;
         }
 
         /// <summary>
@@ -189,14 +194,12 @@ namespace UniDAW.Composer
         {
             patternChanged = false;
             var e = Engine;
-            UniDAWMidiBridge.Engine = e;
-            UniDAWMidiBridge.TargetChannel = state.cursorCh;
             if (e == null) return false;
             if (state.song != null && e.Song != state.song) e.Song = state.song;
             e.Metronome = state.metronome;
             host?.DispatchEvents();
 
-            double now = DawPlatform.Current.Now;
+            double now = Platform.Now;
             for (int c = 0; c < Song.ChannelCount; c++)
             {
                 if (previewOff[c] > 0 && now >= previewOff[c])

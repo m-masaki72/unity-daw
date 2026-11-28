@@ -36,6 +36,8 @@ namespace UniDAW.Composer
         void OpenSong();
         void OpenSamples();
         void ImportMidi(VoiceAssignMode mode);
+        /// <summary>指定した MIDI ファイルを取り込む（ドラッグ＆ドロップ等）。</summary>
+        void ImportMidiFrom(string path, VoiceAssignMode mode);
         void ImportFamiTracker();
         void ExportWav();
         void ExportStems();

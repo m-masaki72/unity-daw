@@ -68,10 +68,10 @@ namespace UniDAW.Composer
         /// 依頼文を送る（schema の JSON で返すよう頼む）。done(返答 JSON, 通信エラー) はメインスレッドで 1 回だけ呼ばれる
         /// （API の HTTP エラーも本文を返す）。戻り値を呼ぶと中止（done は呼ばれない）。
         /// </summary>
-        public static Action Send(string model, string system, string schema, string userMessage, Action<string, string> done) =>
+        public static Action Send(string model, string system, string schema, string userMessage, Action<string, string> done, IDawPlatform platform = null) =>
             Effective == ClaudeBackend.ClaudeCode
-                ? ClaudeCodeClient.Send(model, system, schema, userMessage, done)
-                : SendApi(BuildApiBody(model, system, schema, userMessage), done);
+                ? ClaudeCodeClient.Send(model, system, schema, userMessage, done, platform)
+                : SendApi(BuildApiBody(model, system, schema, userMessage), done, platform ?? DawPlatform.Current);
 
         /// <summary>Messages API へのリクエスト本文（構造化出力・effort high・サーバー側フォールバック）。</summary>
         public static string BuildApiBody(string model, string system, string schema, string userMessage) =>
@@ -105,7 +105,7 @@ namespace UniDAW.Composer
             return sb.Append('"').ToString();
         }
 
-        static Action SendApi(string body, Action<string, string> done)
+        static Action SendApi(string body, Action<string, string> done, IDawPlatform host)
         {
             string key = ApiKey;
             if (key.Length == 0)
@@ -131,7 +131,7 @@ namespace UniDAW.Composer
             {
                 if (finished) return;
                 finished = true;
-                DawPlatform.Current.Update -= Poll;
+                host.Update -= Poll;
                 req.Dispose();
             }
 
@@ -144,7 +144,7 @@ namespace UniDAW.Composer
                 done(text, error);
             }
 
-            DawPlatform.Current.Update += Poll;
+            host.Update += Poll;
             return () =>
             {
                 if (finished) return;

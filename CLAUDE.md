@@ -43,7 +43,7 @@ EditMode テストのみ（`Packages/com.morilab.unidaw/Tests/Editor`、asmdef `
 - Model / Audio / Midi は UnityEngine の実行時 API を使わない（オーディオスレッド・テスト・CLI から使うため）
 - `UniDAW.Composer` では UnityEditor を使わない（プレイヤーにも入る）。確認は `-executeMethod UniDAW.Editor.UniDAWCli.CompilePlayer`
 - 編集操作は Composer に足し、UI からは呼ぶだけ。Undo と読み取り専用チェックは `ComposerSession.ModifySong` が一括で行う
-- 新しい表示は `IPatternView` を実装して `UniDAWWindow.BuildCenter` に並べ、`PatternViewKind` に値を**追記**する
+- 新しい表示は `IPatternView` を実装して（`Kind` で自分の `PatternViewKind` を返す）`ComposerRoot.BuildCenter` に並べ、`PatternViewKind` に値を**追記**する
 - トラッカーエフェクトは `Cell` の `Fx`（`FxType`）。ミキサー系エフェクト（`Lxx` `Mxx` `Hxx` `Dxx`）は `Fx.TryGetMix` → `ChipMixer` のオートメーションで再生中だけ上書きし、停止でミキサー値に戻る
 - Claude 提案（右ゾーンの Assist タブ）：`ClaudeAssist` が対象（`AiTarget`：メロディ等 / 曲構成 / ミックス）ごとにシステムプロンプトと JSON スキーマ（`ClaudePrompt` / `ClaudeStructure` / `ClaudeMix`）を選び、`ClaudeClient`（API キー）か `ClaudeCodeClient`（`claude -p`）で送る。返答は `ClaudeReply` で解析し、3 案を ←→ で切り替える
 

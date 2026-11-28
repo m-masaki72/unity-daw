@@ -33,13 +33,13 @@ namespace UniDAW.Composer
         {
             message.text = text ?? "";
             message.EnableInClassList("error", error);
-            messageUntil = DawPlatform.Current.Now + MessageSeconds;
+            messageUntil = ctx.Session.Platform.Now + MessageSeconds;
         }
 
         /// <summary>毎フレーム：時間が来たらメッセージを消す。</summary>
         public void Tick()
         {
-            if (messageUntil > 0 && DawPlatform.Current.Now >= messageUntil)
+            if (messageUntil > 0 && ctx.Session.Platform.Now >= messageUntil)
             {
                 messageUntil = 0;
                 message.text = "";

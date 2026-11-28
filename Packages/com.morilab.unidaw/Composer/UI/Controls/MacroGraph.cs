@@ -190,7 +190,7 @@ namespace UniDAW.Composer
 
         void ShowMenu(int col, Vector2 pos)
         {
-            var m = new DawMenu();
+            var m = new DawMenu(ComposerRoot.PlatformOf(this));
             bool inside = col < Length;
             Item(m, $"ここで終わる（長さ {col + 1}）", true, () => { SetLength(col + 1); Commit(); });
             Item(m, $"ループ開始をここに（{col}）", inside, () => { seq.loop = col; Commit(); });

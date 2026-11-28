@@ -31,9 +31,13 @@ namespace UniDAW.Composer
         double pendingSince, hiddenAt = double.MinValue;
         bool shown;
 
-        public TooltipOverlay(VisualElement root)
+        readonly IDawPlatform platform;
+
+        /// <param name="platform">時計を取るホスト（null なら <see cref="DawPlatform.Current"/>）。</param>
+        public TooltipOverlay(VisualElement root, IDawPlatform platform = null)
         {
             this.root = root;
+            this.platform = platform;
             pickingMode = PickingMode.Ignore;
             AddToClassList("cd-tooltip");
             label = new Label { pickingMode = PickingMode.Ignore };
@@ -53,7 +57,7 @@ namespace UniDAW.Composer
             }, TrickleDown.TrickleDown);
         }
 
-        static double Now => DawPlatform.Current.Now;
+        double Now => (platform ?? DawPlatform.Current).Now;
 
         /// <summary>ポインタ位置の説明と、その持ち主（同じ持ち主・同じ文なら出し直さない）。</summary>
         public static string Find(IPanel panel, Vector2 worldPos, out object owner)

@@ -64,11 +64,9 @@ namespace UniDAW.Tests
         public void SongFiles_NewSong_SavesJsonAndReloads()
         {
             var p = new RuntimeDawPlatform(null, folder);
-            DawPlatform.Current = p;
             var state = new ComposerState();
-            var session = new ComposerSession(state, new Transport(state));
+            var session = new ComposerSession(state, new Transport(state, null, p), p);
             var files = new RuntimeSongFiles(session, p, folder);
-            p.Dirtied += files.MarkDirty;
 
             files.NewSong();
             Assert.IsNotNull(session.Song);
@@ -77,7 +75,7 @@ namespace UniDAW.Tests
             Assert.AreEqual(1, files.ListSongs().Count);
 
             session.Song.bpm = 123;
-            p.MarkDirty(session.Song);
+            session.MarkModified();
             files.SaveAll();
             var back = RuntimeSongFiles.Read(id);
             Assert.AreEqual(123f, back.bpm);
@@ -87,14 +85,23 @@ namespace UniDAW.Tests
             files.MakeEditableCopy();
             Assert.AreEqual(2, files.ListSongs().Count);
             Assert.AreNotEqual(id, files.IdOf(session.Song));
+
+            // 片付けたら変更を拾わない
+            files.Dispose();
+            var copyId = files.IdOf(session.Song);
+            session.Song.bpm = 99;
+            session.MarkModified();
+            files.SaveAll();
+            var copy = RuntimeSongFiles.Read(copyId);
+            Assert.AreNotEqual(99f, copy.bpm);
+            Object.DestroyImmediate(copy);
         }
 
         [Test]
         public void ComposerRoot_BuildsAndEditsWithoutEditorWindow()
         {
             var p = new RuntimeDawPlatform(null, folder);
-            DawPlatform.Current = p;
-            var root = new ComposerRoot(new ComposerState(), s => new RuntimeSongFiles(s, p, folder));
+            var root = new ComposerRoot(new ComposerState(), s => new RuntimeSongFiles(s, p, folder), p);
             try
             {
                 root.Files.NewSong();
@@ -124,7 +131,9 @@ namespace UniDAW.Tests
                 Assert.IsNotNull(host.theme, "Reset でランタイムテーマが入る");
                 typeof(UniDAWComposer).GetMethod("Start", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(host, null);
 
-                Assert.AreSame(host.Platform, DawPlatform.Current);
+                Assert.AreSame(previous, DawPlatform.Current, "エディタでは共通のホストを差し替えない");
+                Assert.AreSame(host.Platform, host.Composer.Platform);
+                Assert.AreSame(host.Platform, host.Composer.Session.Platform);
                 var doc = go.GetComponent<UnityEngine.UIElements.UIDocument>();
                 Assert.IsNotNull(doc.panelSettings);
                 Assert.AreSame(doc.rootVisualElement, host.Composer.parent);
@@ -140,6 +149,55 @@ namespace UniDAW.Tests
                 Object.DestroyImmediate(go);
             }
             Assert.AreSame(previous, DawPlatform.Current, "破棄でもとのホストに戻る");
+        }
+        [Test]
+        public void TwoComposers_KeepSeparateHostsAndUndo()
+        {
+            var pa = new RuntimeDawPlatform(null, folder);
+            var pb = new RuntimeDawPlatform(null, folder);
+            var a = new ComposerRoot(new ComposerState(), s => new RuntimeSongFiles(s, pa, Path.Combine(folder, "a")), pa);
+            var b = new ComposerRoot(new ComposerState(), s => new RuntimeSongFiles(s, pb, Path.Combine(folder, "b")), pb);
+            try
+            {
+                a.Files.NewSong();
+                b.Files.NewSong();
+                a.Session.SetCursor(0, 0, 0);
+                Assert.IsTrue(a.HandleKey(KeyCode.Z, false, false));
+                Assert.IsTrue(pa.CanUndo, "A の編集は A のホストに記録");
+                Assert.IsFalse(pb.CanUndo, "B のホストには残らない");
+                Assert.IsFalse(b.State.CurrentPattern.tracks[0].cells[0].HasNote);
+            }
+            finally
+            {
+                a.Dispose();
+                b.Dispose();
+            }
+        }
+
+        [Test]
+        public void MidiInput_OnlyOwnerSyncs_AndReleaseHandsOver()
+        {
+            var p = new RuntimeDawPlatform(null, folder);
+            var sa = new ComposerSession(new ComposerState(), null, p);
+            var sb = new ComposerSession(new ComposerState(), null, p);
+            var prevOwner = UniDAWMidiBridge.Owner;
+            var prevInst = UniDAWMidiBridge.Instruments;
+            try
+            {
+                sa.ClaimMidiInput();
+                Assert.IsTrue(sa.OwnsMidiInput);
+                Assert.IsFalse(sb.OwnsMidiInput, "後から聞いた側は受け取らない");
+                var aInst = UniDAWMidiBridge.Instruments;
+                sb.SyncMidiInput();
+                Assert.AreSame(aInst, UniDAWMidiBridge.Instruments, "持ち主でないと上書きしない");
+                sa.ReleaseMidiInput();
+                Assert.IsTrue(sb.OwnsMidiInput, "手放したら次に聞いた側が受け取る");
+            }
+            finally
+            {
+                UniDAWMidiBridge.Owner = prevOwner;
+                UniDAWMidiBridge.Instruments = prevInst;
+            }
         }
     }
 }

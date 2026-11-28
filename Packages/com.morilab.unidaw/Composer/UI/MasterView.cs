@@ -153,7 +153,7 @@ namespace UniDAW.Composer
 
         void ShowTargetMenu(VisualElement anchor)
         {
-            var menu = new DawMenu();
+            var menu = ctx.NewMenu();
             for (int i = 0; i < SongMaster.TargetChoices.Length; i++)
             {
                 float v = SongMaster.TargetChoices[i];

@@ -9,34 +9,28 @@ namespace UniDAW.Composer
     /// </summary>
     public sealed class ComposerContext
     {
-        public ComposerSession Session { get; }
-        public CellCommands Cells { get; }
-        public RollEditor Roll { get; }
-        public ISongFiles Files { get; }
-        public MixerCommands Mixer { get; }
-        public OrderCommands Order { get; }
-        public AssistCommands Assist { get; }
-        public MasteringCommands Mastering { get; }
+        readonly ComposerRoot root;
+
+        /// <summary>画面の Composer 層をそのまま見せる（Commands を足しても ComposerRoot に足すだけでよい）。</summary>
+        public ComposerContext(ComposerRoot root) => this.root = root;
+
+        public ComposerSession Session => root.Session;
+        public CellCommands Cells => root.Cells;
+        public RollEditor Roll => root.Roll;
+        public ISongFiles Files => root.Files;
+        public MixerCommands Mixer => root.Mixer;
+        public OrderCommands Order => root.Order;
+        public AssistCommands Assist => root.Assist;
+        public MasteringCommands Mastering => root.Mastering;
         public Transport Transport => Session.Transport;
         public ComposerState State => Session.State;
+        public IDawPlatform Platform => Session.Platform;
 
-        readonly Action focusMain;
-
-        public ComposerContext(ComposerSession session, CellCommands cells, RollEditor roll, ISongFiles files, MixerCommands mixer, OrderCommands order, AssistCommands assist, MasteringCommands mastering, Action focusMain)
-        {
-            Session = session;
-            Cells = cells;
-            Roll = roll;
-            Files = files;
-            Mixer = mixer;
-            Order = order;
-            Assist = assist;
-            Mastering = mastering;
-            this.focusMain = focusMain;
-        }
+        /// <summary>この画面のホストに出すメニュー。</summary>
+        public DawMenu NewMenu() => new DawMenu(Platform);
 
         /// <summary>キー入力をパターン編集エリアへ戻す。</summary>
-        public void FocusMain() => focusMain?.Invoke();
+        public void FocusMain() => root.FocusMain();
 
         /// <summary>ラベル付きフィールドの入力欄を詰める（ツールバー等の小さい欄用）。</summary>
         public static T Small<T>(T field, int inputWidth) where T : VisualElement

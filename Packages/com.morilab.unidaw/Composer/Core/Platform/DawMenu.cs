@@ -27,6 +27,11 @@ namespace UniDAW.Composer
         }
 
         readonly List<Entry> entries = new List<Entry>();
+        readonly IDawPlatform platform;
+
+        /// <param name="platform">メニューを出すホスト（null なら出すときの <see cref="DawPlatform.Current"/>）。</param>
+        public DawMenu(IDawPlatform platform = null) => this.platform = platform;
+
         public IReadOnlyList<Entry> Entries => entries;
 
         public void AddItem(string path, bool on, Action action) => entries.Add(new Entry(path, action, on, action != null, false));
@@ -40,7 +45,7 @@ namespace UniDAW.Composer
             else AddDisabledItem(path, on);
         }
 
-        public void DropDown(Rect worldRect) => DawPlatform.Current.ShowMenu(this, worldRect);
-        public void ShowAsContext() => DawPlatform.Current.ShowMenu(this, null);
+        public void DropDown(Rect worldRect) => (platform ?? DawPlatform.Current).ShowMenu(this, worldRect);
+        public void ShowAsContext() => (platform ?? DawPlatform.Current).ShowMenu(this, null);
     }
 }

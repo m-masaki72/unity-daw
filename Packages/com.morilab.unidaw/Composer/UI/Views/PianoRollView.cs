@@ -50,6 +50,7 @@ namespace UniDAW.Composer
 
         RollEditor Roll => ctx.Roll;
 
+        public PatternViewKind Kind => PatternViewKind.PianoRoll;
         public VisualElement HeaderTools { get; }
 
         public PianoRollView(ComposerContext context)
@@ -307,7 +308,7 @@ namespace UniDAW.Composer
             var s = ctx.Session;
             bool hasSel = Roll.Selection.Count > 0;
             var preset = DawKeys.Preset;
-            var m = new DawMenu();
+            var m = ctx.NewMenu();
             foreach (RollTool t in Enum.GetValues(typeof(RollTool)))
             {
                 var tool = t;

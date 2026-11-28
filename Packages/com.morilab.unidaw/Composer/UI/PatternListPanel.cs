@@ -163,7 +163,7 @@ namespace UniDAW.Composer
         void ShowMenu(int index)
         {
             var song = ctx.State.song;
-            var m = new DawMenu();
+            var m = ctx.NewMenu();
             m.AddItem("アレンジの選択中エントリの後ろに並べる", false, ctx.Order.Insert);
             m.AddItem("曲の最後に並べる", false, () => ctx.Order.InsertPattern(song.order.Count, index));
             m.AddSeparator("");

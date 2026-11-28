@@ -8,6 +8,9 @@ namespace UniDAW.Composer
         void Refresh();
         void UpdatePlayhead();
 
+        /// <summary>どの表示か（<see cref="ComposerState.view"/> と照らして選ぶ）。</summary>
+        PatternViewKind Kind { get; }
+
         /// <summary>エディタ見出しに並べる、この表示だけの道具（無ければ null）。</summary>
         VisualElement HeaderTools { get; }
     }

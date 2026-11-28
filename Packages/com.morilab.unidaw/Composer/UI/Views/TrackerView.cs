@@ -166,6 +166,7 @@ namespace UniDAW.Composer
             Set(p, e ? ".." : fx.param.ToString("X2"), e, ghost);
         }
 
+        public PatternViewKind Kind => PatternViewKind.Tracker;
         public VisualElement HeaderTools => null;
 
         public string TooltipAt(VisualElement picked, Vector2 worldPos)

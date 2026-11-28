@@ -153,7 +153,7 @@ namespace UniDAW.Composer
         {
             var f = ctx.Files;
             bool has = ctx.Session.Song != null;
-            var m = new DawMenu();
+            var m = ctx.NewMenu();
             Item(m, "New Song...", true, f.NewSong);
             Item(m, "Import Demo Songs", true, f.OpenSamples);
             m.AddSeparator("");
@@ -178,7 +178,7 @@ namespace UniDAW.Composer
         {
             var s = ctx.Session;
             var current = s.Song;
-            var m = new DawMenu();
+            var m = ctx.NewMenu();
             var f = ctx.Files;
             var songs = f.ListSongs();
             if (songs.Count == 0) Item(m, "(Song がありません)", false, null);
@@ -199,7 +199,7 @@ namespace UniDAW.Composer
         void ShowMidiMenu(VisualElement anchor)
         {
             var s = ctx.Session;
-            var m = new DawMenu();
+            var m = ctx.NewMenu();
             var names = MidiInput.GetDeviceNames();
             if (names.Length == 0) Item(m, "(デバイスなし)", false, null);
             for (int i = 0; i < names.Length; i++)

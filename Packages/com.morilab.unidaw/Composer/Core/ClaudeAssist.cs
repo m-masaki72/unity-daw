@@ -101,7 +101,7 @@ namespace UniDAW.Composer
             send = sender ?? ((model, msg, done) =>
             {
                 var (system, schema) = PromptFor(sendingTarget);
-                return ClaudeClient.Send(model, system, schema, msg, done);
+                return ClaudeClient.Send(model, system, schema, msg, done, session.Platform);
             });
         }
 

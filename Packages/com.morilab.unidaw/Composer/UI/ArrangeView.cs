@@ -422,7 +422,7 @@ namespace UniDAW.Composer
         {
             var song = ctx.State.song;
             int cur = song.order[index];
-            var m = new DawMenu();
+            var m = ctx.NewMenu();
             m.AddItem("ここから再生", false, () => ctx.Transport.PlayFromOrder(index));
             m.AddSeparator("");
             m.AddItem("後ろに挿入（編集中のパターン）", false, O.Insert);

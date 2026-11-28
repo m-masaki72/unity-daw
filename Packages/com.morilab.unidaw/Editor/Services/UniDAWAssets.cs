@@ -1,5 +1,4 @@
 using System.IO;
-using UniDAW.Midi;
 using UnityEditor;
 using UnityEngine;
 
@@ -48,7 +47,7 @@ namespace UniDAW.Editor
         /// <summary>読み取り専用（MIDI インポート結果など）の Song を編集可能アセットとして複製。</summary>
         public static Song MakeEditableCopy(Song src, string assetPath)
         {
-            var copy = Object.Instantiate(src);
+            var copy = SongIO.Clone(src);
             copy.name = Path.GetFileNameWithoutExtension(assetPath);
             return SaveSong(copy, assetPath);
         }
@@ -60,38 +59,10 @@ namespace UniDAW.Editor
             return path.EndsWith(".mid", System.StringComparison.OrdinalIgnoreCase) || path.EndsWith(".midi", System.StringComparison.OrdinalIgnoreCase);
         }
 
-        public static Song ImportMidiFile(string midiPath, MidiImportOptions opt, out MidiImportReport report)
-        {
-            var bytes = File.ReadAllBytes(midiPath);
-            var song = MidiToSong.Import(bytes, opt, Path.GetFileNameWithoutExtension(midiPath), out report);
-            song.name = Path.GetFileNameWithoutExtension(midiPath);
-            return song;
-        }
-
-        public static void ExportWav(Song song, string path, int sampleRate = 48000)
-        {
-            WavWriter.Write16(path, ChipEngine.RenderSongStereo(song, sampleRate), 2, sampleRate);
-        }
-
-        /// <summary>チャンネルごとの WAV（ステム）を <paramref name="dir"/> に書き出す。書いたファイルのパスを返す。</summary>
-        public static string[] ExportStems(Song song, string dir, string baseName, int sampleRate = 48000)
-        {
-            Directory.CreateDirectory(dir);
-            var paths = new string[Song.ChannelCount];
-            for (int c = 0; c < Song.ChannelCount; c++)
-            {
-                paths[c] = Path.Combine(dir, $"{baseName}_{c + 1}_{Song.ChannelNames[c]}.wav");
-                WavWriter.Write16(paths[c], OfflineRenderer.RenderChannelStereo(song, sampleRate, c), 2, sampleRate);
-            }
-            return paths;
-        }
-
-        public static void ExportMidi(Song song, string path)
-        {
-            var bytes = SongToMidi.Export(song);
-            var tmp = path + ".tmp";
-            File.WriteAllBytes(tmp, bytes);
-            AtomicFile.Commit(tmp, path);
-        }
+        // 中身は SongIO（ホストに依存しない読み書き）。既存のスクリプト向けに残す
+        public static Song ImportMidiFile(string midiPath, UniDAW.Midi.MidiImportOptions opt, out UniDAW.Midi.MidiImportReport report) => SongIO.ImportMidi(midiPath, opt, out report);
+        public static void ExportWav(Song song, string path, int sampleRate = SongIO.DefaultSampleRate) => SongIO.ExportWav(song, path, sampleRate);
+        public static string[] ExportStems(Song song, string dir, string baseName, int sampleRate = SongIO.DefaultSampleRate) => SongIO.ExportStems(song, dir, baseName, sampleRate);
+        public static void ExportMidi(Song song, string path) => SongIO.ExportMidi(song, path);
     }
 }

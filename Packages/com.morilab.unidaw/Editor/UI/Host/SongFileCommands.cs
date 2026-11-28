@@ -13,32 +13,30 @@ namespace UniDAW.Editor
     /// ファイル操作（新規・デモ・MIDI 入出力・WAV 書き出し・複製）。保存先ダイアログを出し、
     /// 実処理は <see cref="UniDAWAssets"/> に任せ、結果の曲をセッションに渡す。
     /// </summary>
-    public sealed class SongFileCommands : ISongFiles
+    public sealed class SongFileCommands : SongFilesBase
     {
-        readonly ComposerSession s;
+        public SongFileCommands(ComposerSession session) : base(session) { }
 
-        public SongFileCommands(ComposerSession session) => s = session;
-
-        public IReadOnlyList<SongEntry> ListSongs() =>
+        public override IReadOnlyList<SongEntry> ListSongs() =>
             UniDAWAssets.FindSongPaths()
                 .Select(p => new SongEntry(p, Path.GetFileNameWithoutExtension(p), Path.GetDirectoryName(p).Replace('\\', '/')))
                 .ToList();
 
-        public void Open(string id) => s.SetSong(AssetDatabase.LoadAssetAtPath<Song>(id));
+        public override void Open(string id) => s.SetSong(AssetDatabase.LoadAssetAtPath<Song>(id));
 
-        public string IdOf(Song song)
+        public override string IdOf(Song song)
         {
             var path = song != null ? AssetDatabase.GetAssetPath(song) : null;
             return string.IsNullOrEmpty(path) ? null : path;
         }
 
-        public bool CanReveal => true;
-        public void Reveal(Song song) => EditorGUIUtility.PingObject(song);
+        public override bool CanReveal => true;
+        public override void Reveal(Song song) => EditorGUIUtility.PingObject(song);
 
         public static bool IsMidiPath(string path) =>
             path != null && (path.EndsWith(".mid", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".midi", StringComparison.OrdinalIgnoreCase));
 
-        public void NewSong()
+        public override void NewSong()
         {
             var path = EditorUtility.SaveFilePanelInProject("New Song", "NewSong", "asset", "Song の保存先");
             if (string.IsNullOrEmpty(path)) return;
@@ -48,7 +46,7 @@ namespace UniDAW.Editor
         }
 
         /// <summary>プロジェクト内の Song アセットをファイルダイアログで選んで開く。</summary>
-        public void OpenSong()
+        public override void OpenSong()
         {
             var path = EditorUtility.OpenFilePanel("Open Song", Application.dataPath, "asset");
             if (string.IsNullOrEmpty(path)) return;
@@ -67,7 +65,7 @@ namespace UniDAW.Editor
         /// 埋め込み・ローカルのパッケージは Package Manager に Import ボタンが出ないため、自前でコピーする。
         /// 取り込み済みのファイルは上書きせず、足りないもの（新しいデモ曲など）だけ足す。
         /// </summary>
-        public void OpenSamples()
+        public override void OpenSamples()
         {
             var info = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(SongFileCommands).Assembly);
             var src = info == null ? null : Path.Combine(info.resolvedPath, "Samples~", "Demo");
@@ -113,109 +111,44 @@ namespace UniDAW.Editor
 
         public const string PackageName = "com.morilab.unidaw";
 
-        public void ImportMidi(VoiceAssignMode mode)
+        protected override void PickImportFile(string title, string what, string[] exts, Action<string> picked)
         {
-            var path = EditorUtility.OpenFilePanel("Import MIDI", "", "mid,midi");
-            if (!string.IsNullOrEmpty(path)) ImportMidiFrom(path, mode);
+            var path = EditorUtility.OpenFilePanel(title, "", string.Join(",", exts.Select(e => e.TrimStart('.'))));
+            if (!string.IsNullOrEmpty(path)) picked(path);
         }
 
-        public void ImportMidiFrom(string path, VoiceAssignMode mode)
+        /// <summary>プロジェクト内のアセットとして保存する（同じパスの Song があれば中身を差し替える）。</summary>
+        protected override Song Store(Song song, string suggestedName, string title)
+        {
+            var dst = EditorUtility.SaveFilePanelInProject(title, suggestedName, "asset", "Song の保存先");
+            return string.IsNullOrEmpty(dst) ? null : UniDAWAssets.SaveSong(song, dst);
+        }
+
+        protected override string PickExportPath(string title, string baseName, string ext)
+        {
+            var path = EditorUtility.SaveFilePanel(title, "", baseName + ext, ext.TrimStart('.'));
+            return string.IsNullOrEmpty(path) ? null : path;
+        }
+
+        protected override string PickExportFolder(string title)
+        {
+            var dir = EditorUtility.SaveFolderPanel(title, "", "");
+            return string.IsNullOrEmpty(dir) ? null : dir;
+        }
+
+        protected override void ReportError(string message) => EditorUtility.DisplayDialog("UniDAW", message, "OK");
+
+        protected override void RunWithProgress(string text, Action work)
         {
             try
             {
-                var song = UniDAWAssets.ImportMidiFile(path, new MidiImportOptions { mode = mode }, out var report);
-                var dst = EditorUtility.SaveFilePanelInProject("Save Imported Song", Path.GetFileNameWithoutExtension(path), "asset", "変換した Song の保存先");
-                if (string.IsNullOrEmpty(dst))
-                {
-                    UnityEngine.Object.DestroyImmediate(song);
-                    return;
-                }
-                s.SetSong(UniDAWAssets.SaveSong(song, dst));
-                Debug.Log($"[UniDAW] MIDI import {Path.GetFileName(path)}: {report}");
-                s.Notify($"インポート完了: {report.patterns} patterns, dropped {report.droppedNotes}");
-            }
-            catch (Exception ex)
-            {
-                Debug.LogException(ex);
-                EditorUtility.DisplayDialog("UniDAW", "MIDI の読み込みに失敗しましたわ…\n" + ex.Message, "OK");
-            }
-        }
-
-        /// <summary>FamiTracker の「Export text」（.txt）を読み、Song アセットとして保存して開く。</summary>
-        public void ImportFamiTracker()
-        {
-            var path = EditorUtility.OpenFilePanel("Import FamiTracker Text", "", "txt");
-            if (string.IsNullOrEmpty(path)) return;
-            try
-            {
-                var name = Path.GetFileNameWithoutExtension(path);
-                var song = FamiTrackerImport.Import(FamiTrackerImport.Decode(File.ReadAllBytes(path)), name, out var report);
-                var dst = EditorUtility.SaveFilePanelInProject("Save Imported Song", name, "asset", "変換した Song の保存先");
-                if (string.IsNullOrEmpty(dst))
-                {
-                    UnityEngine.Object.DestroyImmediate(song);
-                    return;
-                }
-                s.SetSong(UniDAWAssets.SaveSong(song, dst));
-                Debug.Log($"[UniDAW] FamiTracker import {Path.GetFileName(path)}: {report}");
-                s.Notify("インポート完了: " + report);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogException(ex);
-                EditorUtility.DisplayDialog("UniDAW", "FamiTracker テキストの読み込みに失敗しましたわ…\n" + ex.Message, "OK");
-            }
-        }
-
-        string DefaultFileName(string ext) => (s.Song.title ?? s.Song.name) + ext;
-
-        public void ExportWav()
-        {
-            if (s.Song == null) return;
-            var path = EditorUtility.SaveFilePanel("Export WAV", "", DefaultFileName(".wav"), "wav");
-            if (string.IsNullOrEmpty(path)) return;
-            UniDAWAssets.ExportWav(s.Song, path);
-            s.Notify("WAV を書き出しましたわ");
-        }
-
-        public void ExportStems()
-        {
-            if (s.Song == null) return;
-            var dir = EditorUtility.SaveFolderPanel("Export Stems（チャンネル別 WAV）", "", "");
-            if (string.IsNullOrEmpty(dir)) return;
-            try
-            {
-                EditorUtility.DisplayProgressBar("UniDAW", "ステムを書き出しています…", 0.5f);
-                var paths = UniDAWAssets.ExportStems(s.Song, dir, SafeName(s.Song.title ?? s.Song.name));
-                s.Notify($"ステムを {paths.Length} 本書き出しましたわ");
+                EditorUtility.DisplayProgressBar("UniDAW", text, 0.5f);
+                work();
             }
             finally
             {
                 EditorUtility.ClearProgressBar();
             }
-        }
-
-        static string SafeName(string name)
-        {
-            if (string.IsNullOrWhiteSpace(name)) name = "Song";
-            foreach (var c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '_');
-            return name;
-        }
-
-        public void ExportMidi()
-        {
-            if (s.Song == null) return;
-            var path = EditorUtility.SaveFilePanel("Export MIDI", "", DefaultFileName(".mid"), "mid");
-            if (string.IsNullOrEmpty(path)) return;
-            UniDAWAssets.ExportMidi(s.Song, path);
-            s.Notify("MIDI を書き出しましたわ");
-        }
-
-        public void MakeEditableCopy()
-        {
-            if (s.Song == null) return;
-            var path = EditorUtility.SaveFilePanelInProject("Editable Copy", s.Song.name, "asset", "編集用 Song の保存先");
-            if (!string.IsNullOrEmpty(path)) s.SetSong(UniDAWAssets.MakeEditableCopy(s.Song, path));
         }
     }
 }

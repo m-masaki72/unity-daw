@@ -52,6 +52,9 @@ namespace UniDAW.Composer
             get => current ??= new BasicDawPlatform();
             set => current = value ?? new BasicDawPlatform();
         }
+
+        /// <summary>ホストが入っているか（まだなら <see cref="Current"/> は仮の既定ホスト）。</summary>
+        public static bool IsInstalled => current != null && current.GetType() != typeof(BasicDawPlatform);
     }
 
     /// <summary>

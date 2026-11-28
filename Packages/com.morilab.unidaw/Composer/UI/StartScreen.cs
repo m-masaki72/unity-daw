@@ -25,10 +25,10 @@ namespace UniDAW.Composer
             card.Add(sub);
             var f = ctx.Files;
             card.Add(ComposerContext.ButtonRow(
-                new Button(f.NewSong) { text = "New Song", tooltip = "空の Song を作って保存先を選ぶ" },
-                new Button(f.OpenSong) { text = "Open…", tooltip = "プロジェクト内の Song アセットを選んで開く" },
+                new Button(f.NewSong) { text = "New Song", tooltip = "空の Song を作る" },
+                new Button(f.OpenSong) { text = "Open…", tooltip = "保存済みの Song を選んで開く" },
                 new Button(() => f.ImportMidi(VoiceAssignMode.Auto)) { text = "Import MIDI…", tooltip = "MIDI ファイルを 4ch に割り振って Song にする" },
-                new Button(f.OpenSamples) { text = "Demo Songs…", tooltip = "デモ曲とサンプルシーンを Assets/Samples/UniDAW に取り込んで開く（取り込み済みなら足りないものだけ足す）" }));
+                new Button(f.OpenSamples) { text = "Demo Songs…", tooltip = "デモ曲を開く" }));
             var cap = new Label("Songs in project");
             cap.AddToClassList("cd-start-cap");
             card.Add(cap);

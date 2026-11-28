@@ -14,7 +14,18 @@ namespace UniDAW.Composer
     public sealed class ComposerRoot : VisualElement, IDisposable
     {
         readonly ComposerState state;
-        readonly IDawPlatform platform = DawPlatform.Current;
+        readonly IDawPlatform platform;
+
+        /// <summary>この画面のホスト。</summary>
+        public IDawPlatform Platform => platform;
+
+        /// <summary>要素が載っている画面のホスト（画面の外なら <see cref="DawPlatform.Current"/>）。</summary>
+        public static IDawPlatform PlatformOf(VisualElement e)
+        {
+            for (var v = e; v != null; v = v.parent)
+                if (v is ComposerRoot r) return r.platform;
+            return DawPlatform.Current;
+        }
 
         // ---- Composer 層
         public ComposerSession Session { get; }
@@ -52,16 +63,18 @@ namespace UniDAW.Composer
         StatusBar statusBar;
         IPatternView[] views;
         TooltipOverlay tooltips;
-        IPatternView CurrentView => views[Mathf.Clamp((int)state.view, 0, views.Length - 1)];
+        IPatternView CurrentView => Array.Find(views, v => v.Kind == state.view) ?? views[0];
         readonly HashSet<KeyCode> held = new HashSet<KeyCode>();
         bool disposed;
 
-        /// <param name="files">セッションを受け取り、ホストの曲ファイル操作を作る。</param>
-        public ComposerRoot(ComposerState state, Func<ComposerSession, ISongFiles> files)
+        /// <param name="files">セッションを受け取り、ホストの曲ファイル操作を作る（IDisposable なら <see cref="Dispose"/> で片付ける）。</param>
+        /// <param name="platform">この画面のホスト（null なら <see cref="DawPlatform.Current"/>）。</param>
+        public ComposerRoot(ComposerState state, Func<ComposerSession, ISongFiles> files, IDawPlatform platform = null)
         {
             this.state = state ?? new ComposerState();
-            Transport = new Transport(this.state);
-            Session = new ComposerSession(this.state, Transport);
+            this.platform = platform ?? DawPlatform.Current;
+            Transport = new Transport(this.state, null, this.platform);
+            Session = new ComposerSession(this.state, Transport, this.platform);
             Cells = new CellCommands(Session);
             Roll = new RollEditor(Session);
             recorder = new MidiRecorder(Session);
@@ -71,15 +84,15 @@ namespace UniDAW.Composer
             Assist = new AssistCommands(Session, Roll);
             Mastering = new MasteringCommands(Session);
             Keymap = new ComposerKeymap(Session, Cells, Roll, Order, Assist.Claude);
-            Context = new ComposerContext(Session, Cells, Roll, Files, Mixer, Order, Assist, Mastering, FocusMain);
+            Context = new ComposerContext(this);
 
             Build();
 
             Session.Changed += RefreshAll;
             Session.Notified += Notify;
             Transport.Changed += RefreshAll;
-            platform.Update += Tick;
-            platform.UndoRedoPerformed += Session.OnUndoRedo;
+            this.platform.Update += Tick;
+            this.platform.UndoRedoPerformed += Session.OnUndoRedo;
 
             Session.SetSong(this.state.song);
         }
@@ -93,7 +106,9 @@ namespace UniDAW.Composer
             Transport.Changed -= RefreshAll;
             platform.Update -= Tick;
             platform.UndoRedoPerformed -= Session.OnUndoRedo;
+            Session.ReleaseMidiInput();
             Transport.Engine?.Stop();
+            (Files as IDisposable)?.Dispose();
         }
 
         public ComposerState State => state;
@@ -122,8 +137,8 @@ namespace UniDAW.Composer
 
             readOnlyBanner = new VisualElement();
             readOnlyBanner.AddToClassList("cd-banner");
-            readOnlyBanner.Add(new Label("MIDI からインポートされた Song は読み取り専用ですわ。編集するには複製してくださいませ。"));
-            readOnlyBanner.Add(new Button(Files.MakeEditableCopy) { text = "編集用に複製", tooltip = "この Song を編集できるアセットとして複製して開く" });
+            readOnlyBanner.Add(new Label("この Song は読み取り専用ですわ（MIDI ファイルから読み込んだままの曲など）。編集するには複製してくださいませ。"));
+            readOnlyBanner.Add(new Button(Files.MakeEditableCopy) { text = "編集用に複製", tooltip = "この Song を編集できる曲として複製して開く" });
             Add(readOnlyBanner);
 
             body = new VisualElement();
@@ -160,7 +175,7 @@ namespace UniDAW.Composer
                 frame.focusable = true;
                 frame.tabIndex = -1;
             }
-            tooltips = new TooltipOverlay(this);
+            tooltips = new TooltipOverlay(this, platform);
         }
 
         void BuildCenter()
@@ -279,6 +294,7 @@ namespace UniDAW.Composer
         /// <summary>毎フレームの更新（再生位置・メーター・ツールチップ等）。</summary>
         void Tick()
         {
+            Session.SyncMidiInput();
             tooltips?.Tick();
             statusBar?.Tick();
             Mastering?.Tick();

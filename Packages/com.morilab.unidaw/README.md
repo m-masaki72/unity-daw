@@ -57,7 +57,10 @@ Unity をエディタとして使う音楽制作向けの DAW です。ステッ
 | Editor Host | `Editor/UI` | `UniDAWWindow`（EditorWindow に `ComposerRoot` を載せ、スタイル・ショートカット・ドラッグ＆ドロップを配線するだけ）、`UniDAWShortcuts`、`Host/`（`EditorDawPlatform`・`SongFileCommands`：`IDawPlatform` / `ISongFiles` のエディタ実装） | すべて |
 
 - 新しい編集操作は Composer に足し、UI からは呼ぶだけにする（Undo・読み取り専用チェックは `ComposerSession` が一括で行う）
-- 新しい表示は `IPatternView` を実装して `UniDAWWindow.BuildCenter` に並べ、`PatternViewKind` に値を**追記**する
+- 新しい表示は `IPatternView` を実装して（`Kind` で自分の `PatternViewKind` を返す）`ComposerRoot.BuildCenter` に並べ、`PatternViewKind` に値を**追記**する
+- ホストは画面ごと：`ComposerSession.Platform`（Undo・dirty・読み取り専用・時計・メニュー・音）を使い、`DawPlatform.Current` はキー割り当てや API キーなど全体の設定だけに使う。曲が変わったら `ComposerSession.SongModified` が飛ぶ（自動保存などはこれを購読）
+- 曲ファイルの読み書きは `SongIO`（Runtime）、取り込み・書き出し・複製の流れは `SongFilesBase`。新しいホストはファイルの選び方と保存先（`PickImportFile` / `Store` / `PickExportPath` / `PickExportFolder`）だけ実装する。スナップショット Undo が要るホストは `SnapshotUndo` を使う
+- MIDI 入力は 1 画面だけが受け取る（最後にカーソルを動かした画面。`ComposerSession.ClaimMidiInput`）
 - Audio / Midi / Model は UnityEngine の実行時 API を使わない（オーディオスレッド・テスト・CLI から使うため）
 
 ## キー操作（Cubase / Studio One 準拠）

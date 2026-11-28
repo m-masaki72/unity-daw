@@ -156,6 +156,7 @@ namespace UniDAW.Composer
             UpdatePlayhead();
         }
 
+        public PatternViewKind Kind => PatternViewKind.Step;
         public VisualElement HeaderTools => null;
 
         public void UpdatePlayhead()

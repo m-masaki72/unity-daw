@@ -19,10 +19,63 @@ namespace UniDAW.Composer
         /// <summary>利用者に知らせたいメッセージ（読み取り専用の警告など）。</summary>
         public event Action<string> Notified;
 
-        public ComposerSession(ComposerState state, Transport transport)
+        /// <summary>曲の中身が書き換えられた（編集・Undo/Redo・ミキサーのライブ操作）。保存はこれを見る。</summary>
+        public event Action<Song> SongModified;
+
+        /// <summary>このセッションのホスト（Undo・読み取り専用の判定・時計・メニュー）。</summary>
+        public IDawPlatform Platform { get; }
+
+        /// <summary>チャンネルごとの入力楽器（セッションごと。MIDI 入力を持っている間はブリッジと共有）。</summary>
+        readonly int[] channelInstrument = UniDAWMidiBridge.DefaultInstruments();
+
+        /// <param name="platform">null なら作った時点の <see cref="DawPlatform.Current"/>。</param>
+        public ComposerSession(ComposerState state, Transport transport, IDawPlatform platform = null)
         {
             State = state;
             Transport = transport;
+            Platform = platform ?? transport?.Platform ?? DawPlatform.Current;
+        }
+
+        /// <summary>曲を変更済みにする（ホストの Dirty と <see cref="SongModified"/>）。</summary>
+        public void MarkModified()
+        {
+            if (Song == null) return;
+            Platform.MarkDirty(Song);
+            SongModified?.Invoke(Song);
+        }
+
+        // ---- MIDI 入力（デバイスは 1 つなので、最後に触ったセッションが受け取る）
+
+        /// <summary>MIDI 入力の受け取り先をこのセッションにする。</summary>
+        public void ClaimMidiInput()
+        {
+            UniDAWMidiBridge.Owner = this;
+            SyncMidiInput();
+        }
+
+        /// <summary>MIDI 入力を持っていれば手放す（画面を閉じるとき）。</summary>
+        public void ReleaseMidiInput()
+        {
+            if (UniDAWMidiBridge.Owner == this) UniDAWMidiBridge.Owner = null;
+        }
+
+        /// <summary>MIDI 入力を持っているか（持ち主がいなければ受け取る）。</summary>
+        public bool OwnsMidiInput
+        {
+            get
+            {
+                if (UniDAWMidiBridge.Owner == null) UniDAWMidiBridge.Owner = this;
+                return UniDAWMidiBridge.Owner == this;
+            }
+        }
+
+        /// <summary>毎フレーム：MIDI 入力を持っていれば、発音先・チャンネル・楽器をブリッジへ渡す。</summary>
+        public void SyncMidiInput()
+        {
+            if (!OwnsMidiInput) return;
+            UniDAWMidiBridge.Engine = Transport?.Engine;
+            UniDAWMidiBridge.TargetChannel = State.cursorCh;
+            UniDAWMidiBridge.Instruments = channelInstrument;
         }
 
         public Song Song => State.song;
@@ -30,7 +83,7 @@ namespace UniDAW.Composer
         public int CursorRow => State.cursorRow;
         public int CursorChannel => State.cursorCh;
         public int CursorCol => State.cursorCol;
-        public bool IsReadOnly => DawPlatform.Current.IsReadOnly(State.song);
+        public bool IsReadOnly => Platform.IsReadOnly(State.song);
 
         public void NotifyChanged() => Changed?.Invoke();
         public void Notify(string message) => Notified?.Invoke(message);
@@ -54,7 +107,8 @@ namespace UniDAW.Composer
             State.Clamp();
             // Undo で楽器が消えたら、チャンネルの選択楽器を範囲内に戻す
             for (int c = 0; c < Song.ChannelCount; c++)
-                UniDAWMidiBridge.ChannelInstrument[c] = Mathf.Clamp(UniDAWMidiBridge.ChannelInstrument[c], 0, Mathf.Max(0, Song.instruments.Count - 1));
+                channelInstrument[c] = Mathf.Clamp(channelInstrument[c], 0, Mathf.Max(0, Song.instruments.Count - 1));
+            SongModified?.Invoke(Song);
             Changed?.Invoke();
         }
 
@@ -65,7 +119,7 @@ namespace UniDAW.Composer
             State.cursorCh = ch;
             State.cursorCol = col;
             State.Clamp();
-            UniDAWMidiBridge.TargetChannel = State.cursorCh;
+            ClaimMidiInput();
             Changed?.Invoke();
         }
 
@@ -317,9 +371,9 @@ namespace UniDAW.Composer
         bool Edit(string undoName, Action change)
         {
             if (!CanEdit()) return false;
-            DawPlatform.Current.RecordUndo(Song, undoName);
+            Platform.RecordUndo(Song, undoName);
             change();
-            DawPlatform.Current.MarkDirty(Song);
+            MarkModified();
             State.Clamp();
             Changed?.Invoke();
             return true;
@@ -385,13 +439,13 @@ namespace UniDAW.Composer
         // ---- インストゥルメント ----------------------------------------------------
 
         /// <summary>チャンネルで入力に使うインストゥルメント番号（MIDI 入力と共有）。</summary>
-        public int ChannelInstrument(int ch) => UniDAWMidiBridge.ChannelInstrument[ch];
+        public int ChannelInstrument(int ch) => channelInstrument[ch];
 
         public Instrument CursorInstrument => Song != null ? Song.GetInstrument(ChannelInstrument(State.cursorCh)) : null;
 
         public void SetChannelInstrument(int ch, int inst)
         {
-            if (inst >= 0) UniDAWMidiBridge.ChannelInstrument[ch] = inst;
+            if (inst >= 0) channelInstrument[ch] = inst;
             Changed?.Invoke();
         }
 
@@ -413,7 +467,7 @@ namespace UniDAW.Composer
                 var inst = duplicate && src != null ? src.Clone() : new Instrument("New", "15 | 12", "", "2");
                 if (duplicate) inst.name += " copy";
                 s.instruments.Add(inst);
-                UniDAWMidiBridge.ChannelInstrument[State.cursorCh] = s.instruments.Count - 1;
+                channelInstrument[State.cursorCh] = s.instruments.Count - 1;
             });
         }
 
@@ -453,7 +507,7 @@ namespace UniDAW.Composer
             ModifySong("Add Preset", s =>
             {
                 s.instruments.Add(preset.Clone());
-                UniDAWMidiBridge.ChannelInstrument[State.cursorCh] = s.instruments.Count - 1;
+                channelInstrument[State.cursorCh] = s.instruments.Count - 1;
             });
         }
 

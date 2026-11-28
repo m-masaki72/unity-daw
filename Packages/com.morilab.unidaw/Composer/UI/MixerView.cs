@@ -196,7 +196,7 @@ namespace UniDAW.Composer
         void ShowSourceMenu(VisualElement anchor)
         {
             var m = ctx.Mixer;
-            var menu = new DawMenu();
+            var menu = ctx.NewMenu();
             for (int c = 0; c < Song.ChannelCount; c++)
             {
                 int ch = c;
@@ -230,7 +230,7 @@ namespace UniDAW.Composer
         void ShowDelayMenu(VisualElement anchor)
         {
             var m = ctx.Mixer;
-            var menu = new DawMenu();
+            var menu = ctx.NewMenu();
             for (int i = 0; i < SongEffects.DelayBeatNames.Length; i++)
             {
                 int idx = i;

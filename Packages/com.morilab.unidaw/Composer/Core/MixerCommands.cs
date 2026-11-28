@@ -71,7 +71,7 @@ namespace UniDAW.Composer
 
         void Touched()
         {
-            if (!session.IsReadOnly) DawPlatform.Current.MarkDirty(Song);
+            if (!session.IsReadOnly) session.MarkModified();
             session.NotifyChanged();
         }
 

@@ -19,7 +19,8 @@ namespace UniDAW.Composer
         /// <summary>メインスレッドから毎フレーム呼ぶ。記録しないときもキューは空にする。</summary>
         public void Drain(ChipEngine e)
         {
-            if (UniDAWMidiBridge.Pending.IsEmpty) return;
+            // MIDI 入力を持っていないセッションは取り出さない（持ち主の画面が記録する）
+            if (UniDAWMidiBridge.Pending.IsEmpty || !s.OwnsMidiInput) return;
             latest.Clear();
             while (UniDAWMidiBridge.Pending.TryDequeue(out var n))
             {

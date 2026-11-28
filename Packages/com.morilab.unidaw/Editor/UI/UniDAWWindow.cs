@@ -20,7 +20,6 @@ namespace UniDAW.Editor
         [SerializeField] ComposerState state = new ComposerState();
 
         ComposerRoot composer;
-        SongFileCommands files;
 
         // ---- テスト・外部向けの窓口
         public ComposerRoot Composer => composer;
@@ -89,7 +88,7 @@ namespace UniDAW.Editor
         void OnEnable()
         {
             state ??= new ComposerState();
-            composer = new ComposerRoot(state, s => files = new SongFileCommands(s)) { WindowCommandsHandledOutside = true };
+            composer = new ComposerRoot(state, s => new SongFileCommands(s)) { WindowCommandsHandledOutside = true };
             shortcutContext = new UniDAWShortcuts.Context(this);
             UnityEditor.ShortcutManagement.ShortcutManager.RegisterContext(shortcutContext);
         }
@@ -145,7 +144,7 @@ namespace UniDAW.Editor
                 return;
             }
             var midi = DroppedMidi();
-            if (midi != null) files.ImportMidiFrom(Path.GetFullPath(midi), VoiceAssignMode.Auto);
+            if (midi != null) composer.Files.ImportMidiFrom(Path.GetFullPath(midi), VoiceAssignMode.Auto);
         }
     }
 }

@@ -192,9 +192,9 @@ namespace UniDAW.Composer
             return row;
         }
 
-        static void ShowMenu(VisualElement anchor, string[] names, int current, Action<int> pick)
+        void ShowMenu(VisualElement anchor, string[] names, int current, Action<int> pick)
         {
-            var m = new DawMenu();
+            var m = ctx.NewMenu();
             for (int i = 0; i < names.Length; i++)
             {
                 int k = i;

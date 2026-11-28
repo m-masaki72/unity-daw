@@ -32,6 +32,7 @@ namespace UniDAW.Composer
 
         RuntimeDawPlatform platform;
         IDawPlatform previous;
+        bool installed;
         RuntimeSongFiles files;
         ComposerRoot composer;
         PanelSettings createdPanel;
@@ -65,12 +66,16 @@ namespace UniDAW.Composer
 
             var root = string.IsNullOrEmpty(dataFolder) ? Path.Combine(Application.persistentDataPath, "UniDAW") : dataFolder;
             platform = new RuntimeDawPlatform(new PlayerAudioHost(GetComponent<UniDAWPlayer>()), root);
-            previous = DawPlatform.Current;
-            DawPlatform.Current = platform;
+            // 共通設定（キー割り当て等）の置き場所。エディタではエディタのホストが入っているのでそのまま使う
+            installed = !DawPlatform.IsInstalled;
+            if (installed)
+            {
+                previous = DawPlatform.Current;
+                DawPlatform.Current = platform;
+            }
 
             var state = new ComposerState();
-            composer = new ComposerRoot(state, s => files = new RuntimeSongFiles(s, platform, root));
-            platform.Dirtied += files.MarkDirty;
+            composer = new ComposerRoot(state, s => files = new RuntimeSongFiles(s, platform, root), platform);
 
             var ui = doc.rootVisualElement;
             if (styleSheet != null) ui.styleSheets.Add(styleSheet);
@@ -119,7 +124,7 @@ namespace UniDAW.Composer
             platform.Unload();
             composer?.Dispose();
             composer?.RemoveFromHierarchy();
-            if (DawPlatform.Current == platform) DawPlatform.Current = previous;
+            if (installed && DawPlatform.Current == platform) DawPlatform.Current = previous;
             if (createdPanel != null)
             {
                 if (Application.isPlaying) Destroy(createdPanel);
