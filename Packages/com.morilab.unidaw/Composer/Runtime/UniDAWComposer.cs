@@ -19,6 +19,7 @@ namespace UniDAW.Composer
     {
         public const string StyleSheetPath = "Packages/com.morilab.unidaw/Composer/UI/UniDAW.uss";
         public const string ThemePath = "Packages/com.morilab.unidaw/Composer/Runtime/UniDAWRuntimeTheme.tss";
+        public const string PanelPath = "Packages/com.morilab.unidaw/Composer/Runtime/UniDAWPanel.asset";
 
         public enum TouchButtonMode { Auto, Always, Never }
 
@@ -26,6 +27,8 @@ namespace UniDAW.Composer
         public StyleSheet styleSheet;
         [Tooltip("UIDocument に PanelSettings が無いときに作るパネルのテーマ")]
         public ThemeStyleSheet theme;
+        [Tooltip("UIDocument に PanelSettings が無いときに複製する元（日本語の改行に使う ICU データ入り）。空なら素のパネルを作る")]
+        public PanelSettings panelTemplate;
         [Tooltip("日本語を表示できるフォント。空なら OS のフォント（Yu Gothic UI / Meiryo / Hiragino Sans 等）から作る")]
         public FontAsset font;
         [Tooltip("曲・取り込み・書き出しの置き場所。空なら persistentDataPath/UniDAW")]
@@ -70,6 +73,7 @@ namespace UniDAW.Composer
 #if UNITY_EDITOR
             if (styleSheet == null) styleSheet = UnityEditor.AssetDatabase.LoadAssetAtPath<StyleSheet>(StyleSheetPath);
             if (theme == null) theme = UnityEditor.AssetDatabase.LoadAssetAtPath<ThemeStyleSheet>(ThemePath);
+            if (panelTemplate == null) panelTemplate = UnityEditor.AssetDatabase.LoadAssetAtPath<PanelSettings>(PanelPath);
 #endif
         }
 
@@ -91,9 +95,10 @@ namespace UniDAW.Composer
             var doc = GetComponent<UIDocument>();
             if (doc.panelSettings == null)
             {
-                createdPanel = ScriptableObject.CreateInstance<PanelSettings>();
+                // 実行時に素で作ったパネルには ICU データが入らない（日本語の改行が簡易になる）ので、アセットを複製する
+                createdPanel = panelTemplate != null ? Instantiate(panelTemplate) : ScriptableObject.CreateInstance<PanelSettings>();
                 createdPanel.name = "UniDAW Panel";
-                createdPanel.themeStyleSheet = theme;
+                if (theme != null) createdPanel.themeStyleSheet = theme;
                 createdPanel.scaleMode = PanelScaleMode.ConstantPixelSize;
                 createdPanel.scale = uiScale > 0 ? uiScale : AutoScale();
                 doc.panelSettings = createdPanel;

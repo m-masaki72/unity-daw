@@ -219,5 +219,48 @@ namespace UniDAW.Editor
             Debug.Log("[UniDAW] CompilePlayer: " + (ok ? "OK " : "FAILED ") + (result.assemblies == null ? "" : string.Join(", ", result.assemblies)));
             EditorApplication.Exit(ok ? 0 : 1);
         }
+
+        /// <summary>
+        /// ゲーム内 DAW だけのシーンを作り、Windows プレイヤーをビルドする（起動確認用）。
+        ///   -executeMethod UniDAW.Editor.UniDAWCli.BuildPlayerSmoke [-unidawOut Builds/UniDAWPlayerSmoke] [-unidawScene Assets/_Smoke/PlayerSmoke.unity] [-unidawData 曲の置き場所]
+        /// 起動すると startSong（「Player Smoke」）を Songs に複製して開くので、その .json ができていれば起動できている。
+        /// </summary>
+        public static void BuildPlayerSmoke()
+        {
+            var outDir = Arg("-unidawOut") ?? "Builds/UniDAWPlayerSmoke";
+            var scenePath = Arg("-unidawScene") ?? "Assets/_Smoke/PlayerSmoke.unity";
+            var folder = Path.GetDirectoryName(scenePath).Replace('\\', '/');
+            Directory.CreateDirectory(folder);
+
+            var song = Song.CreateDefault(32);
+            song.title = "Player Smoke";
+            var songPath = folder + "/PlayerSmokeSong.asset";
+            AssetDatabase.DeleteAsset(songPath);
+            AssetDatabase.CreateAsset(song, songPath);
+
+            var scene = UnityEditor.SceneManagement.EditorSceneManager.NewScene(
+                UnityEditor.SceneManagement.NewSceneSetup.EmptyScene, UnityEditor.SceneManagement.NewSceneMode.Single);
+            var cam = new GameObject("Main Camera", typeof(Camera));
+            cam.tag = "MainCamera";
+            var go = new GameObject("UniDAW Composer");
+            var daw = go.AddComponent<UniDAWComposer>();
+            daw.startSong = song;
+            daw.dataFolder = Arg("-unidawData") ?? "";
+            daw.styleSheet = AssetDatabase.LoadAssetAtPath<UnityEngine.UIElements.StyleSheet>(UniDAWComposer.StyleSheetPath);
+            daw.theme = AssetDatabase.LoadAssetAtPath<UnityEngine.UIElements.ThemeStyleSheet>(UniDAWComposer.ThemePath);
+            daw.panelTemplate = AssetDatabase.LoadAssetAtPath<UnityEngine.UIElements.PanelSettings>(UniDAWComposer.PanelPath);
+            UnityEditor.SceneManagement.EditorSceneManager.SaveScene(scene, scenePath);
+
+            var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+            {
+                scenes = new[] { scenePath },
+                locationPathName = Path.Combine(outDir, "UniDAWSmoke.exe"),
+                target = BuildTarget.StandaloneWindows64,
+                options = BuildOptions.None,
+            });
+            var r = report.summary.result;
+            Debug.Log($"[UniDAW] BuildPlayerSmoke: {r} {report.summary.outputPath} ({report.summary.totalErrors} errors)");
+            EditorApplication.Exit(r == UnityEditor.Build.Reporting.BuildResult.Succeeded ? 0 : 1);
+        }
     }
 }

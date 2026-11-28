@@ -218,7 +218,7 @@ player.SetLayer(3, false);     // ノイズを抜く
 - ファイルダイアログは無いので、Open Song は保存済みの曲の一覧メニュー、MIDI / FamiTracker の取り込みは `UniDAW/Import/` に置いたファイルの一覧メニューから選ぶ。WAV・ステム・MIDI は `UniDAW/Export/` に書き出す（書き出すときにファイル名を聞く。既定は曲名、ステムは同名のフォルダ）
 - 拡大率は `uiScale`（0 なら画面の DPI から決める。デスクトップは 96 dpi、モバイルは 160 dpi を 1 倍）。パネルを自分で指定したときはそのパネルの設定のまま
 - タッチ画面では右下の「右」ボタンを押してから触ると、その 1 回のタッチを右クリックとして扱う（ピアノロールの消去・各所のメニュー）。`touchRightClick` が Auto ならモバイルのときだけ出す
-- UIDocument に PanelSettings が無ければ、同梱のテーマ（`UniDAWRuntimeTheme.tss`）でパネルを作る。日本語フォントは `font` に入れるか、空なら OS のフォント（Yu Gothic UI / Meiryo / Hiragino Sans 等）から作る
+- UIDocument に PanelSettings が無ければ、同梱のパネル（`UniDAWPanel.asset`。日本語の改行に使う ICU データ入り）を複製し、テーマ（`UniDAWRuntimeTheme.tss`）を当てて使う。日本語フォントは `font` に入れるか、空なら OS のフォント（Yu Gothic UI / Meiryo / Hiragino Sans 等）から作る
 - ウィンドウ全体のキー（Ctrl+Alt+L 等）も画面の中で効く。Claude による提案は API キー方式を使う（`claude -p` はデスクトップでのみ動く。配布するゲームでは API キーの扱いをゲームごとに決める）
 - Undo・保存は画面ごと。エディタの Play 中にゲーム内 DAW を開いても、エディタの UniDAW ウィンドウの Undo とは混ざらない
 
@@ -250,9 +250,11 @@ Unity.exe -batchmode -projectPath . -executeMethod UniDAW.Editor.UniDAWCli.Rende
 Unity.exe -batchmode -projectPath . -executeMethod UniDAW.Editor.UniDAWCli.AnalyzeSong -unidawAsset Assets/x.asset [-unidawMatch]
 Unity.exe -batchmode -projectPath . -executeMethod UniDAW.Editor.UniDAWCli.AiSmoke [-unidawBrief 概要] [-unidawAsset Assets/UniDAW/AiSmoke.asset] [-unidawModel 0|1]
 Unity.exe -batchmode -projectPath . -executeMethod UniDAW.Editor.UniDAWCli.CompilePlayer [-unidawOut Temp/UniDAWPlayerCompile]
+Unity.exe -batchmode -projectPath . -executeMethod UniDAW.Editor.UniDAWCli.BuildPlayerSmoke [-unidawOut Builds/UniDAWPlayerSmoke] [-unidawData 曲の置き場所]
 ```
 `AiSmoke` はローカルの Claude Code（`claude -p`）で AI 支援を一通り試す（下書き → 固定付きメロディ → 直す → 音色 → 講評 → 次の一手）。送った依頼と返答をログに出し、曲を保存する。
 `CompilePlayer` はプレイヤー用（UNITY_EDITOR なし）にスクリプトだけをコンパイルし、`UniDAW.Composer` がエディタ API なしで通るかを確かめる（失敗で終了コード 1）。
+`BuildPlayerSmoke` はゲーム内 DAW だけのシーン（`Assets/_Smoke/PlayerSmoke.unity`）を作って Windows プレイヤーをビルドする。起動すると曲「Player Smoke」を Songs フォルダに複製して開くので、その .json ができ、Player.log に例外が無ければ起動できている（Temp はエディタの終了で消えるので出力先にしない）。
 
 ## テスト
 `Unity.exe -batchmode -projectPath . -runTests -testPlatform EditMode -testResults results.xml`（利用側プロジェクトでは manifest.json の `testables` に `com.morilab.unidaw` を追加）

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.42.0] - 2026-11-28
+
+### Added
+- CLI `BuildPlayerSmoke`：ゲーム内 DAW だけのシーンを作って Windows プレイヤーをビルドする（起動確認用）
+
+### Fixed
+- ゲーム内 DAW：実行時に作ったパネルに ICU データが入らず、日本語の改行が簡易になっていた。同梱の `UniDAWPanel.asset`（`panelTemplate`）を複製して使う
+
 ## [0.41.0] - 2026-11-28
 
 ### Fixed
