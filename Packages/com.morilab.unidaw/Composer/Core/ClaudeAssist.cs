@@ -59,6 +59,10 @@ namespace UniDAW.Composer
         string draftBrief;
         List<DraftStep> draftSteps;
         int draftNext, draftLead = -1;
+        /// <summary>仕上げ（ミックス → マスタリング → 講評）のうち済んだ段の数。</summary>
+        int draftFinish;
+
+        static readonly string[] FinishNames = { "ミックス", "マスタリング", "講評" };
 
         /// <summary>曲の下書きの途中か（「次へ」で進める・中止で止める）。</summary>
         public bool Drafting { get; private set; }
@@ -70,7 +74,10 @@ namespace UniDAW.Composer
             {
                 if (!Drafting) return "";
                 if (draftSteps == null) return "下書き：曲構成" + (Busy ? "を考えています" : "の案を選んで「次へ」");
-                if (draftNext >= draftSteps.Count) return "下書き：仕上げ";
+                if (draftNext >= draftSteps.Count)
+                    return State.aiDraftFinish && draftFinish < FinishNames.Length
+                        ? $"下書き：仕上げ ・ 次は{FinishNames[draftFinish]}" + (Busy ? "（考えています）" : "")
+                        : "下書き：仕上げ";
                 var st = draftSteps[draftNext];
                 return $"下書き {draftNext}/{draftSteps.Count} 済み ・ 次は {st.section} の{ClaudePrompt.PartNames[st.channel]}";
             }
@@ -126,6 +133,7 @@ namespace UniDAW.Composer
         public void SetPrompt(string text) => State.aiPrompt = text ?? "";
         public void SetLockBars(string text) => SetOption(() => State.aiLockBars = text ?? "");
         public void SetDraftAuto(bool on) => SetOption(() => State.aiDraftAuto = on);
+        public void SetDraftFinish(bool on) => SetOption(() => State.aiDraftFinish = on);
         public bool IsChannelLocked(int ch) => (State.aiLockChannels >> ch & 1) != 0;
         public void SetChannelLock(int ch, bool on) =>
             SetOption(() => State.aiLockChannels = on ? State.aiLockChannels | 1 << ch : State.aiLockChannels & ~(1 << ch));
@@ -273,9 +281,9 @@ namespace UniDAW.Composer
             () => s.Song == song && s.ChannelInstrument(ch) == index && index < song.instruments.Count
                 ? null : "返答の間に曲かチャンネルの楽器が変わったので、提案は書き込みませんでしたわ";
 
-        bool RequestCritique(Song song) =>
+        bool RequestCritique(Song song, Action written = null) =>
             Send(AiTarget.Critique, ClaudeCritique.BuildUserMessage(song, State.aiPrompt), "講評",
-                () => s.Song == song ? null : "返答の間に曲が変わったので、講評は捨てましたわ", () => { });
+                () => s.Song == song ? null : "返答の間に曲が変わったので、講評は捨てましたわ", () => { }, written: written);
 
         // ---- 選んだ案を言葉で直す
 
@@ -378,6 +386,7 @@ namespace UniDAW.Composer
             draftStructured = false;
             draftNext = 0;
             draftLead = -1;
+            draftFinish = 0;
             draftPatternCount = song.patterns.Count;
             return RequestStructure(song, brief, DraftWritten);
         }
@@ -396,6 +405,7 @@ namespace UniDAW.Composer
         {
             if (!Drafting) return;
             if (draftSteps == null) draftStructured = true;
+            else if (draftNext >= draftSteps.Count) draftFinish++;
             else
             {
                 if (draftSteps[draftNext].channel == 0 && draftLead < 0) draftLead = draftSteps[draftNext].pattern;
@@ -429,7 +439,18 @@ namespace UniDAW.Composer
                 draftNext++;
             if (draftNext >= draftSteps.Count)
             {
-                EndDraft("下書きができましたわ。気になるところは「この案を直す」や講評で整えてくださいまし", false);
+                if (State.aiDraftFinish && draftFinish < FinishNames.Length)
+                {
+                    switch (draftFinish)
+                    {
+                        case 0: return RequestMix(song, DraftWritten);
+                        case 1: return RequestMaster(song, DraftWritten);
+                        default: return RequestCritique(song, DraftWritten);
+                    }
+                }
+                EndDraft(draftFinish > 0
+                    ? "仕上げまでできましたわ。講評の「次の一手」から気になるところを直してくださいまし"
+                    : "下書きができましたわ。気になるところは「この案を直す」や講評で整えてくださいまし", false);
                 return true;
             }
             var st = draftSteps[draftNext];
@@ -485,7 +506,7 @@ namespace UniDAW.Composer
             return sb.ToString();
         }
 
-        bool RequestMix(Song song) =>
+        bool RequestMix(Song song, Action written = null) =>
             Send(AiTarget.Mix, ClaudeMix.BuildUserMessage(song, State.aiPrompt), "ミックス",
                 () => s.Song == song ? null : "返答の間に曲が変わったので、提案は書き込みませんでしたわ",
                 () =>
@@ -496,13 +517,13 @@ namespace UniDAW.Composer
                     song.Validate();
                     originalMixer = song.mixer.Select(m => m.Clone()).ToList();
                     originalEffects = song.effects.Clone();
-                });
+                }, written: written);
 
         /// <summary>
         /// マスタリング：まず曲をチェーンなしで解析し（バックグラウンド）、結果を添えて送る。
         /// 返ってきた候補はそれぞれ目標ラウドネスにゲインを合わせてから書き込む（音量差でなく音色で聴き比べられるように）。
         /// </summary>
-        bool RequestMaster(Song song)
+        bool RequestMaster(Song song, Action written = null)
         {
             song.Validate();
             var original = song.master.Clone();
@@ -531,6 +552,7 @@ namespace UniDAW.Composer
                 if (report.mix.Silent)
                 {
                     SetStatus("音が出ていないので、マスタリングできませんわ", true);
+                    written?.Invoke(); // 下書きの仕上げなら、マスタリングを飛ばして次へ
                     return;
                 }
                 if (s.Song != song)
@@ -548,7 +570,7 @@ namespace UniDAW.Composer
                         originalMaster = original;
                     },
                     list => RunBackground(() => ClaudeMaster.MatchGains(song, original, list)),
-                    "3 案のラウドネスをそろえています…");
+                    "3 案のラウドネスをそろえています…", written);
             }
         }
 
@@ -611,6 +633,7 @@ namespace UniDAW.Composer
                         .Take(ClaudeCritique.MaxNext).ToArray();
                     Critique = c;
                     SetStatus($"講評が届きましたわ（指摘 {c.points.Length} 件・次の一手 {c.next.Length} 件）", false);
+                    written?.Invoke();
                     return;
                 }
                 candidates = list;

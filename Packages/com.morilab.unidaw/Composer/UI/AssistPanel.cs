@@ -25,7 +25,7 @@ namespace UniDAW.Composer
         readonly VisualElement candRow;
         readonly VisualElement keyRow;
         readonly Button refineButton, draftNextButton;
-        readonly ToggleChip draftAutoChip;
+        readonly ToggleChip draftAutoChip, draftFinishChip;
         readonly ToggleChip[] lockChips = new ToggleChip[Song.ChannelCount];
         readonly TextField lockBars;
         readonly VisualElement draftRow, critiqueBox, nextRow;
@@ -157,6 +157,8 @@ namespace UniDAW.Composer
             draftAutoChip = new ToggleChip("おまかせ", C.SetDraftAuto, "オン：最後まで自動で進める / オフ：段ごとに 3 案から選んで「次へ」");
             draftRow.Add(draftNextButton);
             draftRow.Add(draftAutoChip);
+            draftFinishChip = new ToggleChip("仕上げまで", C.SetDraftFinish, "オン：下書きの後、続けてミックス・マスタリング・講評まで頼む");
+            draftRow.Add(draftFinishChip);
             draftInfo = new Label();
             draftInfo.AddToClassList("cd-assist-info");
             ai.Add(draftInfo);
@@ -252,6 +254,7 @@ namespace UniDAW.Composer
             draftRow.style.display = draftUi ? DisplayStyle.Flex : DisplayStyle.None;
             draftNextButton.SetEnabled(C.Drafting && !C.Busy);
             draftAutoChip.Value = st.aiDraftAuto;
+            draftFinishChip.Value = st.aiDraftFinish;
             draftInfo.text = C.DraftProgress;
             draftInfo.style.display = C.Drafting ? DisplayStyle.Flex : DisplayStyle.None;
             RefreshCritique();

@@ -80,6 +80,8 @@ namespace UniDAW.Composer
         public string aiLockBars = "";
         /// <summary>曲の下書きを最後まで自動で進める（false なら 1 段ずつ案を選んで「次へ」）。</summary>
         public bool aiDraftAuto = true;
+        /// <summary>曲の下書きの後、続けてミックス・マスタリング・講評まで頼む。</summary>
+        public bool aiDraftFinish;
 
         public Pattern CurrentPattern => song != null ? song.GetPattern(patternIndex) : null;
 

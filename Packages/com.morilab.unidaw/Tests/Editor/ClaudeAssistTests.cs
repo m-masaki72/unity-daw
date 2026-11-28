@@ -545,6 +545,51 @@ namespace UniDAW.Tests
         }
 
         [Test]
+        public void ClaudeAssist_DraftFinishRunsMixMasterCritique()
+        {
+            var song = Song.CreateDefault(16);
+            var w = ScriptableObject.CreateInstance<UniDAWWindow>();
+            try
+            {
+                w.SetSong(song);
+                var sent = new System.Collections.Generic.List<string>();
+                Action<string, string> pending = null;
+                var c = new ClaudeAssist(w.Session, w.Roll, (model, msg, done) => { sent.Add(msg); pending = done; return () => { }; });
+                c.RunBackground = a => { a(); return Task.CompletedTask; };
+                w.State.aiTarget = AiTarget.Draft;
+                w.State.aiPrompt = "明るいフィールド曲";
+                w.State.aiDraftAuto = true;
+                w.State.aiDraftFinish = true;
+                for (int ch = 1; ch < 4; ch++) c.SetChannelLock(ch, true);
+                Assert.IsTrue(c.Request());
+                pending(Reply("{\"candidates\":[{\"comment\":\"a\",\"sections\":[" + Sec("A", 0, 1, "C") + "]}]}"), null);
+                Assert.AreEqual(2, sent.Count, "曲構成の次はメロディ");
+                pending(Reply(Cands("C", Note(0, 4, 64), Note(4, 4, 67), Note(8, 4, 72))), null);
+                Assert.AreEqual(3, sent.Count);
+                StringAssert.Contains("## Channels", sent[2], "下書きの後はミックス");
+                StringAssert.Contains("仕上げ", c.DraftProgress);
+                pending(Reply("{\"candidates\":[{\"comment\":\"a\",\"mix\":[" + Ch(0, -3, -0.5f, 0, 0) + "],\"sidechainSource\":-1,\"duckRelease\":-1}]}"), null);
+                Assert.AreEqual(-3f, song.mixer[0].volumeDb);
+                Assert.AreEqual(4, sent.Count, c.Status);
+                StringAssert.Contains("## Analysis of the mix", sent[3], "次はマスタリング");
+                pending(Reply("{\"candidates\":[{\"comment\":\"a\",\"master\":" + Master(1, 1f, 2) + "}]}"), null);
+                Assert.IsTrue(song.master.enabled);
+                Assert.AreEqual(5, sent.Count, c.Status);
+                StringAssert.Contains("## Patterns in the order", sent[4], "最後は講評");
+                pending(Reply("{\"candidates\":[{\"comment\":\"良い\",\"points\":[\"良い: x\"],\"next\":[]}]}"), null);
+                Assert.IsNotNull(c.Critique);
+                Assert.IsFalse(c.Drafting);
+                StringAssert.Contains("仕上げまでできました", c.Status);
+                Assert.AreEqual(5, sent.Count);
+            }
+            finally
+            {
+                Object.DestroyImmediate(w);
+                Object.DestroyImmediate(song);
+            }
+        }
+
+        [Test]
         public void ClaudeAssist_KeepsLockedBarsAndRefines()
         {
             var song = Song.CreateDefault(32);
